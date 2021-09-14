@@ -17,6 +17,7 @@ LDFLAGS = $(INC_LIB)
 # all: scan0 scan_lmem scan_lmem4
 # all: imgtest
 all: vecinit_cl
+# all: oclinfo
 
 .PHONY: all
 

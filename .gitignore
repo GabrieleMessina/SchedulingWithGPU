@@ -1,5 +1,6 @@
 ## Project specific file to ignore 
 *log.txt
+.vscode
 
 ## Default c file to ignore
 # Prerequisites

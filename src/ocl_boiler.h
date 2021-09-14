@@ -58,10 +58,6 @@ cl_platform_id select_platform() {
 	cl_uint nplats;
 	cl_int err;
 	cl_platform_id *plats;
-	const char * const env = getenv("OCL_PLATFORM");
-	cl_uint nump = 0;
-	if (env && env[0] != '\0')
-		nump = atoi(env);
 
 	err = clGetPlatformIDs(0, NULL, &nplats);
 	ocl_check(err, "counting platforms");
@@ -72,6 +68,14 @@ cl_platform_id select_platform() {
 
 	err = clGetPlatformIDs(nplats, plats, NULL);
 	ocl_check(err, "getting platform IDs");
+
+	char buff[BUFSIZE];
+	FILE* config = fopen("config.txt", "a+");
+	const char * const env = fgets(buff, 2, config);
+	fclose(config);
+
+	int nump = 0;
+	if(buff && buff[0] != "\0")nump = atoi(buff);
 
 	if (nump >= nplats) {
 		fprintf(stderr, "no platform number %u", nump);
