@@ -1,3 +1,7 @@
+## Project specific file to ignore 
+*log.txt
+
+## Default c file to ignore
 # Prerequisites
 *.d
 
