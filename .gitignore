@@ -2,6 +2,14 @@
 *log.txt
 .vscode
 
+##Latex file to ignore
+*.aux
+*.fdb*
+*.fls
+*.log
+*.out
+*.synctex*
+
 ## Default c file to ignore
 # Prerequisites
 *.d

@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"ocl_boiler.h": "c",
+			"cl.h": "c",
+			"vector": "cpp"
+		},
+		"files.exclude": {
+			"**/*.aux": true,
+			"**/*.fdb* ": true,
+			"**/*.fls ": true,
+			"**/*.obj": true,
+			"**/*.pdb": true,
+			"**/*.synctex*": true
+		},
+		"cSpell.words": [
+			"GPGPU"
+		],
+		"terminal.integrated.cwd": ".\\src\\"
+	}
+}

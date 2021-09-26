@@ -1,0 +1,47 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage[greek, italian]{babel}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
+\usepackage{subfig}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{tikz}
+\usepackage[font=small,labelfont=bf]{caption} % Required for specifying captions to tables and figures
+\hypersetup{colorlinks=true,
+ filecolor=black,
+ linkcolor=black,
+ urlcolor=blue,
+ pdfpagemode=FullScreen}
+
+\definecolor{color1}{HTML}{4B30FF}
+\title{Scheduling dei processi su sistemi distribuiti tramite GPU}
+\author{Gabriele Messina (X81000831)}
+\date{14/09/2021}
+
+\begin{document}
+    \maketitle
+
+    \section{Idea generale}
+        L'idea è implementare un algoritmo di scheduling che si occupi di gestire un ipotetico sistema distribuito centralizzato, in cui è una GPU a decidere quale task assegnare a quale unità di elaborazione.
+
+        La GPU potrebbe essere la soluzione ottimale visto l'ampio carico di lavoro dello scheduler di questi sistemi, immaginando, ad esempio, che si trovi all'interno di un sistema che riceve dall'esterno migliaia di richieste al minuto.
+        Identifichiamo con il termine “task” tutte le richieste provenienti dall'esterno.
+        Lo scheduler deve gestire questi task trovando un'unità di elaborazione che sia in grado di evadere la richiesta, e deve farlo in modo che il risultato sia quanto più vicino possibile all'algoritmo ottimale (ancora da eleggere).
+        I task potrebbero avere delle informazioni riguardanti la priorità, il timestamp relativo alla creazione della richiesta, e un qualche identificativo del servizio a cui stanno cercando di accedere (ad esempio il metodo del web service che vorrebbero interrogare).
+        Ogni work item, cioè ogni scheduler dovrebbe ritornare semplicemente una coppia <idTask, idUnitaElaborazione> scelta accuratamente in base alla priorità del task, al tempo di attesa già trascorso, al carico di lavoro di ogni unità di elaborazione e al tempo medio di completamento del servizio a cui il task chiede di accedere. (Quest'ultima potrebbe essere calcolata man mano dall'algoritmo o potremmo assumere, visto che si tratta di informazioni che non hanno a che fare con l'esterno, che lo scheduler sia già in possesso delle informazioni necessarie a stimare quanto un servizio sia dispendioso, mediamente, in termini di tempo e di risorse).
+        L'algoritmo potrebbe avere complessità maggiore per provare ad avvicinarsi all'algoritmo ottimale in termini di correttezza delle scelte effettuate, oppure potrebbe prendere in considerazione più fattori ad esempio la possibilità di prelazione o le dipendenze fra task, tuttavia questo renderebbe l'implementazione molto più complessa e, inoltre, inficerebbe sulle prestazioni rendendo possibilmente l'algoritmo inutile. È infatti indispensabile che l'algoritmo sia quanto più veloce possibile in modo da star dietro all'elevato numero di richieste ricevute, anche se questo significa, a volte, fare delle scelte più naïve.
+        Ho trovato questo articolo molto utile che spiega sommariamente quali siano le criticità dello scheduling sui sistemi distribuiti e quali sono gli algoritmi più usati in ambito enterprise: https://levelup.gitconnected.com/scheduling-tasks-in-distributed-system-61de988c32b5
+        Sembra però che tutti questi algoritmi facciano uso di DAG (Directed Acyclic Graphs), non so se questo può essere un problema per il codice GPGPU.
+
+    \section{Note man mano che acquisto conoscenza}
+        jcssp si concentra su sistemi eterogenei che possono avere capacità di calcolo diverse e tassi di trasferimento diversi ecc, nel mio caso il problema è trascurabile e si potrebbe assumere che tutti i processori siano uguali e viaggino sullo stesso canale.
+        I vari workitem avranno a disposizione una DAG con i processi da schedulare e le loro dipendenze ed eventualmente qualche matrice di adiacenza con le informazioni relative ai task. Ogni workitem dovrà quindi prendere in carico una task e scegliere una cpu a cui assegnarla secondo un algoritmo parallelizzabile. 
+        jcssp dice di trovare il rank di ogni nodo(task), risalendo dal task ricorsivamente verso la entry, questo causerebbe molti problemi nella nostra implementazione parallela quindi spero di trovare un'altra soluzione (o forse no visto che altrimenti l'implementazione sarebbe imbarazzantemente parallela).
+
+
+        La dag sarebbe però statica nel senso che i dati al suo interno non cambiano e quindi l'unico tipo di ottimizzazione sarebbe legato all'ordine di accesso in lettura, per il resto il lavoro del programma sarebbe quello di riempire le code dei processi relativi ad ogni processore, questo è l'unico problema di concorrenza riscontrabile in questo contesto.
+        Rimangono le operazioni sulla DAG, soprattutto l'attraversamento.
+\end{document}

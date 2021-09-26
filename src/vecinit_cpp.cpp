@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
+#include <iostream>
 
 #define CL_TARGET_OPENCL_VERSION 120
 #include "ocl_boiler.h"
 
+using namespace std;
 void error(char const *str)
 {
 	fprintf(stderr, "%s\n", str);
@@ -57,17 +60,18 @@ int main(int argc, char *argv[])
 		error("syntax: vecinit_cl nels");
 	}
 
-	int nels = atoi(argv[1]);
+	int const nels = atoi(argv[1]);
 	if (nels < 0) {
 		error("nels < 0");
 	}
 
 	size_t memsize = nels*sizeof(int);
+    vector<int> adj[nels];
 
 	cl_mem d_vec = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, memsize, NULL, &err);
 	ocl_check(err, "create buffer d_vec");
 
-	int *h_vec = malloc(memsize);
+	int *h_vec = new int[memsize];
 	if (!h_vec) {
 		error("failed to allocate vec");
 	}
@@ -99,4 +103,40 @@ int main(int argc, char *argv[])
 	system("PAUSE");
 }
 
+/*implementazione di un grafo semplicissimo*/
+// void addEdge(vector<int> adj[], int u, int v)
+// {
+//     adj[u].push_back(v);
+//     adj[v].push_back(u);
+// }
+  
+// // A utility function to print the adjacency list
+// // representation of graph
+// void printGraph(vector<int> adj[], int V)
+// {
+//     for (int v = 0; v < V; ++v)
+//     {
+//         cout << "\n Adjacency list of vertex "
+//              << v << "\n head ";
+//         for (auto x : adj[v])
+//            cout << "-> " << x;
+//         printf("\n");
+//     }
+// }
+  
+// // Driver code
+// int main()
+// {
+//     int const V = 5;
+//     vector<int> adj[nels];
+//     addEdge(adj, 0, 1);
+//     addEdge(adj, 0, 4);
+//     addEdge(adj, 1, 2);
+//     addEdge(adj, 1, 3);
+//     addEdge(adj, 1, 4);
+//     addEdge(adj, 2, 3);
+//     addEdge(adj, 3, 4);
+//     printGraph(adj, V);
+//     return 0;
+// }
 

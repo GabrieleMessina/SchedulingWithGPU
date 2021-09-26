@@ -64,7 +64,7 @@ cl_platform_id select_platform() {
 
 	printf("number of platforms: %u\n", nplats);
 
-	plats = malloc(nplats*sizeof(*plats));
+	plats = (cl_platform_id *)malloc(nplats*sizeof(*plats));
 
 	err = clGetPlatformIDs(nplats, plats, NULL);
 	ocl_check(err, "getting platform IDs");
@@ -75,7 +75,7 @@ cl_platform_id select_platform() {
 	fclose(config);
 
 	int nump = 0;
-	if(buff && buff[0] != "\0")nump = atoi(buff);
+	if(buff && buff[0] != '\0')nump = atoi(buff);
 
 	if (nump >= nplats) {
 		fprintf(stderr, "no platform number %u", nump);
@@ -112,7 +112,7 @@ cl_device_id select_device(cl_platform_id p)
 
 	printf("number of devices: %u\n", ndevs);
 
-	devs = malloc(ndevs*sizeof(*devs));
+	devs = (cl_device_id*)malloc(ndevs*sizeof(*devs));
 
 	err = clGetDeviceIDs(p, CL_DEVICE_TYPE_ALL, ndevs, devs, NULL);
 	ocl_check(err, "devices #2");
@@ -188,7 +188,7 @@ cl_program create_program(const char * const fname, cl_context ctx,
 	errlog = clGetProgramBuildInfo(prg, dev, CL_PROGRAM_BUILD_LOG,
 		0, NULL, &logsize);
 	ocl_check(errlog, "get program build log size");
-	log_buf = malloc(logsize);
+	log_buf = (char*)malloc(logsize);
 	errlog = clGetProgramBuildInfo(prg, dev, CL_PROGRAM_BUILD_LOG,
 		logsize, log_buf, NULL);
 	ocl_check(errlog, "get program build log");
