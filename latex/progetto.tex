@@ -44,4 +44,12 @@
 
         La dag sarebbe però statica nel senso che i dati al suo interno non cambiano e quindi l'unico tipo di ottimizzazione sarebbe legato all'ordine di accesso in lettura, per il resto il lavoro del programma sarebbe quello di riempire le code dei processi relativi ad ogni processore, questo è l'unico problema di concorrenza riscontrabile in questo contesto.
         Rimangono le operazioni sulla DAG, soprattutto l'attraversamento.
+
+        \subsection{Step del programma}
+            \begin{enumerate}
+                \item Passo i dati della DAG (vettore con i node e matrice adiacenza) al kernel, questi dati contengono le informazioni relative ai singoli nodi ma nulla circa l'interoperabilità fra le task, 
+                \item A questo punto il kernel calcola le metriche in parallelo relative ai nodi e alle dipendenze.
+                \item Dopodiché il kernel decide a quale coda e quindi a quale processore assegnare la task.
+                \item Verifica della correttezza e metriche di throughput lato CPU?
+            \end{enumerate}
 \end{document}

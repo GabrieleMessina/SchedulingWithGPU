@@ -26,7 +26,7 @@ LDFLAGS = $(INC_LIB)
 # all: reduction reduction_lmem reduction_sat
 # all: scan0 scan_lmem scan_lmem4
 # all: imgtest
-all: vecinit_cl vecinit_cpp
+all: vecinit_cl graph_init 
 # all: oclinfo
 
 .PHONY: all

@@ -8,7 +8,10 @@
 		"files.associations": {
 			"ocl_boiler.h": "c",
 			"cl.h": "c",
-			"vector": "cpp"
+			"vector": "cpp",
+			"iostream": "cpp",
+			"xstring": "cpp",
+			"iosfwd": "cpp"
 		},
 		"files.exclude": {
 			"**/*.aux": true,

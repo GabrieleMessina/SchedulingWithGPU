@@ -1,0 +1,13 @@
+kernel void init_graph(global int *vec)
+{
+	int i = get_global_id(0);
+	vec[i] = i;
+}
+
+kernel void init_graph_check(int nels, global int *vec)
+{
+	int i = get_global_id(0);
+
+	if (i < nels)
+		vec[i] = i;
+}
