@@ -1,6 +1,27 @@
 /*Ricorda che questo metodo viene richiamato per ogni work item!*/
-kernel void init_graph(int n_nodes, global int *nodes, global int *edges)
+kernel void init_graph(int n_nodes, int n_processors, global int *nodes, global int *edges)
 {
 	//TODO: implementare scheduling
-	
+
+
+	//PER OGNI NODO:
+		//BREADTH FIRST SEARCH PER CALCOLARE I LIVELLI, CIOÈ GLI INSIEMI DI TASK INDIPENDENTI E CHE QUINDI POSSONO ESSERE PARALLELIZZATE
+		
+		//BREADTH FIRST SEARCH PER CALCOLARE IL COSTO COMPLESSIVO DI UN NODO DATI I SUOI PARENT. (DTC - DATA TRANSFER COST)
+		
+		//(BREADTH FIRST SEARCH)? PER CALCOLARE RANK DEI SUOI PARENT E SCEGLIERE IL MAX. (RPT - RANK of PREDECESSOR TASK)
+		
+		//CALCOLO DEL SUO RANK DATO DA: ROUND(ACC+DTC+RPT); (con ACC - AVERAGE COMPUTATIONAL COST, costante nel nostro caso, perché assumiamo che tutti i processori siano uguali)
+
+
+	//ALLA FINE LA PRIORITÀ È DATA DA:
+		//LIVELLO PIÙ BASSO
+		
+		//SE STESSO LIVELLO ALLORA RANK PIÙ ALTO
+
+		//SE STESSO RANK ALLORA ACC PIÙ BASSO
+
+
+	//IL PROCESSORE VIENE ASSEGNATO IN BASE:
+		//PER OGNI TASK SI SCEGLIE IL PROCESSORE CON EFT - ESTIMATED FINAL TIME PIÙ PICCOLO, CHE VIENE CALCOLATO RICORSIVAMENTE A PARTIRE DAI PARENT DEL TASK
 }

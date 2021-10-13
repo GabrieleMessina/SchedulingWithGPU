@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
@@ -36,13 +37,15 @@ void ocl_init(char* progName, char* kernelName){
 }
 
 cl_event init_graph(cl_command_queue q, cl_kernel init_graph_k,
-	int n_nodes, cl_mem graph_nodes_GPU, cl_mem graph_edges_GPU)
+	int n_nodes, int n_processors, cl_mem graph_nodes_GPU, cl_mem graph_edges_GPU)
 {
 	int arg_index = 0;
 	size_t gws[] = { n_nodes };
 
 	cl_int err;
 	err = clSetKernelArg(init_graph_k, arg_index++, sizeof(n_nodes), &n_nodes);
+	ocl_check(err,  "set arg %d for init_graph_k", arg_index);
+	err = clSetKernelArg(init_graph_k, arg_index++, sizeof(n_processors), &n_processors);
 	ocl_check(err,  "set arg %d for init_graph_k", arg_index);
 	err = clSetKernelArg(init_graph_k, arg_index++, sizeof(graph_nodes_GPU), &graph_nodes_GPU);
 	ocl_check(err,  "set arg %d for init_graph_k", arg_index);
@@ -119,15 +122,15 @@ Graph<int>* initDagWithDataSet(){
 	}
 
 
-	int id, n_successor, successor;
+	int id, n_successor, successor, data_transfer;
 	while(data_set >> id >> n_successor){
 		id--;//brutto hack a causa degli indici
 		DAG->insertNode(id);
 		for (int i = 0; i < n_successor; i++)
 		{
-			data_set>>successor;
+			data_set>>successor>>data_transfer;
 			successor--;//brutto hack
-			DAG->insertEdgeByIndex(DAG->indexOfNode(id), successor); //TODO: al momento assumiamo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
+			DAG->insertEdgeByIndex(DAG->indexOfNode(id), successor, data_transfer); //TODO: al momento assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
 		}
 		
 	}
@@ -138,6 +141,14 @@ Graph<int>* initDagWithDataSet(){
 
 int main(int argc, char *argv[])
 {
+
+	if (argc != 2) {
+		error("syntax: graph_init numberOfProcessors");
+	}
+	int n_processors = atoi(argv[1]);
+	if (n_processors < 1)
+		error("numberOfProcessors < 1");
+
 	ocl_init("./graph_init.ocl","init_graph");
 
 	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
@@ -165,7 +176,7 @@ int main(int argc, char *argv[])
 	ocl_check(err, "write dataset edges into graph_edges_GPU");
 
 	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
-	cl_event init_graph_evt = init_graph(que, init_graph_k, n_nodes, graph_nodes_GPU, graph_edges_GPU);
+	cl_event init_graph_evt = init_graph(que, init_graph_k, n_nodes, n_processors, graph_nodes_GPU, graph_edges_GPU);
 
 	//CREO I DATI CORRISPONDENTI A QUELLI CHE HO FATTO CREARE ALLA GPU IN CPU
 	
@@ -173,7 +184,7 @@ int main(int argc, char *argv[])
 	//PASSA I RISULTATI DELLO SCHEDULING DALLA GPU ALLA CPU
 	// cl_event read_nodes_evt;
 	// err = clEnqueueReadBuffer(que, graph_nodes_GPU, CL_TRUE,
-	// 	0, nodes_memsize, DAG->nodes,
+	// 	0, nodes_memsize, DAG->nodes,xx
 	// 	1, &init_graph_evt, &read_nodes_evt);
 	// ocl_check(err, "read buffer graph_nodes_GPU");
 
