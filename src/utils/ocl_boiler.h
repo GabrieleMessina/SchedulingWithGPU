@@ -70,7 +70,7 @@ cl_platform_id select_platform() {
 	ocl_check(err, "getting platform IDs");
 
 	char buff[BUFSIZE];
-	FILE* config = fopen("./utils/config.txt", "a+");
+	FILE* config = fopen("./config.txt", "a+");
 	const char * const env = fgets(buff, 2, config);
 	fclose(config);
 
