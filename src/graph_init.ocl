@@ -1,13 +1,6 @@
-kernel void init_graph(global int *vec)
+/*Ricorda che questo metodo viene richiamato per ogni work item!*/
+kernel void init_graph(int n_nodes, global int *nodes, global int *edges)
 {
-	int i = get_global_id(0);
-	vec[i] = i;
-}
-
-kernel void init_graph_check(int nels, global int *vec)
-{
-	int i = get_global_id(0);
-
-	if (i < nels)
-		vec[i] = i;
+	//TODO: implementare scheduling
+	
 }

@@ -11,7 +11,12 @@
 			"vector": "cpp",
 			"iostream": "cpp",
 			"xstring": "cpp",
-			"iosfwd": "cpp"
+			"iosfwd": "cpp",
+			"string": "cpp",
+			"xutility": "cpp",
+			"iterator": "cpp",
+			"istream": "cpp",
+			"xiosbase": "cpp"
 		},
 		"files.exclude": {
 			"**/*.aux": true,

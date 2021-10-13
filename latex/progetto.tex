@@ -52,4 +52,19 @@
                 \item Dopodiché il kernel decide a quale coda e quindi a quale processore assegnare la task.
                 \item Verifica della correttezza e metriche di throughput lato CPU?
             \end{enumerate}
+
+        \subsection{Note su jcssp}
+        Nel nostro caso:
+        \begin{enumerate}
+            \item Average  Computation  Cost  (ACC) ha valore, magari randomico.
+            \begin{enumerate}
+                \item "The   ACC   of   a   task   is   the   average   computation  cost  on  all  the  m  processors  and  it  is  computed by using Eqn.(5)" nel mio caso non c'è bisogno di fare una media perché i processori sono tutti uguali?
+            \end{enumerate}
+            \item Data Transfer Cost (DTC) è uguale per tutti i task.
+            \item Rank of Predecessor Task   (RPT) "The  RPT  of  a  task  vi  is  the  highest  rank  of  all  its  immediate  predecessor  tasks  and  it  computed  using  Eqn.(7)"
+            \item Rank  is  computed  for  each  task  vi  based  on  its  ACC,   DTC   and   RPT   values.   We   have   used   the   maximum rank of predecessor tasks of task vi as one of the parameter to calculate the rank of the task vi and the rank computation is given in Eqn. (8).  rank(vi) =round{ACC(vi)+DTC(vi)+RPT(vi) } (8)
+            \item Priority  is  assigned  to  all  the  tasks  at  each  level  l, based  on  its  rank  value.  At  each  level,  the  task  with  highest    rank    value    receives    the    highest    priority    followed  by  task  with  next  highest  rank  value  and  so  on.  Tie,  if  any,  is  broken  using  ACC  value.  The  task  with  minimum  ACC value receives higher priority.
+        \end{enumerate}
+
+        jcssp gestisce anche le metriche dei processori, ad esempio tiene conto del tempo previsto di completamento del task e di quello effettivo, infatti EFT e AFT (Estimated/actual finish time) sono metriche che vengono usate solo per paragone con gli altri algoritmi, ma non vengono effettivamente usati per lo scheduling.
 \end{document}

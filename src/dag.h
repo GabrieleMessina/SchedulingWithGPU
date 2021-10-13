@@ -38,7 +38,7 @@ template<class T> class Graph{
 	public:
 	int len, n, m;
 	T *nodes;
-	bool **adj;
+	int **adj;
 	int *color, *p, *d, *f; //colore node, predecessore, distanza o inizio visita, fine visisita
 	
 	Graph(int len = 100){
@@ -46,9 +46,9 @@ template<class T> class Graph{
 		this->len = len;
 		nodes = new T[len];
         for(int i = 0; i<len; i++) nodes[i] = 0;
-		adj = new bool*[len];
+		adj = new int*[len];
 		for(int i = 0; i<len; i++){
-			adj[i] = new bool[len];
+			adj[i] = new int[len];
 			for(int j = 0; j<len; j++){
 				adj[i][j] = 0;
 			}
@@ -76,13 +76,40 @@ template<class T> class Graph{
 		return -1;
 	}
 	
-	Graph<T> *insertEdge(T a, T b){
+	Graph<T> *insertEdge(T a, T b, int weight = 1){
 		int i = indexOfNode(a);
 		int j = indexOfNode(b);
 		if(i != -1 && j != -1){
-			adj[i][j] = 1;
-			//adj[j][i] = 1; //se non orientato
+			adj[i][j] = weight;
+			//adj[j][i] = weight; //se non orientato
 			m++;
+		}
+		else{
+			if (typeid(int) == typeid(a)) {
+				printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", a, b);
+			}
+			else if (typeid(string) == typeid(a)) {
+				printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%s,%s)\n", a, b);
+			}
+		}
+		return this;
+	}
+
+	Graph<T> *insertEdgeByIndex(int indexOfa, int indexOfb, int weight = 1){
+		int i = indexOfa;
+		int j = indexOfb;
+		if(i > -1 && j > -1 && i < len && j < len){
+			adj[i][j] = weight;
+			//adj[j][i] = weight; //se non orientato
+			m++;
+		}
+		else{
+			if (typeid(int) == typeid(indexOfa)) {
+				printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", indexOfa, indexOfb);
+			}
+			else if (typeid(string) == typeid(indexOfa)) {
+				printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%s,%s)\n", indexOfa, indexOfb);
+			}
 		}
 		return this;
 	}
@@ -91,7 +118,7 @@ template<class T> class Graph{
 		int i = indexOfNode(a);
 		int j = indexOfNode(b);
 		if(i != -1 && j != -1){
-			return adj[i][j];
+			return adj[i][j] != 0;
 		}
 		return false;
 	}
@@ -105,7 +132,7 @@ template<class T> class Graph{
 		while(!q->isEmpty()){
 			int x = q->Dequeue();
 			for(int i=0; i<n; i++){
-				if(adj[x][i] && color[i]==0){
+				if(adj[x][i] != 0 && color[i]==0){
 					color[i] = 1;
 					q->Enqueue(i);
 					p[i] = x;
@@ -135,14 +162,14 @@ template<class T> class Graph{
 	}
 	
 	void Print() {
-			for(int i=0; i<n; i++) {
-				cout << "(" << i << ", " << nodes[i] << ")" << " : ";
-				for(int j=0; j<n; j++) {
-					if(adj[i][j]) cout << nodes[j] << " ";
-				} 
-				cout << endl;
-			}
+		for(int i=0; i<n; i++) {
+			cout << "(" << i << ", " << nodes[i] << ")" << " : ";
+			for(int j=0; j<n; j++) {
+				if(adj[i][j] != 0) cout << nodes[j] << " ";
+			} 
+			cout << endl;
 		}
+	}
 
 
     /*USAGE:
