@@ -1,7 +1,19 @@
 /* IMPLEMENTAZIONE DELLA DAG (DIRECT ACYCLIC GRAPH)*/
-
-#include<iostream>
 using namespace std;
+
+int* matrix_to_array(int **mat, int row_len, int col_len){
+	int *v = new int[row_len * col_len];
+	int t = 0;
+	for (int i = 0; i < row_len; i++)
+	{
+		for (int j = 0; j < col_len; j++)
+		{
+			v[t++] = mat[i][j];
+		}	
+	}
+	return v;
+}
+
 
 template<class T> class Queue{
 	public:
@@ -41,6 +53,14 @@ template<class T> class Graph{
 	int **adj;
 	int *color, *p, *d, *f; //colore node, predecessore, distanza o inizio visita, fine visisita
 	
+	~Graph(){
+		free(nodes);
+		free(adj);
+		free(f);
+		free(d);
+		free(p);
+	}
+
 	Graph(int len = 100){
 		n = m = 0;
 		this->len = len;
@@ -64,11 +84,11 @@ template<class T> class Graph{
 		}
 	}
 	
-	Graph<T> *insertNode(T key){
+	int insertNode(T key){
 		if(n < len){
-			nodes[n++] = key; 
+			nodes[n] = key; 
 		}
-		return this;
+		return n++;
 	}
 	
 	int indexOfNode(T key){
@@ -77,6 +97,7 @@ template<class T> class Graph{
 	}
 	
 	Graph<T> *insertEdge(T a, T b, int weight = 1){
+		//TODO: verifica che non crei cicli!
 		int i = indexOfNode(a);
 		int j = indexOfNode(b);
 		if(i != -1 && j != -1){
@@ -162,97 +183,13 @@ template<class T> class Graph{
 	}
 	
 	void Print() {
+		cout << "(index, value) -> [(edges_index, weight)]"<<endl;
 		for(int i=0; i<n; i++) {
-			cout << "(" << i << ", " << nodes[i] << ")" << " : ";
+			cout << "(" << i << ", " << nodes[i] << ")" << " -> | ";
 			for(int j=0; j<n; j++) {
-				if(adj[i][j] != 0) cout << nodes[j] << " ";
+				if(adj[i][j] != 0) cout << "(" << j << ", " << adj[i][j] << ") | ";
 			} 
 			cout << endl;
 		}
 	}
-
-
-    /*USAGE:
-    
-    Graph<GraphNode> *adj = new Graph<GraphNode>(nels);
-	GraphNode a = GraphNode(321);
-	GraphNode b = GraphNode(654);
-
-	adj->insertNode(a);
-	adj->insertNode(b);
-	adj->insertEdge(adj->indexOfNode(a), adj->indexOfNode(b));
-	adj->Print();
-
-    */
-	
-	//topologicalSort, BFS, distance, componentiFortemente, tempidivisita
 };
-
-
-// int main(){
-	
-// 	Graph<int> *g = new Graph<int>(10);
-// 	g->insertNode(0)->insertNode(1)->insertNode(2)->insertNode(3)->insertNode(4)->insertNode(5)->insertNode(6)->insertNode(7)->insertNode(8);
-	
-// 	g->insertEdge(0,8)->insertEdge(0,1);
-// 	g->insertEdge(1,8);
-// 	g->insertEdge(2,4);
-// 	g->insertEdge(3,5)->insertEdge(3,6)->insertEdge(3,7);
-// 	g->insertEdge(4,3)->insertEdge(4,0);
-// 	g->insertEdge(5,6)->insertEdge(5,3);
-// 	g->insertEdge(6,5);
-// 	g->insertEdge(8,2);
-	
-// 	/*for(int i=0; i<g->len; i++){
-// 		for(int j=0; j<g->len; j++){
-// 			cout<<g->adj[i][j]<< " ";
-// 		}	
-// 		cout<<endl;
-// 		cout<<*g->v[i]<< " ";
-// 	}cout<<endl;*/
-	
-// 	//g->Print();
-// 	g->DFS();
-	
-	
-// 	return 0;
-// }
-
-
-
-/*IMPLEMENTAZIONE WIP CON VECTOR INVECE CHE ARRAY E MATRICI*/
-// class DAG{ //Direct Acyclic Graph
-// 	private: 
-// 		int startSize = 20;
-// 	public:
-// 		vector<GraphNode> nodes; // o GraphNode *nodes;
-// 		int nodesNumber = 0;
-// 		int **adj; // o vector<vector<int>> adj;
-// 		int edgeNumber = 0; //inutile se si usa la matrice di adiacenza invece della lista
-
-
-// 		DAG(int nodesNumber = 100){ //TODO: il nodesNumber non è detto che sia conosciuto a priori, eventualemente gestire la adj con vector, che fra l'altro è conveniente anche algoritmicamente.
-// 			nodes = vector<GraphNode>(startSize); // o new GraphNode[startSize]
-// 			//adj = vector<int>(startSize); // o new int[startSize]; for( i : startSize) new int[startSize][i];
-// 			this->nodesNumber = nodesNumber;
-// 			adj = new int*[nodesNumber];
-// 			for (int i = 0; i < nodesNumber; i++){
-// 				adj[i] = new int[nodesNumber];
-// 				for (int j = 0; j < nodesNumber; j++)
-// 					adj[i][j] = 0;
-// 			}
-// 		}
-
-// 		DAG InsertNode(GraphNode node){
-// 			nodes.push_back(node);
-// 			nodesNumber++;
-// 			return this;
-// 		}
-
-// 		void InsertEdge(GraphNode node){
-// 			adj.push_back(node);
-// 			edgeNumber++;
-// 		}
-
-
-// };

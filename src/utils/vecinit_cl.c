@@ -45,8 +45,7 @@ int main(int argc, char *argv[])
 	cl_device_id d = select_device(p);
 	cl_context ctx = create_context(p, d);
 	cl_command_queue que = create_queue(ctx, d);
-	//TODO: posso mettere in path relativo?
-	cl_program prog = create_program("C:\\Users\\gabry\\Universita\\GPGPU\\Progetto\\SchedulingWithGPU\\src\\vecinit.ocl", ctx, d);
+	cl_program prog = create_program("./vecinit.ocl", ctx, d);
 
 	cl_int err;
 	cl_kernel init_vec_k = clCreateKernel(prog, "init_vec", &err);

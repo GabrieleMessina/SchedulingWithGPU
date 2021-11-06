@@ -16,7 +16,10 @@
 			"xutility": "cpp",
 			"iterator": "cpp",
 			"istream": "cpp",
-			"xiosbase": "cpp"
+			"xiosbase": "cpp",
+			"string.h": "c",
+			"xlocale": "cpp",
+			"xlocnum": "cpp"
 		},
 		"files.exclude": {
 			"**/*.aux": true,
@@ -27,7 +30,9 @@
 			"**/*.synctex*": true
 		},
 		"cSpell.words": [
-			"GPGPU"
+			"GPGPU",
+			"jcssp",
+			"workitem"
 		],
 		"terminal.integrated.cwd": ".\\src\\"
 	}

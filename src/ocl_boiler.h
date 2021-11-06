@@ -33,6 +33,7 @@ int main(int argc, char *argv[])
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <iostream>
 
 #define BUFSIZE 4096
 
@@ -255,4 +256,12 @@ double total_runtime_ms(cl_event from, cl_event to)
 size_t round_mul_up(size_t gws, size_t lws)
 {
 	return ((gws + lws - 1)/lws)*lws;
+}
+
+void print(cl_int2 *v, int len){
+	for (int i = 0; i < len; i++)
+	{
+		cout<<"("<<v[i].x<<", "<<v[i].y<<") ";
+	}
+	cout<<"\n";
 }

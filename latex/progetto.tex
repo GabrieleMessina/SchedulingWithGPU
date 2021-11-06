@@ -67,4 +67,23 @@
         \end{enumerate}
 
         jcssp gestisce anche le metriche dei processori, ad esempio tiene conto del tempo previsto di completamento del task e di quello effettivo, infatti EFT e AFT (Estimated/actual finish time) sono metriche che vengono usate solo per paragone con gli altri algoritmi, ma non vengono effettivamente usati per lo scheduling.
+        
+        Implemento l'algoritmo 4 descritto in Breadth First Search In OpenCL Thesis Rick Watertor.
+        A questo si potrebbe aggiungere la gestione di una vera e propria coda invece di far leggere ad ogni WI il nodo con il suo stesso indice.
+        La coda potrebbe essere semplicemente in int2 in cui in prima posizione c'è l'indice del nodo e in seconda il puntatore al next della coda.
+
+    \section{Idee per prove da fare con gli algoritmi per verificare quale da le prestazioni migliori}
+        \subsection{Kernel entry search}
+            invece che fa andare questo kernel per ogni nodo, potrei farlo andare per ogni cella della matrice di adiacenza in questo modo massimizzo le prestazioni. 
+            Ogni work item dovrebbe incrementare il contatore per il nodo relativo. 
+            In questo modo però ci sarebbero contemporaneamente n\_nodes workitem che tentano di incrementare il contatore del nodo, il che potrebbe portare ad un rallentamento notevole!
+        \subsection{MemoryBuffer vari}
+            Invece che distruggerli dopo l'esecuzione del kernel, passarli al kernel successivo.
+        \subsection{Ricerca delle foglie piuttosto che delle root come entries}
+            Il generatore di task che ho trovato genera programmi, intesi come serie di task, con una sola root e una sola leaf, tutti gli altri task convergono in qualche modo a queste due.
+            Ecco perché è indifferente partire dalle foglie o dalle root.
+            Tuttavia credo di poter eliminare un paio di livelli del grafo in modo da poter generare una DAG con leaf multiple.
+
+
+
 \end{document}

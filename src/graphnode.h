@@ -7,7 +7,7 @@ class GraphNode{
 		int id;
 		int value;
 		GraphNode(int value){
-			this->id = 0; //TODO: verificare quali sono i dati effettivi da mantenere.
+			this->id = 0;
 			this->value = value;
 		}
 		friend ostream& operator<<(ostream& os, const GraphNode& dt);

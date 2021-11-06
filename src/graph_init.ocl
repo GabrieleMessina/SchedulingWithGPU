@@ -1,7 +1,78 @@
-/*Ricorda che questo metodo viene richiamato per ogni work item!*/
-kernel void init_graph(int n_nodes, int n_processors, global int *nodes, global int *edges)
+#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+
+int matrix_to_array_indexes(int i, int j, int row_len){
+	return i * row_len + j;
+}
+
+//ricerca delle leaf da cui cominciare la BFS
+kernel void entry_discover(const int n_nodes, global int * restrict nodes, global int * restrict edges, volatile global int *n_entries, global int * entries)
+{
+	//TODO: nodes non è più usato.
+	int i = get_global_id(0);
+	
+	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
+
+	if(i >= n_nodes) return;
+	for(int j=0; j<n_nodes; j++){
+		if(edges[matrix_to_array_indexes(j,i,n_nodes)] != 0){ //per cercare le root invece delle leaf invertire i e j
+			return;
+		}
+	}
+
+	int old_n_entries = atomic_inc(n_entries);  //incremento il puntatore alla lista di entries per essere sicuro che nessuno scriva in quella posizione.
+	atomic_xchg(&entries[old_n_entries], i); //essendo sicuro che la posizione non è stata scritta inserisco il mio dato senza paura di sovrascrivere qualcosa.
+
+	return;
+}
+
+
+kernel void compute_metrics(global int * restrict nodes, global int *queue_, volatile global int *queue_count, global int *next_queue_, volatile global int *next_queue_count, const int n_nodes, global int * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/, global int * restrict visited)
+{
+	//TODO: visited non serve perché il grafo è aciclico e aggiungere il controllo sul visited rompe la logica.
+	int i = get_global_id(0);
+	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
+	if(i >= *queue_count) return;
+	int current_node_index = queue_[i];
+	visited[current_node_index] = 1;
+
+	//calcolo del rank e del livello del nodo
+	metriche[current_node_index] = (int2)(nodes[current_node_index],0);
+	for(int parent=0; parent < n_nodes; parent++){
+		int weight_of_link_with_parent = edges[matrix_to_array_indexes(parent, current_node_index, n_nodes)];
+		if(weight_of_link_with_parent > 0) {
+			int current_weight = weight_of_link_with_parent + metriche[parent].x + nodes[current_node_index];
+			metriche[current_node_index].x = max(current_weight, metriche[current_node_index].x);
+			metriche[current_node_index].y = max(metriche[current_node_index].y, metriche[parent].y+1);
+		}
+	}
+
+	//poi si controllano tutti i figli e si aggiungono alla coda per implementare la BFS.
+	for(int j=0; j<n_nodes; j++){
+		int adiacent = edges[matrix_to_array_indexes(current_node_index, j, n_nodes)];
+		if(adiacent > 0){
+			visited[j] = 1;
+			int old_queue_count = atomic_inc(next_queue_count);
+			atomic_xchg(&next_queue_[old_queue_count], j); 
+		}
+	}
+}
+
+
+
+kernel void schedule_on_processor /*sort_the_tasks*/(const int n_nodes, const int n_processors, global int * restrict nodes, global int * restrict edges)
 {
 	//TODO: implementare scheduling
+}
+
+
+
+
+// Comincio la BFS.
+
+	//int *q = alloc(); //TODO: Come faccio a creare una coda?
+	//Ha senso creare una coda in local memory visto che la procedura BFS va richiamata ricorsivamenteper ogni task nella coda
+	//Ogni WI potrebbe aggiungere man mano i task alla coda, mentre altri WI processano questi nuovi task in coda?
+	//
 
 
 	//PER OGNI NODO:
@@ -11,7 +82,7 @@ kernel void init_graph(int n_nodes, int n_processors, global int *nodes, global 
 		
 		//(BREADTH FIRST SEARCH)? PER CALCOLARE RANK DEI SUOI PARENT E SCEGLIERE IL MAX. (RPT - RANK of PREDECESSOR TASK)
 		
-		//CALCOLO DEL SUO RANK DATO DA: ROUND(ACC+DTC+RPT); (con ACC - AVERAGE COMPUTATIONAL COST, costante nel nostro caso, perché assumiamo che tutti i processori siano uguali)
+		//CALCOLO DEL SUO RANK DATO DA: ROUND(ACC+DTC+RPT); (con ACC - AVERAGE COMPUTATIONAL COST, costante nel nostro caso ed è la quantità di dati trasmessi, perché assumiamo che tutti i processori siano uguali)
 
 
 	//ALLA FINE LA PRIORITÀ È DATA DA:
@@ -24,4 +95,3 @@ kernel void init_graph(int n_nodes, int n_processors, global int *nodes, global 
 
 	//IL PROCESSORE VIENE ASSEGNATO IN BASE:
 		//PER OGNI TASK SI SCEGLIE IL PROCESSORE CON EFT - ESTIMATED FINAL TIME PIÙ PICCOLO, CHE VIENE CALCOLATO RICORSIVAMENTE A PARTIRE DAI PARENT DEL TASK
-}
