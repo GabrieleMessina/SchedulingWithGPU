@@ -20,7 +20,18 @@
 			"string.h": "c",
 			"xlocale": "cpp",
 			"xlocnum": "cpp",
-			"ostream": "cpp"
+			"ostream": "cpp",
+			"utility": "cpp",
+			"array": "cpp",
+			"exception": "cpp",
+			"fstream": "cpp",
+			"ios": "cpp",
+			"map": "cpp",
+			"memory": "cpp",
+			"sstream": "cpp",
+			"streambuf": "cpp",
+			"tuple": "cpp",
+			"xtree": "cpp"
 		},
 		"files.exclude": {
 			"**/*.aux": true,

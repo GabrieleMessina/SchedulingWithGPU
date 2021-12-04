@@ -209,6 +209,18 @@ cl_program create_program(const char * const fname, cl_context ctx,
 	return prg;
 }
 
+size_t get_preferred_work_group_size_multiple(cl_kernel k, cl_command_queue q)
+{
+	size_t wg_mul;
+	cl_device_id d;
+	cl_int err = clGetCommandQueueInfo(q, CL_QUEUE_DEVICE, sizeof(d), &d, NULL);
+	ocl_check(err, "get command queue device");
+	err = clGetKernelWorkGroupInfo(k, d, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+		sizeof(wg_mul), &wg_mul, NULL);
+	ocl_check(err, "get preferred work-group size multiple");
+	return wg_mul;
+}
+
 // Runtime of an event, in nanoseconds. Note that if NS is the
 // runtimen of an event in nanoseconds and NB is the number of byte
 // read and written during the event, NB/NS is the effective bandwidth

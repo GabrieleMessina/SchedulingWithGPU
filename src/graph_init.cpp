@@ -26,6 +26,7 @@ cl_command_queue que;
 cl_int err;
 cl_kernel entry_discover_k, compute_metrics_k, sort_task_k, m_MergesortGlobalBigKernel, m_MergesortGlobalSmallKernel, m_MergesortStartKernel;
 void ocl_init(char *progName, char *kernelNameEntryDiscover, char *kernelNameComputeMetrics);
+size_t preferred_wg_size;
 
 Graph<int> *DAG;
 Graph<int>* initDagWithDataSet(string fileName);
@@ -37,7 +38,7 @@ int *entrypoints;
 cl_event _entry_discover(int n_nodes, cl_mem graph_edges_GPU, cl_mem n_entrypoints_GPU, cl_mem entrypoints_GPU)
 {
 	int arg_index = 0;
-	size_t gws[] = { n_nodes };
+	size_t gws[] = { n_nodes }; //TODO: round mul up
 
 	cl_int err;
 	err = clSetKernelArg(entry_discover_k, arg_index++, sizeof(n_nodes), &n_nodes);
@@ -72,7 +73,7 @@ int entry_discover(){
 	size_t edges_memsize = n_nodes*n_nodes*sizeof(bool);
 
 	int *n_entrypoints = new int(0);
-	entrypoints = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) entrypoints[i] = -2;
+	entrypoints = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) entrypoints[i] = -1;
 	size_t entrypoints_memsize = n_nodes*sizeof(int);
 
 	//CREO MEMORIA BUFFER IN GPU
@@ -133,7 +134,10 @@ cl_event _compute_metrics(cl_mem graph_nodes_GPU, cl_mem queue_GPU, cl_mem queue
 {
 	int arg_index = 0;
 	int const n_nodes = DAG->len;
-	size_t gws[] = { DAG->len };
+	//size_t lws[] = { n_nodes * 2 }; //number of work item to launch in the same work group, that means they are garanted to be executed at the same time.
+	//size_t gws[] = {GetGlobalWorkSize(n_nodes, lws[0])}; //total work item to launch.
+	const size_t gws[] = { n_nodes }; //TODO: round mul up
+	//const size_t gws[] = { round_mul_up(n_nodes, preferred_wg_size) };
 
 	cl_int err;
 	err = clSetKernelArg(compute_metrics_k, arg_index++, sizeof(graph_nodes_GPU), &graph_nodes_GPU);
@@ -250,7 +254,12 @@ void compute_metrics(int n_entries){
 		1, &compute_metrics_evt, &read_metrics_evt);
 	ocl_check(err, "read buffer metrics_GPU");
 
-	if(*next_queue_count > 0) {
+	// if(*next_queue_count > 0) {
+	// 	entrypoints = next_queue;
+	// 	compute_metrics(*next_queue_count);
+	// }
+	
+	if(!isEmpty(next_queue, n_nodes, -1)) {
 		entrypoints = next_queue;
 		compute_metrics(*next_queue_count);
 	}
@@ -264,16 +273,17 @@ void Sort_Mergesort()
 	cl_event sort_task_evt;
 	cl_context Context = ctx; 
 	cl_command_queue CommandQueue = que;
-	size_t LocalWorkSize[3] = { 64,1,1 }; //TODO: il sort non funziona per n_nodes > 64
+	size_t LocalWorkSize[3] = { m_N_padded,1,1 }; //TODO:il lws necessita di essere un multiplo di m_N_padded, suppongo a causa dell'implementazione, è un problema?
 	//TODO fix memory problem when many elements. -> CL_OUT_OF_RESOURCES
 	size_t globalWorkSize[1];
 	size_t localWorkSize[1];
 
 	localWorkSize[0] = LocalWorkSize[0];
-	globalWorkSize[0] = GetGlobalWorkSize(m_N_padded / 2, localWorkSize[0]);
+	globalWorkSize[0] = GetGlobalWorkSize(m_N_padded/2, localWorkSize[0]);
 	unsigned int locLimit = 1;
 
 	if (m_N_padded >= LocalWorkSize[0] * 2) {
+		cout<<"MergesortStartKernel " << m_N_padded<<endl;
 		locLimit = 2 * LocalWorkSize[0];
 
 		// start with a local variant first, ASSUMING we have more than localWorkSize[0] * 2 elements
@@ -289,9 +299,6 @@ void Sort_Mergesort()
 
 	// proceed with the global variant
 	unsigned int stride = 2 * locLimit;
-
-	localWorkSize[0] = LocalWorkSize[0];
-	globalWorkSize[0] = GetGlobalWorkSize(m_N_padded / 2, localWorkSize[0]);
 
 	if (m_N_padded <= MERGESORT_SMALL_STRIDE) {
 		cout<<"small kernel " << m_N_padded<<endl;
@@ -344,7 +351,7 @@ void Sort_Mergesort()
 	}
 
 	cl_event read_sorted_metrics_evt;
-	err = clEnqueueReadBuffer(que, ordered_metrics_GPU, CL_TRUE,
+	err = clEnqueueReadBuffer(que, metrics_GPU, CL_TRUE, //turns out this is the right array to read from because the other one is missing the last step of course...
 		0, metrics_memsize, ordered_metrics,
 		1, &sort_task_evt, &read_sorted_metrics_evt);
 	ocl_check(err, "read buffer ordered_metrics_GPU");
@@ -364,13 +371,13 @@ int main(int argc, char *argv[])
 
 	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
 	DAG = initDagWithDataSet(argv[1]);
-	//DAG->Print();
+	DAG->Print();
 	cout<<"\n";
-	//print(DAG->adj, DAG->n, DAG->n);
+	//print(DAG->adj, DAG->n, DAG->n, ", ");
 	
 	int n_entries = entry_discover();
-	cout<<"entrypoints: "<<endl;
-	print(entrypoints, n_entries);
+	cout<<"entrypoints: "<<n_entries<<endl;
+	print(entrypoints, DAG->n, ", ", true);
 	cout<<"\n";
 
 	m_N_padded = round_mul_up(DAG->len,2);
@@ -393,8 +400,8 @@ int main(int argc, char *argv[])
 		0, NULL, &write_metrics_evt);
 	ocl_check(err, "write into metrics_GPU");
 	compute_metrics(n_entries);
-	cout<<"metrics: "<<endl;
-	print(metrics, DAG->n);
+	cout<<"metrics: "<<metrics_len<<endl;
+	print(metrics, DAG->n, "\n", true);
 	cout<<"\n";
 
 	ordered_metrics = new cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) ordered_metrics[i] = metrics[i];
@@ -404,8 +411,8 @@ int main(int argc, char *argv[])
 	ocl_check(err, "write into metrics_GPU");
 	//sort_task();
 	Sort_Mergesort();	
-	cout<<"sorted: "<<endl;
-	print(ordered_metrics, metrics_len);
+	cout<<"sorted 1: "<<endl;
+	print(ordered_metrics, metrics_len, "\n");
 	cout<<"\n";
 
 	// err = clEnqueueReadBuffer(que, metrics_GPU, CL_TRUE,
@@ -465,6 +472,7 @@ void ocl_init(char* progName, char* kernelNameEntryDiscover, char *kernelNameCom
 	// sort_task_k = clCreateKernel(prog2, "Sort_MergesortStart", &err);
 	// ocl_check(err, "create kernel %s", "Sort_MergesortStart");
 
+	preferred_wg_size = get_preferred_work_group_size_multiple(compute_metrics_k, que);
 
 	m_MergesortStartKernel = clCreateKernel(prog2, "Sort_MergesortStart", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortStart");
@@ -472,7 +480,6 @@ void ocl_init(char* progName, char* kernelNameEntryDiscover, char *kernelNameCom
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalSmall");
 	m_MergesortGlobalBigKernel = clCreateKernel(prog2, "Sort_MergesortGlobalBig", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalBig");
-
 }
 
 

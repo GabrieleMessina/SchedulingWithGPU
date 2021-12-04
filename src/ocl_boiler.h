@@ -233,6 +233,19 @@ cl_program create_program(const char * const fname, cl_context ctx,
 	return prg;
 }
 
+
+size_t get_preferred_work_group_size_multiple(cl_kernel k, cl_command_queue q)
+{
+	size_t wg_mul;
+	cl_device_id d;
+	cl_int err = clGetCommandQueueInfo(q, CL_QUEUE_DEVICE, sizeof(d), &d, NULL);
+	ocl_check(err, "get command queue device");
+	err = clGetKernelWorkGroupInfo(k, d, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+		sizeof(wg_mul), &wg_mul, NULL);
+	ocl_check(err, "get preferred work-group size multiple");
+	return wg_mul;
+}
+
 // Runtime of an event, in nanoseconds. Note that if NS is the
 // runtimen of an event in nanoseconds and NB is the number of byte
 // read and written during the event, NB/NS is the effective bandwidth
@@ -287,10 +300,12 @@ size_t round_mul_up(size_t gws, size_t lws)
 // 	return (size_t)pow(2, log2val);
 // }
 
-void print(cl_int2 *v, int len){
+void print(cl_int2 *v, int len, string separator = " ", bool withIndexes = false){
 	for (int i = 0; i < len; i++)
 	{
-		cout<<"("<<v[i].x<<", "<<v[i].y<<") ";
+		if(withIndexes)
+			cout << i << ":";
+		cout<<"("<<v[i].x<<", "<<v[i].y<<")"<<separator;
 	}
 	cout<<"\n";
 }

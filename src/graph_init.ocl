@@ -4,23 +4,35 @@ int matrix_to_array_indexes(int i, int j, int row_len){
 	return i * row_len + j;
 }
 
+int compare (int2 V1, int2 V2){
+	if(V1.y == V2.y){
+		return (V1.x > V2.x) ? 1 : -1; //NOTA: è diverso da quello implementato nel sort, perché in quel caso abbiamo dei criteri diversi su come definire un elemento maggiore di un altro.
+	}
+	return (V1.y > V2.y) ? 1 : -1;
+}
+
+int gt (int2 V1, int2 V2){
+	return compare(V1, V2) > 0;
+}
+
 //ricerca delle leaf da cui cominciare la BFS
 kernel void entry_discover(const int n_nodes, global bool * restrict edges, volatile global int *n_entries, global int * entries)
 {
-	//TODO: nodes non è più usato.
 	int i = get_global_id(0);
+	if(i >= n_nodes) return;
 	
 	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
 
-	if(i >= n_nodes) return;
 	for(int j=0; j<n_nodes; j++){
 		if(edges[matrix_to_array_indexes(j,i,n_nodes)] != 0){ //per cercare le root invece delle leaf invertire i e j
 			return;
 		}
 	}
 
-	int old_n_entries = atomic_inc(n_entries);  //incremento il puntatore alla lista di entries per essere sicuro che nessuno scriva in quella posizione.
-	atomic_xchg(&entries[old_n_entries], i); //essendo sicuro che la posizione non è stata scritta inserisco il mio dato senza paura di sovrascrivere qualcosa.
+	entries[i] = i;
+
+	//int old_n_entries = atomic_inc(n_entries);  //incremento il puntatore alla lista di entries per essere sicuro che nessuno scriva in quella posizione.
+	//atomic_xchg(&entries[old_n_entries], i); //essendo sicuro che la posizione non è stata scritta inserisco il mio dato senza paura di sovrascrivere qualcosa.
 
 	return;
 }
@@ -28,31 +40,55 @@ kernel void entry_discover(const int n_nodes, global bool * restrict edges, vola
 
 kernel void compute_metrics(global int * restrict nodes, global int *queue_, volatile global int *queue_count, global int *next_queue_, volatile global int *next_queue_count, const int n_nodes, global bool * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
 {
-	//TODO: visited non serve perché il grafo è aciclico e aggiungere il controllo sul visited rompe la logica.
+	//TODO: queue count non più necessario, ma forse nex_queue_count necessario per capire se ho finito di calcolare tutte le metriche o se devo ciclare ancora.
+
 	int i = get_global_id(0);
-	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
-	if(i >= *queue_count) return;
-	int current_node_index = queue_[i];
+	//int ii = get_group_id(0); //0
+	//int iii = get_global_size(0); //64
+	//int iiii = get_local_id(0); //idem ad global id
+	//int iiiii = get_local_size(0); //64
+
+	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, queue count: %d, next queue count: %d.\n", i, n_nodes, nodes, edges, *queue_count, next_queue_count);
+	if(i >= n_nodes){
+		//printf("esco: i: %d, queue_count: %d, next_queue_count: %d, n_nodes: %d.\n", i, *queue_count, *next_queue_count, n_nodes);
+		return;
+	} 
+
+	int current_node_index = queue_[i]; // i corrisponde al current_node_index ma devo controllare che qualcuno lo abbia effettivamente aggiunto alla coda, la momento dentro la coda ritrovo il suo indice il che è ridontante ma probabilmente questo cambierà a breve.
+	if(current_node_index < 0){
+		//printf("esco: i: %d, queue_count: %d, next_queue_count: %d, n_nodes: %d.\n", i, *queue_count, *next_queue_count, n_nodes);
+		return;
+	} 
 
 	//calcolo del rank e del livello del nodo
 	metriche[current_node_index] = (int2)(nodes[current_node_index],0);
+	//TODO: se questo passaggio lo facesse il parent inveche che il figlio risparmieremmo questo ciclo for che è molto simile al successivo in cui si controllano i child.
+	int2 metrics_with_this_parent;
 	for(int parent=0; parent < n_nodes; parent++){
 		int weight_of_link_with_parent = edges[matrix_to_array_indexes(parent, current_node_index, n_nodes)];
 		if(weight_of_link_with_parent > 0) {
-			int current_weight = weight_of_link_with_parent + metriche[parent].x + nodes[current_node_index];
-			metriche[current_node_index].x = max(current_weight, metriche[current_node_index].x);
-			metriche[current_node_index].y = max(metriche[current_node_index].y, metriche[parent].y+1);
+			int weight_with_this_parent = weight_of_link_with_parent + metriche[parent].x + nodes[current_node_index];
+			int level_with_this_parent = metriche[parent].y+1;
+			metrics_with_this_parent = (int2)(weight_with_this_parent, level_with_this_parent);
+			if(gt(metrics_with_this_parent, metriche[current_node_index]))//prendo il maggiore peso peggiore che il nodo ottiene con i suoi parent.
+				metriche[current_node_index] = metrics_with_this_parent;
+			//metriche[current_node_index].x = max(weight_with_this_parent, metriche[current_node_index].x);
+			//metriche[current_node_index].y = max(metriche[current_node_index].y, level_with_this_parent);
 		}
 	}
 
 	//poi si controllano tutti i figli e si aggiungono alla coda per implementare la BFS.
+	//ogni nodo può esssere aggiunto alla coda più volte se ha più parent, e questo, anche se meno efficiente, mi permette di svolgere questo kernel in parallelo senza problemi.
 	for(int j=0; j<n_nodes; j++){
 		int adiacent = edges[matrix_to_array_indexes(current_node_index, j, n_nodes)];
 		if(adiacent > 0){
-			int old_queue_count = atomic_inc(next_queue_count);
-			atomic_xchg(&next_queue_[old_queue_count], j); 
+			int old_queue_count = atomic_inc(next_queue_count);//TODO: cambiare questa cosa che probabilmente causerà molto overhead e magari controllare su host se l'array queue è vuoto.
+			//atomic_xchg(&next_queue_[current_node_index], j);
+			next_queue_[j] = j;
 		}
 	}
+
+	//printf("work item: (%d), dimensione code: (%d, %d), nodo: (%d, %d), nuova metrica: (%d, %d).\n", i, *queue_count, *next_queue_count, current_node_index, nodes[current_node_index], metriche[current_node_index].x, metriche[current_node_index].y);
 }
 
 
