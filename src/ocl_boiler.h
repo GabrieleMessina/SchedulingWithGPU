@@ -53,6 +53,29 @@ void ocl_check(cl_int err, const char *msg, ...) {
 	}
 }
 
+size_t GetGlobalWorkSize(size_t DataElemCount, size_t LocalWorkSize)
+{
+	size_t r = DataElemCount % LocalWorkSize;
+	if(r == 0)
+		return DataElemCount;
+	else
+		return DataElemCount + LocalWorkSize - r;
+}
+
+
+void CheckCLError(cl_int err, const char *msg, ...){
+	if (err != CL_SUCCESS) {
+		char msg_buf[BUFSIZE + 1];
+		va_list ap;
+		va_start(ap, msg);
+		vsnprintf(msg_buf, BUFSIZE, msg, ap);
+		va_end(ap);
+		msg_buf[BUFSIZE] = '\0';
+		fprintf(stderr, "%s - error %d\n", msg_buf, err);
+		exit(1);
+	}
+}
+
 // Return the ID of the platform specified in the OCL_PLATFORM
 // environment variable (or the first one if none specified)
 cl_platform_id select_platform() {
@@ -257,6 +280,12 @@ size_t round_mul_up(size_t gws, size_t lws)
 {
 	return ((gws + lws - 1)/lws)*lws;
 }
+
+// size_t getPaddedSize(size_t n)
+// {
+// 	unsigned int log2val = (unsigned int)ceil(log((float)n) / log(2.f));
+// 	return (size_t)pow(2, log2val);
+// }
 
 void print(cl_int2 *v, int len){
 	for (int i = 0; i < len; i++)

@@ -26,8 +26,8 @@ LDFLAGS = $(INC_LIB)
 # all: reduction reduction_lmem reduction_sat
 # all: scan0 scan_lmem scan_lmem4
 # all: imgtest
-all: graph_init 
-# all: oclinfo
+all: graph_init generator
+# all: oclinfo QuicksortMain
 
 .PHONY: all
 

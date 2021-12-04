@@ -5,7 +5,7 @@ int matrix_to_array_indexes(int i, int j, int row_len){
 }
 
 //ricerca delle leaf da cui cominciare la BFS
-kernel void entry_discover(const int n_nodes, global int * restrict nodes, global int * restrict edges, volatile global int *n_entries, global int * entries)
+kernel void entry_discover(const int n_nodes, global bool * restrict edges, volatile global int *n_entries, global int * entries)
 {
 	//TODO: nodes non è più usato.
 	int i = get_global_id(0);
@@ -26,14 +26,13 @@ kernel void entry_discover(const int n_nodes, global int * restrict nodes, globa
 }
 
 
-kernel void compute_metrics(global int * restrict nodes, global int *queue_, volatile global int *queue_count, global int *next_queue_, volatile global int *next_queue_count, const int n_nodes, global int * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/, global int * restrict visited)
+kernel void compute_metrics(global int * restrict nodes, global int *queue_, volatile global int *queue_count, global int *next_queue_, volatile global int *next_queue_count, const int n_nodes, global bool * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	//TODO: visited non serve perché il grafo è aciclico e aggiungere il controllo sul visited rompe la logica.
 	int i = get_global_id(0);
 	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
 	if(i >= *queue_count) return;
 	int current_node_index = queue_[i];
-	visited[current_node_index] = 1;
 
 	//calcolo del rank e del livello del nodo
 	metriche[current_node_index] = (int2)(nodes[current_node_index],0);
@@ -50,7 +49,6 @@ kernel void compute_metrics(global int * restrict nodes, global int *queue_, vol
 	for(int j=0; j<n_nodes; j++){
 		int adiacent = edges[matrix_to_array_indexes(current_node_index, j, n_nodes)];
 		if(adiacent > 0){
-			visited[j] = 1;
 			int old_queue_count = atomic_inc(next_queue_count);
 			atomic_xchg(&next_queue_[old_queue_count], j); 
 		}
@@ -61,7 +59,7 @@ kernel void compute_metrics(global int * restrict nodes, global int *queue_, vol
 
 kernel void schedule_on_processor /*sort_the_tasks*/(const int n_nodes, const int n_processors, global int * restrict nodes, global int * restrict edges)
 {
-	//TODO: implementare scheduling
+	
 }
 
 

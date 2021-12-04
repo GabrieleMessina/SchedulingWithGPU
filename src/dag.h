@@ -1,8 +1,8 @@
 /* IMPLEMENTAZIONE DELLA DAG (DIRECT ACYCLIC GRAPH)*/
 using namespace std;
 
-int* matrix_to_array(int **mat, int row_len, int col_len){
-	int *v = new int[row_len * col_len];
+template<typename T> T* matrix_to_array(T **mat, int row_len, int col_len){
+	T *v = new T[row_len * col_len];
 	int t = 0;
 	for (int i = 0; i < row_len; i++)
 	{
@@ -48,10 +48,10 @@ template<class T> class Queue{
 /* IMPLEMENTAZIONE DELLA DAG (DIRECT ACYCLIC GRAPH)*/
 template<class T> class Graph{
 	public:
-	int len, n, m;
+	int len, n, m; //lunghezza, numero di nodi, numero di archi
 	T *nodes;
-	int **adj;
-	int *color, *p, *d, *f; //colore node, predecessore, distanza o inizio visita, fine visisita
+	bool **adj;
+	//int *color, *p, *d, *f; //colore node, predecessore, distanza o inizio visita, fine visisita
 	
 	~Graph(){
 		free(nodes);
@@ -66,25 +66,33 @@ template<class T> class Graph{
 		this->len = len;
 		nodes = new T[len];
         for(int i = 0; i<len; i++) nodes[i] = 0;
-		adj = new int*[len];
+		adj = new bool*[len];
 		for(int i = 0; i<len; i++){
-			adj[i] = new int[len];
+			adj[i] = new bool[len];
 			for(int j = 0; j<len; j++){
 				adj[i][j] = 0;
 			}
 		}
-		color = new int[len];
-		p = new int[len];
-		d = new int[len];
-		f = new int[len];
-		for(int i=0; i<len; i++){
-			color[i]=0;
-			d[i] = f[i] = len+1;
-			p[i] = -1;
-		}
+		// color = new int[len];
+		// p = new int[len];
+		// d = new int[len];
+		// f = new int[len];
+		// for(int i=0; i<len; i++){
+		// 	color[i]=0;
+		// 	d[i] = f[i] = len+1;
+		// 	p[i] = -1;
+		// }
 	}
 	
 	int insertNode(T key){
+		if(n < len){
+			nodes[n] = key; 
+		}
+		return n++;
+	}
+
+	int insertUniqueValueNode(T key){
+		if(indexOfNode(key) != -1) return -1;
 		if(n < len){
 			nodes[n] = key; 
 		}

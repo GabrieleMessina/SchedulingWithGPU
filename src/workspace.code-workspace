@@ -19,7 +19,8 @@
 			"xiosbase": "cpp",
 			"string.h": "c",
 			"xlocale": "cpp",
-			"xlocnum": "cpp"
+			"xlocnum": "cpp",
+			"ostream": "cpp"
 		},
 		"files.exclude": {
 			"**/*.aux": true,
