@@ -24,17 +24,19 @@ void error(char const *str)
 cl_context ctx;
 cl_command_queue que;
 cl_int err;
-cl_kernel entry_discover_k, compute_metrics_k, sort_task_k, m_MergesortGlobalBigKernel, m_MergesortGlobalSmallKernel, m_MergesortStartKernel;
+cl_kernel entry_discover_k, compute_metrics_k, /*sort_task_k,*/ m_MergesortGlobalBigKernel, m_MergesortGlobalSmallKernel, m_MergesortStartKernel;
 void ocl_init(char *progName, char *kernelNameEntryDiscover, char *kernelNameComputeMetrics);
 size_t preferred_wg_size;
 
 Graph<int> *DAG;
 Graph<int>* initDagWithDataSet(string fileName);
 
+
 void measurePerformance(cl_event init_evt, cl_event read_nodes_evt, cl_event read_edges_evt, int nels, size_t memsize);
 void verify(int n_nodes, int const *nodes, int **edges);
 
 int *entrypoints; 
+size_t m_N_padded;
 cl_event _entry_discover(int n_nodes, cl_mem graph_edges_GPU, cl_mem n_entrypoints_GPU, cl_mem entrypoints_GPU)
 {
 	int arg_index = 0;
@@ -43,8 +45,6 @@ cl_event _entry_discover(int n_nodes, cl_mem graph_edges_GPU, cl_mem n_entrypoin
 	cl_int err;
 	err = clSetKernelArg(entry_discover_k, arg_index++, sizeof(n_nodes), &n_nodes);
 	ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
-	// err = clSetKernelArg(entry_discover_k, arg_index++, sizeof(graph_nodes_GPU), &graph_nodes_GPU);
-	// ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
 	err = clSetKernelArg(entry_discover_k, arg_index++, sizeof(graph_edges_GPU), &graph_edges_GPU);
 	ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
 	err = clSetKernelArg(entry_discover_k, arg_index++, sizeof(n_entrypoints_GPU), &n_entrypoints_GPU);
@@ -77,8 +77,6 @@ int entry_discover(){
 	size_t entrypoints_memsize = n_nodes*sizeof(int);
 
 	//CREO MEMORIA BUFFER IN GPU
-	// cl_mem graph_nodes_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nodes_memsize, NULL, &err);
-	// ocl_check(err, "create buffer graph_nodes_GPU");
 	graph_edges_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, edges_memsize, NULL, &err);
 	ocl_check(err, "create buffer graph_edges_GPU");
 	n_entrypoints_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, sizeof(n_entrypoints), NULL, &err);
@@ -88,10 +86,6 @@ int entry_discover(){
 
 	//PASSARE I DATI DELLA DAG ALLA GPU 
 	cl_event write_nodes_evt, write_edges_evt, write_nentries_evt, write_entries_evt;
-	// err = clEnqueueWriteBuffer(que, graph_nodes_GPU, CL_TRUE,
-	// 	0, nodes_memsize, DAG->nodes,
-	// 	0, NULL, &write_nodes_evt);
-	// ocl_check(err, "write dataset nodes into graph_nodes_GPU");
 	bool * edges_GPU = matrix_to_array(DAG->adj, n_nodes, n_nodes);
 	err = clEnqueueWriteBuffer(que, graph_edges_GPU, CL_TRUE,
 		0, edges_memsize, edges_GPU,
@@ -122,15 +116,11 @@ int entry_discover(){
 	ocl_check(err, "read buffer n_entrypoints_GPU");
 
 	//PULIZIA FINALE
-	// clReleaseMemObject(graph_nodes_GPU);
-	// clReleaseMemObject(graph_edges_GPU);
-	// clReleaseMemObject(n_entrypoints_GPU);
-	// clReleaseMemObject(entrypoints_GPU); //TODO: questo potrebbe non essere rilasciato ma essere passato al prossimo step
 	clReleaseKernel(entry_discover_k);
 	return *n_entrypoints;
 }
 
-cl_event _compute_metrics(cl_mem graph_nodes_GPU, cl_mem queue_GPU, cl_mem queue_count_GPU, cl_mem next_queue_GPU, cl_mem next_queue_count_GPU, cl_mem graph_edges_GPU, cl_mem metrics_GPU)
+cl_event _compute_metrics(cl_mem graph_nodes_GPU, cl_mem queue_GPU, cl_mem next_queue_GPU, cl_mem graph_edges_GPU, cl_mem metrics_GPU)
 {
 	int arg_index = 0;
 	int const n_nodes = DAG->len;
@@ -144,11 +134,7 @@ cl_event _compute_metrics(cl_mem graph_nodes_GPU, cl_mem queue_GPU, cl_mem queue
 	ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
 	err = clSetKernelArg(compute_metrics_k, arg_index++, sizeof(queue_GPU), &queue_GPU);
 	ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
-	err = clSetKernelArg(compute_metrics_k, arg_index++, sizeof(queue_count_GPU), &queue_count_GPU);
-	ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
 	err = clSetKernelArg(compute_metrics_k, arg_index++, sizeof(next_queue_GPU), &next_queue_GPU);
-	ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
-	err = clSetKernelArg(compute_metrics_k, arg_index++, sizeof(next_queue_count_GPU), &next_queue_count_GPU);
 	ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
 	err = clSetKernelArg(compute_metrics_k, arg_index++, sizeof(n_nodes), &n_nodes);
 	ocl_check(err,  "set arg %d for entry_discover_k", arg_index);
@@ -174,15 +160,20 @@ cl_int2 *metrics, *ordered_metrics;
 //CREO MEMORIA BUFFER IN GPU
 cl_mem graph_nodes_GPU, queue_GPU, queue_count_GPU, next_queue_GPU, next_queue_count_GPU, metrics_GPU, ordered_metrics_GPU;
 
-void compute_metrics(int n_entries){
+void compute_metrics(){
 	int const n_nodes = DAG->len;
-	next_queue_count = new int(0);
-	queue_count = new int(n_entries);
+	const int metrics_len = m_N_padded;
 	queue = entrypoints;
 	next_queue = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = -1;
 	nodes_memsize = n_nodes*sizeof(int);
 	queue_memsize = n_nodes*sizeof(int);
 	edges_memsize = n_nodes*n_nodes*sizeof(bool);
+	metrics_memsize = metrics_len*sizeof(cl_int2);
+
+	//Creo e inizializzo memoria host e device per array che conterrà le metriche.
+	if(metrics_len < (DAG->len)) error("array metrics più piccolo di nodes array");
+	metrics = new cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) { metrics[i].x = i; metrics[i].y = 0; }
+	
 
 	//CREO MEMORIA BUFFER IN GPU
 	graph_nodes_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nodes_memsize, NULL, &err);
@@ -191,20 +182,15 @@ void compute_metrics(int n_entries){
 	ocl_check(err, "create buffer queue_GPU");
 	next_queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
 	ocl_check(err, "create buffer next_queue_GPU");
-	queue_count_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, sizeof(queue_count), NULL, &err);
-	ocl_check(err, "create buffer queue_count_GPU");
-	next_queue_count_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, sizeof(next_queue_count), NULL, &err);
-	ocl_check(err, "create buffer next_queue_count_GPU");
-	// graph_edges_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, edges_memsize, NULL, &err);
-	// ocl_check(err, "create buffer graph_edges_GPU");
+	metrics_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, metrics_memsize, NULL, &err);
+	ocl_check(err, "create buffer metrics_GPU");
 
 	//PASSARE I DATI DELLA DAG ALLA GPU 
-	cl_event write_nodes_evt;
+	cl_event write_nodes_evt, write_queue_evt, write_next_queue_evt, write_edges_evt,  write_metrics_evt, write_visited_evt;
 	err = clEnqueueWriteBuffer(que, graph_nodes_GPU, CL_TRUE,
 		0, nodes_memsize, DAG->nodes,
 		0, NULL, &write_nodes_evt);
 	ocl_check(err, "write dataset nodes into graph_nodes_GPU");
-	cl_event write_queue_evt, write_next_queue_evt, write_queuecount_evt, write_next_queuecount_evt, write_edges_evt,  write_metrics_evt, write_visited_evt;
 	err = clEnqueueWriteBuffer(que, queue_GPU, CL_TRUE,
 		0, queue_memsize, queue,
 		0, NULL, &write_queue_evt);
@@ -213,63 +199,62 @@ void compute_metrics(int n_entries){
 		0, queue_memsize, next_queue,
 		0, NULL, &write_next_queue_evt);
 	ocl_check(err, "write into next_queue_GPU");
-	err = clEnqueueWriteBuffer(que, queue_count_GPU, CL_TRUE,
-		0, sizeof(queue_count), queue_count,
-		0, NULL, &write_queuecount_evt);
-	ocl_check(err, "write into queue_count_GPU");
-	err = clEnqueueWriteBuffer(que, next_queue_count_GPU, CL_TRUE,
-		0, sizeof(next_queue_count), next_queue_count,
-		0, NULL, &write_next_queuecount_evt);
-	ocl_check(err, "write into next_queue_count_GPU");
-	//TODO: duplicato, buffer già creato nel passo precedente dello scheduling
-	// bool * edges_array = matrix_to_array(DAG->adj, n_nodes, n_nodes);
-	// err = clEnqueueWriteBuffer(que, graph_edges_GPU, CL_TRUE,
-	// 	0, edges_memsize, edges_array,
-	// 	0, NULL, &write_edges_evt);
-	// ocl_check(err, "write dataset edges into graph_edges_GPU");
 	err = clEnqueueWriteBuffer(que, metrics_GPU, CL_TRUE,
 		0, metrics_memsize, metrics,
 		0, NULL, &write_metrics_evt);
 	ocl_check(err, "write into metrics_GPU");
+	err = clEnqueueWriteBuffer(que, metrics_GPU, CL_TRUE,
+		0, metrics_memsize, metrics,
+		0, NULL, &write_metrics_evt);
+	ocl_check(err, "write into metrics_GPU");
+	//graph_edges_GPU già dichiarato al passo precedente, non duplico.
 
-	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
-	cl_event compute_metrics_evt = _compute_metrics(graph_nodes_GPU, queue_GPU, queue_count_GPU, next_queue_GPU, next_queue_count_GPU, graph_edges_GPU, metrics_GPU);
-
-	//PASSA I RISULTATI DELLO SCHEDULING DALLA GPU ALLA CPU
-	cl_event read_next_queue_evt, read_next_queue_count_evt, read_visited_evt, read_metrics_evt;
-	err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE,
-		0, queue_memsize, next_queue,
-		1, &compute_metrics_evt, &read_next_queue_evt);
+	cl_event compute_metrics_evt = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
+	
+	//se non vogliamo farlo ad ogni ciclo, dovremmo mantenere un bool nel kernel che viene settato a true appena qualcuno scrive in next_queue, quindi invece di tutto next_queue possiamo leggere ad ogni ciclo solo il bit.
+	cl_event read_next_queue_evt, read_metrics_evt;
+	err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt, &read_next_queue_evt);
 	ocl_check(err, "read buffer next_queue_GPU");
-	err = clEnqueueReadBuffer(que, next_queue_count_GPU, CL_TRUE,
-		0, sizeof(next_queue_count), next_queue_count,
-		1, &compute_metrics_evt, &read_next_queue_count_evt);
-	ocl_check(err, "read buffer next_queue_count_GPU");
-	// err = clEnqueueReadBuffer(que, visited_GPU, CL_TRUE,
-	// 	0, visited_memsize, visited,
-	// 	1, &compute_metrics_evt, &read_visited_evt);
-	// ocl_check(err, "read buffer visited_GPU");
+
+	while(!isEmpty(next_queue, n_nodes, -1)) {
+		//scambio le due code e reinizializzo la next_queue in modo da poter essere riutilizzata.
+		queue_GPU = next_queue_GPU;
+		next_queue = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = -1;
+
+		//passo il next_array reinizializzato alla GPU.
+		next_queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
+		ocl_check(err, "create buffer next_queue_GPU");
+		err = clEnqueueWriteBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue,0, NULL, &write_next_queue_evt);
+		ocl_check(err, "write into next_queue_GPU");
+
+		compute_metrics_evt = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
+
+		//leggo il nuovo next_array dalla GPU.
+		err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt, &read_next_queue_evt);
+		ocl_check(err, "read buffer next_queue_GPU");
+	}
+
+	//PASSA I RISULTATI DALLA GPU ALLA CPU
 	err = clEnqueueReadBuffer(que, metrics_GPU, CL_TRUE,
 		0, metrics_memsize, metrics,
 		1, &compute_metrics_evt, &read_metrics_evt);
 	ocl_check(err, "read buffer metrics_GPU");
 
-	// if(*next_queue_count > 0) {
-	// 	entrypoints = next_queue;
-	// 	compute_metrics(*next_queue_count);
-	// }
-	
-	if(!isEmpty(next_queue, n_nodes, -1)) {
-		entrypoints = next_queue;
-		compute_metrics(*next_queue_count);
-	}
+	//PULIZIA FINALE
+	clReleaseMemObject(queue_GPU);
+	clReleaseMemObject(queue_count_GPU);
+	clReleaseMemObject(next_queue_GPU);
+	clReleaseMemObject(next_queue_count_GPU);
+	clReleaseMemObject(graph_edges_GPU);
+
+	clReleaseKernel(compute_metrics_k);
 }
 
 #define MERGESORT_SMALL_STRIDE 1024 * 64
-size_t m_N_padded;
 void Sort_Mergesort()
 { 
 	int c = 0;
+	const int metrics_len = m_N_padded;
 	cl_event sort_task_evt;
 	cl_context Context = ctx; 
 	cl_command_queue CommandQueue = que;
@@ -278,6 +263,17 @@ void Sort_Mergesort()
 	size_t globalWorkSize[1];
 	size_t localWorkSize[1];
 
+	//Creo il buffer d'appoggio da passare alla GPU per il merge sort.
+	cl_event write_ordered_metrics_evt;
+	ordered_metrics_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, metrics_memsize, NULL, &err);
+	ocl_check(err, "create buffer ordered_metrics_GPU");
+	ordered_metrics = new cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) ordered_metrics[i] = metrics[i];
+	err = clEnqueueWriteBuffer(que, ordered_metrics_GPU, CL_TRUE,
+		0, metrics_memsize, ordered_metrics,
+		0, NULL, &write_ordered_metrics_evt);
+	ocl_check(err, "write into metrics_GPU");
+
+	//Comincio l'algoritmo di sorting.
 	localWorkSize[0] = LocalWorkSize[0];
 	globalWorkSize[0] = GetGlobalWorkSize(m_N_padded/2, localWorkSize[0]);
 	unsigned int locLimit = 1;
@@ -319,7 +315,7 @@ void Sort_Mergesort()
 			ocl_check(err, "Failed to set kernel args: m_MergesortGlobalSmallKernel");
 
 			err = clEnqueueNDRangeKernel(CommandQueue, m_MergesortGlobalSmallKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &sort_task_evt);
-			ocl_check(err, "Error executing kernel m_MergesortGlobalSmallKernel!");
+			ocl_check(err, "Error executing kernel m_MergesortGlobalSmallKernel! - %d, %d", localWorkSize[0], globalWorkSize[0]);
 
 			swap(metrics_GPU, ordered_metrics_GPU);
 		}
@@ -355,7 +351,12 @@ void Sort_Mergesort()
 		0, metrics_memsize, ordered_metrics,
 		1, &sort_task_evt, &read_sorted_metrics_evt);
 	ocl_check(err, "read buffer ordered_metrics_GPU");
-	
+
+	clReleaseMemObject(metrics_GPU);
+	clReleaseMemObject(ordered_metrics_GPU);
+	clReleaseKernel(m_MergesortStartKernel);
+	clReleaseKernel(m_MergesortGlobalSmallKernel);
+	clReleaseKernel(m_MergesortGlobalBigKernel);
 }
 
 
@@ -371,7 +372,8 @@ int main(int argc, char *argv[])
 
 	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
 	DAG = initDagWithDataSet(argv[1]);
-	DAG->Print();
+	m_N_padded = round_mul_up(DAG->len,2);
+	//DAG->Print();
 	cout<<"\n";
 	//print(DAG->adj, DAG->n, DAG->n, ", ");
 	
@@ -380,65 +382,20 @@ int main(int argc, char *argv[])
 	print(entrypoints, DAG->n, ", ", true);
 	cout<<"\n";
 
-	m_N_padded = round_mul_up(DAG->len,2);
 	const int metrics_len = m_N_padded;
-	if(metrics_len < (DAG->len)) error("array metrics più piccolo di nodes array");
+	compute_metrics();
 
-	//metrics = new cl_int2[DAG->n];
-	metrics = new cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) { metrics[i].x = i; metrics[i].y = 0; }
-	metrics_memsize = metrics_len*sizeof(cl_int2);
-	
-	visited = new int[DAG->n]; for (int i = 0; i < DAG->n; i++) visited[i] = 0;
-	visited_memsize = DAG->n*sizeof(int);
-	metrics_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, metrics_memsize, NULL, &err);
-	ocl_check(err, "create buffer metrics_GPU");
-	ordered_metrics_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, metrics_memsize, NULL, &err);
-	ocl_check(err, "create buffer ordered_metrics_GPU");
-	cl_event write_visited_evt, write_metrics_evt;
-	err = clEnqueueWriteBuffer(que, metrics_GPU, CL_TRUE,
-		0, metrics_memsize, metrics,
-		0, NULL, &write_metrics_evt);
-	ocl_check(err, "write into metrics_GPU");
-	compute_metrics(n_entries);
 	cout<<"metrics: "<<metrics_len<<endl;
 	print(metrics, DAG->n, "\n", true);
 	cout<<"\n";
 
-	ordered_metrics = new cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) ordered_metrics[i] = metrics[i];
-	err = clEnqueueWriteBuffer(que, ordered_metrics_GPU, CL_TRUE,
-		0, metrics_memsize, ordered_metrics,
-		0, NULL, &write_metrics_evt);
-	ocl_check(err, "write into metrics_GPU");
-	//sort_task();
 	Sort_Mergesort();	
-	cout<<"sorted 1: "<<endl;
+
+	cout<<"sorted: "<<endl;
 	print(ordered_metrics, metrics_len, "\n");
 	cout<<"\n";
-
-	// err = clEnqueueReadBuffer(que, metrics_GPU, CL_TRUE,
-	// 	0, metrics_memsize, metrics,
-	// 	1, NULL, NULL);
-	// ocl_check(err, "read buffer metrics_GPU");
-
-	// print(metrics, DAG->n);
-	// cout<<"\n";
-
-	clReleaseMemObject(queue_GPU);
-	clReleaseMemObject(queue_count_GPU);
-	clReleaseMemObject(next_queue_GPU);
-	clReleaseMemObject(next_queue_count_GPU);
-	clReleaseMemObject(graph_edges_GPU);
-	clReleaseMemObject(metrics_GPU);
-	clReleaseKernel(compute_metrics_k);
 	
 
-	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
-	// cl_event entry_discover_evt = entry_discover(n_nodes, graph_nodes_GPU, graph_edges_GPU, n_entrypoints_GPU, entrypoints_GPU);
-	/*passo entry a BFS come coda dei nodi da attraversare.
-	cl_event entry_discover_evt = BFS(que, entry_discover_k, n_nodes, n_processors, graph_nodes_GPU, graph_edges_GPU);
-	cl_event entry_discover_evt = schedule_on_processor(que, entry_discover_k, n_nodes, n_processors, graph_nodes_GPU, graph_edges_GPU);
-	*/
-	
 	//METRICHE
 	//measurePerformance(entry_discover_evt, read_nodes_evt,read_edges_evt, n_nodes, nodes_memsize);
 	//VERIFICA DELLA CORRETTEZZA
@@ -480,67 +437,6 @@ void ocl_init(char* progName, char* kernelNameEntryDiscover, char *kernelNameCom
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalSmall");
 	m_MergesortGlobalBigKernel = clCreateKernel(prog2, "Sort_MergesortGlobalBig", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalBig");
-}
-
-
-Graph<int>* initDagWithDataSet(string dataset_file_name){
-
-	ifstream data_set;
-	//data_set.open("./data_set/first.txt");
-	stringstream ss;
-	ss << "./data_set/" << dataset_file_name << ".txt";
-	string dataset_file_name_with_extension = ss.str();
-	data_set.open(dataset_file_name_with_extension);
-	cout<<"dataset_file_name_with_extension: "<<dataset_file_name_with_extension<<endl;
-	if(!data_set.is_open()){
-	    error("impossibile aprire il dataset");
-	}
-
-	cout<<"step 1"<<endl;
-
-	int n_nodes = 0;
-	data_set >> n_nodes;
-		
-	Graph<int> *DAG = new Graph<int>(n_nodes);
-	if (!DAG) {
-		data_set.close();
-		error("failed to allocate graph");
-	}
-
-	cout<<"step 2"<<endl;
-
-	//leggo tutti gli id in prima posizione in modo da creare la dag senza adj per il momento.
-	int value, n_successor, successor_index, data_transfer;
-	while(data_set >> value >> n_successor){
-		int index = DAG->insertNode(value);
-		for (int i = 0; i < n_successor; i++)
-		{
-			data_set>>successor_index>>data_transfer;
-		}
-	}
-
-	cout<<"step 3"<<endl;
-
-	data_set.clear();
-	data_set.seekg(0);
-	data_set >> n_nodes;
-
-	//adesso leggo di nuovo per creare la adj
-
-	while(data_set >> value >> n_successor){
-		for (int i = 0; i < n_successor; i++)
-		{
-			data_set>>successor_index>>data_transfer;
-			DAG->insertEdgeByIndex(DAG->indexOfNode(value), successor_index, 1/*data_transfer*/); //TODO: al momento assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
-		}
-	}
-
-	cout<<"step 4"<<endl;
-
-	//TODO: e se mantenessi in memoria una matrice quadrata con tutti questi dati in fila per ogni task? IN modo da avere coalescenza?
-
-	data_set.close();
-	return DAG;	
 }
 
 

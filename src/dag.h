@@ -201,3 +201,64 @@ template<class T> class Graph{
 		}
 	}
 };
+
+Graph<int>* initDagWithDataSet(string dataset_file_name){
+	ifstream data_set;
+	//data_set.open("./data_set/first.txt");
+	stringstream ss;
+	ss << "./data_set/" << dataset_file_name << ".txt";
+	string dataset_file_name_with_extension = ss.str();
+	data_set.open(dataset_file_name_with_extension);
+	cout<<"dataset_file_name_with_extension: "<<dataset_file_name_with_extension<<endl;
+	if(!data_set.is_open()){
+		fprintf(stderr, "%s\n", "impossibile aprire il dataset");
+		exit(1);
+	}
+
+	cout<<"step 1"<<endl;
+
+	int n_nodes = 0;
+	data_set >> n_nodes;
+		
+	Graph<int> *DAG = new Graph<int>(n_nodes);
+	if (!DAG) {
+		data_set.close();
+		fprintf(stderr, "%s\n", "failed to allocate graph");
+		exit(1);
+	}
+
+	cout<<"step 2"<<endl;
+
+	//leggo tutti gli id in prima posizione in modo da creare la dag senza adj per il momento.
+	int value, n_successor, successor_index, data_transfer;
+	while(data_set >> value >> n_successor){
+		int index = DAG->insertNode(value);
+		for (int i = 0; i < n_successor; i++)
+		{
+			data_set>>successor_index>>data_transfer;
+		}
+	}
+
+	cout<<"step 3"<<endl;
+
+	data_set.clear();
+	data_set.seekg(0);
+	data_set >> n_nodes;
+
+	//adesso leggo di nuovo per creare la adj
+
+	while(data_set >> value >> n_successor){
+		for (int i = 0; i < n_successor; i++)
+		{
+			data_set>>successor_index>>data_transfer;
+			DAG->insertEdgeByIndex(DAG->indexOfNode(value), successor_index, 1/*data_transfer*/); //TODO: al momento assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
+		}
+	}
+
+	cout<<"step 4"<<endl;
+
+	//TODO: e se mantenessi in memoria una matrice quadrata con tutti questi dati in fila per ogni task? IN modo da avere coalescenza?
+
+	data_set.close();
+	return DAG;	
+}

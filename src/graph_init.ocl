@@ -38,7 +38,7 @@ kernel void entry_discover(const int n_nodes, global bool * restrict edges, vola
 }
 
 
-kernel void compute_metrics(global int * restrict nodes, global int *queue_, volatile global int *queue_count, global int *next_queue_, volatile global int *next_queue_count, const int n_nodes, global bool * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	//TODO: queue count non più necessario, ma forse nex_queue_count necessario per capire se ho finito di calcolare tutte le metriche o se devo ciclare ancora.
 
@@ -82,7 +82,8 @@ kernel void compute_metrics(global int * restrict nodes, global int *queue_, vol
 	for(int j=0; j<n_nodes; j++){
 		int adiacent = edges[matrix_to_array_indexes(current_node_index, j, n_nodes)];
 		if(adiacent > 0){
-			int old_queue_count = atomic_inc(next_queue_count);//TODO: cambiare questa cosa che probabilmente causerà molto overhead e magari controllare su host se l'array queue è vuoto.
+			//printf("edge tra: %d -> %d\n", current_node_index, j);
+			//int old_queue_count = atomic_inc(next_queue_count);//TODO: cambiare questa cosa che probabilmente causerà molto overhead e magari controllare su host se l'array queue è vuoto.
 			//atomic_xchg(&next_queue_[current_node_index], j);
 			next_queue_[j] = j;
 		}
