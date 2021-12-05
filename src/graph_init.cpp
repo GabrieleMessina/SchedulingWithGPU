@@ -33,7 +33,7 @@ Graph<int>* initDagWithDataSet(string fileName);
 
 
 void measurePerformance(cl_event init_evt, cl_event read_nodes_evt, cl_event read_edges_evt, int nels, size_t memsize);
-void verify(int n_nodes, int const *nodes, int **edges);
+void verify();
 
 int *entrypoints; 
 size_t m_N_padded;
@@ -250,7 +250,7 @@ void compute_metrics(){
 	clReleaseKernel(compute_metrics_k);
 }
 
-#define MERGESORT_SMALL_STRIDE 1024 * 64
+#define MERGESORT_SMALL_STRIDE 512
 void Sort_Mergesort()
 { 
 	int c = 0;
@@ -278,7 +278,7 @@ void Sort_Mergesort()
 	globalWorkSize[0] = GetGlobalWorkSize(m_N_padded/2, localWorkSize[0]);
 	unsigned int locLimit = 1;
 
-	if (m_N_padded >= LocalWorkSize[0] * 2) {
+	if (m_N_padded >= LocalWorkSize[0] * 2) { //TODO: sempre minore perché m_N_padded è LocalWorkSize[0];
 		cout<<"MergesortStartKernel " << m_N_padded<<endl;
 		locLimit = 2 * LocalWorkSize[0];
 
@@ -302,7 +302,7 @@ void Sort_Mergesort()
 		err = clSetKernelArg(m_MergesortGlobalSmallKernel, 3, sizeof(cl_uint), (void*)&m_N_padded);
 		ocl_check(err, "Failed to set kernel args: MergeSortGlobal");
 
-		for (; stride <= m_N_padded; stride <<= 1) {
+		for (; stride <= m_N_padded; stride <<= 1) { // crea i branch per il merge sort.
 			//calculate work sizes
 			size_t neededWorkers = m_N_padded / stride;
 
@@ -374,32 +374,33 @@ int main(int argc, char *argv[])
 	DAG = initDagWithDataSet(argv[1]);
 	m_N_padded = round_mul_up(DAG->len,2);
 	//DAG->Print();
-	cout<<"\n";
+	//cout<<"\n";
 	//print(DAG->adj, DAG->n, DAG->n, ", ");
 	
 	int n_entries = entry_discover();
-	cout<<"entrypoints: "<<n_entries<<endl;
-	print(entrypoints, DAG->n, ", ", true);
-	cout<<"\n";
+	// cout<<"entrypoints: "<<n_entries<<endl;
+	// print(entrypoints, DAG->n, ", ", true);
+	// cout<<"\n";
 
 	const int metrics_len = m_N_padded;
 	compute_metrics();
 
-	cout<<"metrics: "<<metrics_len<<endl;
-	print(metrics, DAG->n, "\n", true);
-	cout<<"\n";
+	//cout<<"metrics: "<<metrics_len<<endl;
+	//print(metrics, DAG->n, "\n", true);
+	//cout<<"\n";
 
 	Sort_Mergesort();	
 
-	cout<<"sorted: "<<endl;
-	print(ordered_metrics, metrics_len, "\n");
-	cout<<"\n";
+	//cout<<"sorted: "<<endl;
+	//print(ordered_metrics, metrics_len);
+	//print(ordered_metrics, metrics_len, "\n");
+	//cout<<"\n";
 	
 
 	//METRICHE
 	//measurePerformance(entry_discover_evt, read_nodes_evt,read_edges_evt, n_nodes, nodes_memsize);
 	//VERIFICA DELLA CORRETTEZZA
-	//verify(n_nodes, DAG->nodes, DAG->adj);
+	verify();
 
 	//PULIZIA FINALE
 	free(DAG);
@@ -454,22 +455,26 @@ void measurePerformance(cl_event init_evt, cl_event read_nodes_evt, cl_event rea
 		runtime_read_edges_ms, nels/runtime_read_edges_ms/1.0e6, memsize/runtime_read_edges_ms/1.0e6);
 }
 
+bool operator<(const cl_int2& l, const cl_int2& r)
+{
+    if(l.y == r.y){
+		return l.x < r.x;
+	}
+	return l.y > r.y;
+}
+bool operator> (const cl_int2& l, const cl_int2& r){ return (r < l); }
+bool operator<=(const cl_int2& l, const cl_int2& r){ return !(l > r); }
+bool operator>=(const cl_int2& l, const cl_int2& r){ return !(l < r); }
 
-void verify(int n_nodes, int const *nodes, int **edges) {
-	if(nodes == NULL) error("nodes is null in verify");
-	for (int i = 0; i < n_nodes; ++i) {
-		if (nodes[i] != i) {
-			fprintf(stderr, "%d != %d in nodes\n", i, nodes[i]);
+void verify() {
+	//Ciclare su ordered_metrics e verificare che siano ordinati
+	for (int i = 0; i < DAG->n - 1; ++i) {
+		if(ordered_metrics[i] < ordered_metrics[i+1]){
+			fprintf(stderr, "ordered_metrics[%d] = %d > ordered_metrics[%d] = %d\n", i, ordered_metrics[i], i+1, ordered_metrics[i+1]);
 			error("mismatch");
 		}
 	}
-	if(edges == NULL || *edges == NULL) error("edges is null in verify");
-	for (int i = 0; i < n_nodes; ++i) {
-		if (edges[i][i] != i) {
-			fprintf(stderr, "%d != %d in edges\n", i, edges[i][i]);
-			error("mismatch");
-		}
-	}
+	printf("Everything sorted, verified\n");
 }
 
 

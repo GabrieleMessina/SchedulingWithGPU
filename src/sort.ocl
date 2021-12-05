@@ -55,14 +55,15 @@ inline void sortLocal(__local int2 *a, __local int2 *b, char dir) {
 __kernel void Sort_MergesortStart(const __global int2 *inArray, __global int2 *outArray)
 {
 	int c = 0;
-	__local int2 local_buffer[2][MAX_LOCAL_SIZE * 2];
+	__local int2 local_buffer[2][MAX_LOCAL_SIZE * 2]; //visibile a tutto il work group
 	const uint lid = get_local_id(0);
-	const uint index = get_group_id(0) * (MAX_LOCAL_SIZE * 2) + lid;
+	const uint index = get_group_id(0) * (MAX_LOCAL_SIZE * 2) + lid; //index per la seconda riga di local buffer?
 	char pong = 0;
 	char ping = 1;
+	
 	// printf("debug kernel sort: %d\n", c++);
 	// load into local buffer
-	local_buffer[0][lid] = inArray[index];
+	local_buffer[0][lid] = inArray[index]; //TODO: funziona solo se ho un singolo work group perché altrimenti accede a zone di memoria oltre quelle di competeza dell'inArray.
 	local_buffer[0][lid + MAX_LOCAL_SIZE] = inArray[index + MAX_LOCAL_SIZE];
 
 	// merge sort
@@ -102,14 +103,15 @@ __kernel void Sort_MergesortGlobalSmall(const __global int2* inArray, __global i
 	//printf("get_id: %d, %d, %d\n", get_local_id(0), get_group_id(0), get_global_id(0));
 
 	// within one stride merge the different parts
-	const uint baseIndex = get_global_id(0) * stride;
+	const uint baseIndex = get_global_id(0) * stride;//ogni work item lavora su due item?
 	const uint baseLocalIndex = get_local_id(0) * 2;
 
-	uint middle = baseIndex + (stride >> 1);
+	uint middle = baseIndex + (stride >> 1); //stride/2
 	uint left = baseIndex;
-	uint right = middle;
+	uint right = middle; //solo per la prima iterazione in cui stride è 2.
 	bool selectLeft = false;
 
+	//se sono un work item di indice maggiore del numero di elementi non faccio nulla.
 	if ((baseIndex + stride) > size) return;
 
 	local_buffer[baseLocalIndex + 1] = inArray[left];
