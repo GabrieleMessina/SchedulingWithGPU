@@ -1,6 +1,11 @@
 /* IMPLEMENTAZIONE DELLA DAG (DIRECT ACYCLIC GRAPH)*/
 using namespace std;
 
+int matrix_to_array_indexes(int i, int j, int row_len){
+	return i * row_len + j;
+}
+
+
 template<typename T> T* matrix_to_array(T **mat, int row_len, int col_len){
 	T *v = new T[row_len * col_len];
 	int t = 0;
@@ -11,7 +16,18 @@ template<typename T> T* matrix_to_array(T **mat, int row_len, int col_len){
 			v[t++] = mat[i][j];
 		}	
 	}
-	return v;
+	return (T*) &v[0];
+}
+
+template<typename T> void matrix_to_array(T **mat, int row_len, int col_len, T* outArray){
+	int t = 0;
+	for (int i = 0; i < row_len; i++)
+	{
+		for (int j = 0; j < col_len; j++)
+		{
+			outArray[t++] = mat[i][j];
+		}	
+	}
 }
 
 
@@ -48,31 +64,32 @@ template<class T> class Queue{
 /* IMPLEMENTAZIONE DELLA DAG (DIRECT ACYCLIC GRAPH)*/
 template<class T> class Graph{
 	public:
-	int len, n, m; //lunghezza, numero di nodi, numero di archi
+	int len, adj_len, n, m; //lunghezza, numero di nodi, numero di archi
 	T *nodes;
-	bool **adj;
+	bool *adj; //TODO: adj potrebbe già essere un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 	//int *color, *p, *d, *f; //colore node, predecessore, distanza o inizio visita, fine visisita
 	
 	~Graph(){
 		free(nodes);
 		free(adj);
-		free(f);
-		free(d);
-		free(p);
+		// free(f);
+		// free(d);
+		// free(p);
 	}
 
 	Graph(int len = 100){
 		n = m = 0;
 		this->len = len;
+		adj_len = len * len;
 		nodes = new T[len];
         for(int i = 0; i<len; i++) nodes[i] = 0;
-		adj = new bool*[len];
-		for(int i = 0; i<len; i++){
-			adj[i] = new bool[len];
-			for(int j = 0; j<len; j++){
-				adj[i][j] = 0;
-			}
+		adj = new bool[adj_len];
+		printf("len is %d and mat is %d\n", len , adj_len);
+#pragma unroll
+		for(int i = 0; i<adj_len; i++){
+			adj[i] = 0;
 		}
+
 		// color = new int[len];
 		// p = new int[len];
 		// d = new int[len];
@@ -100,7 +117,7 @@ template<class T> class Graph{
 	}
 	
 	int indexOfNode(T key){
-		for(int i =0; i<n; i++) if(nodes[i] == key) return i;
+		for(int i =0; i<len; i++) if(nodes[i] == key) return i;
 		return -1;
 	}
 	
@@ -109,7 +126,7 @@ template<class T> class Graph{
 		int i = indexOfNode(a);
 		int j = indexOfNode(b);
 		if(i != -1 && j != -1){
-			adj[i][j] = weight;
+			adj[matrix_to_array_indexes(i,j,len)] = weight;
 			//adj[j][i] = weight; //se non orientato
 			m++;
 		}
@@ -128,7 +145,7 @@ template<class T> class Graph{
 		int i = indexOfa;
 		int j = indexOfb;
 		if(i > -1 && j > -1 && i < len && j < len){
-			adj[i][j] = weight;
+			adj[matrix_to_array_indexes(i,j,len)] = weight;
 			//adj[j][i] = weight; //se non orientato
 			m++;
 		}
@@ -147,7 +164,7 @@ template<class T> class Graph{
 		int i = indexOfNode(a);
 		int j = indexOfNode(b);
 		if(i != -1 && j != -1){
-			return adj[i][j] != 0;
+			return adj[matrix_to_array_indexes(i,j,len)] != 0;
 		}
 		return false;
 	}
@@ -161,7 +178,7 @@ template<class T> class Graph{
 		while(!q->isEmpty()){
 			int x = q->Dequeue();
 			for(int i=0; i<n; i++){
-				if(adj[x][i] != 0 && color[i]==0){
+				if(adj[matrix_to_array_indexes(x,i,len)] != 0 && color[i]==0){
 					color[i] = 1;
 					q->Enqueue(i);
 					p[i] = x;
@@ -192,19 +209,19 @@ template<class T> class Graph{
 	
 	void Print() {
 		cout << "(index, value) -> [(edges_index, weight)]"<<endl;
-		for(int i=0; i<n; i++) {
+		for(int i=0; i<len; i++) {
 			cout << "(" << i << ", " << nodes[i] << ")" << " -> | ";
-			for(int j=0; j<n; j++) {
-				if(adj[i][j] != 0) cout << "(" << j << ", " << adj[i][j] << ") | ";
+			for(int j=0; j<len; j++) {
+				if(adj[matrix_to_array_indexes(i,j,len)] != 0) cout << "(" << j << ", " << adj[matrix_to_array_indexes(i,j,len)] << ") | ";
 			} 
 			cout << endl;
 		}
 	}
 };
 
+
 Graph<int>* initDagWithDataSet(string dataset_file_name){
 	ifstream data_set;
-	//data_set.open("./data_set/first.txt");
 	stringstream ss;
 	ss << "./data_set/" << dataset_file_name << ".txt";
 	string dataset_file_name_with_extension = ss.str();
@@ -214,9 +231,7 @@ Graph<int>* initDagWithDataSet(string dataset_file_name){
 		fprintf(stderr, "%s\n", "impossibile aprire il dataset");
 		exit(1);
 	}
-
-	cout<<"step 1"<<endl;
-
+	
 	int n_nodes = 0;
 	data_set >> n_nodes;
 		
@@ -227,8 +242,6 @@ Graph<int>* initDagWithDataSet(string dataset_file_name){
 		exit(1);
 	}
 
-	cout<<"step 2"<<endl;
-
 	//leggo tutti gli id in prima posizione in modo da creare la dag senza adj per il momento.
 	int value, n_successor, successor_index, data_transfer;
 	while(data_set >> value >> n_successor){
@@ -238,8 +251,6 @@ Graph<int>* initDagWithDataSet(string dataset_file_name){
 			data_set>>successor_index>>data_transfer;
 		}
 	}
-
-	cout<<"step 3"<<endl;
 
 	data_set.clear();
 	data_set.seekg(0);
@@ -254,9 +265,6 @@ Graph<int>* initDagWithDataSet(string dataset_file_name){
 			DAG->insertEdgeByIndex(DAG->indexOfNode(value), successor_index, 1/*data_transfer*/); //TODO: al momento assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
 		}
 	}
-
-	cout<<"step 4"<<endl;
-
 	//TODO: e se mantenessi in memoria una matrice quadrata con tutti questi dati in fila per ogni task? IN modo da avere coalescenza?
 
 	data_set.close();

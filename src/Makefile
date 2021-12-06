@@ -13,8 +13,8 @@ OUT_DIR = $(@D)\build\\
 # I per indicare la cartella da cui prendere gli include
 # Fe per scegliere la cartella in cui gli exe saranno messi
 # Fo per scegliere la cartella in cui gli obj, file intermedi, saranno messi
-CFLAGS=/w -Ot -I$(INC_DIR) #/Fo$(OUT_DIR) /Fe$(OUT_DIR)
-CXXFLAGS=-w -I$(INC_DIR) #/Fo$(OUT_DIR) /Fe$(OUT_DIR)
+CFLAGS=/w /EHsc -Ot -I$(INC_DIR) #/Fo$(OUT_DIR) /Fe$(OUT_DIR)
+CXXFLAGS=-w /EHsc -I$(INC_DIR) #/Fo$(OUT_DIR) /Fe$(OUT_DIR)
 LDFLAGS = $(INC_LIB)
 
 # all: vecinit_cl vecinit_wg_fix vecinit_preferred_wg vecinit_map_mem vecinit_more_work vecinit_vec vecinit_vec_coal

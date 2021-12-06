@@ -37,3 +37,18 @@ void print(T **v, int row_len, int col_len, string separator = " "){
 	
 	cout<<"\n";
 }
+
+template<typename T>
+void print(T *v, int row_len, int col_len, string separator = " "){
+	int mat_len = row_len * col_len;
+	for (int i = 0; i < row_len; i++)
+	{
+		for (int j = 0; j < col_len; j++)
+		{
+			cout<<v[matrix_to_array_indexes(i,j,row_len)]<<separator;
+		}
+		cout<<"\n";
+	}
+	
+	cout<<"\n";
+}

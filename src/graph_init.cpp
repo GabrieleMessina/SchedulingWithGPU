@@ -6,7 +6,6 @@
 #include <string>
 #include <sstream>
 #include "dag.h"
-#include "graphnode.h"
 #include "utils/print_stuff.h"
 
 #include <math.h>
@@ -86,9 +85,8 @@ int entry_discover(){
 
 	//PASSARE I DATI DELLA DAG ALLA GPU 
 	cl_event write_nodes_evt, write_edges_evt, write_nentries_evt, write_entries_evt;
-	bool * edges_GPU = matrix_to_array(DAG->adj, n_nodes, n_nodes);
 	err = clEnqueueWriteBuffer(que, graph_edges_GPU, CL_TRUE,
-		0, edges_memsize, edges_GPU,
+		0, edges_memsize, DAG->adj,
 		0, NULL, &write_edges_evt);
 	ocl_check(err, "write dataset edges into graph_edges_GPU");
 	err = clEnqueueWriteBuffer(que, n_entrypoints_GPU, CL_TRUE,
@@ -250,7 +248,7 @@ void compute_metrics(){
 	clReleaseKernel(compute_metrics_k);
 }
 
-#define MERGESORT_SMALL_STRIDE 512
+#define MERGESORT_SMALL_STRIDE 1024 
 void Sort_Mergesort()
 { 
 	int c = 0;
@@ -258,7 +256,7 @@ void Sort_Mergesort()
 	cl_event sort_task_evt;
 	cl_context Context = ctx; 
 	cl_command_queue CommandQueue = que;
-	size_t LocalWorkSize[3] = { m_N_padded,1,1 }; //TODO:il lws necessita di essere un multiplo di m_N_padded, suppongo a causa dell'implementazione, è un problema?
+	size_t LocalWorkSize[3] = { preferred_wg_size,1,1 }; //TODO:il lws necessita di essere un multiplo di m_N_padded, suppongo a causa dell'implementazione, è un problema?
 	//TODO fix memory problem when many elements. -> CL_OUT_OF_RESOURCES
 	size_t globalWorkSize[1];
 	size_t localWorkSize[1];
@@ -278,26 +276,11 @@ void Sort_Mergesort()
 	globalWorkSize[0] = GetGlobalWorkSize(m_N_padded/2, localWorkSize[0]);
 	unsigned int locLimit = 1;
 
-	if (m_N_padded >= LocalWorkSize[0] * 2) { //TODO: sempre minore perché m_N_padded è LocalWorkSize[0];
-		cout<<"MergesortStartKernel " << m_N_padded<<endl;
-		locLimit = 2 * LocalWorkSize[0];
-
-		// start with a local variant first, ASSUMING we have more than localWorkSize[0] * 2 elements
-		err = clSetKernelArg(m_MergesortStartKernel, 0, sizeof(metrics_GPU), (void*)&metrics_GPU);
-		err |= clSetKernelArg(m_MergesortStartKernel, 1, sizeof(ordered_metrics_GPU), (void*)&ordered_metrics_GPU);
-		ocl_check(err, "Failed to set kernel args: MergeSortStart");
-
-		err = clEnqueueNDRangeKernel(CommandQueue, m_MergesortStartKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &sort_task_evt);
-		ocl_check(err, "Error executing MergeSortStart kernel!");
-
-		swap(metrics, ordered_metrics);
-	}
-
 	// proceed with the global variant
 	unsigned int stride = 2 * locLimit;
-
 	if (m_N_padded <= MERGESORT_SMALL_STRIDE) {
-		cout<<"small kernel " << m_N_padded<<endl;
+		//non funziona per grandi numeri perché crea dei buffer locali e si rischia un cl out of resources.
+		cout<<"small kernel " << (int)m_N_padded<<endl;
 		// set not changing arguments
 		err = clSetKernelArg(m_MergesortGlobalSmallKernel, 3, sizeof(cl_uint), (void*)&m_N_padded);
 		ocl_check(err, "Failed to set kernel args: MergeSortGlobal");
@@ -372,24 +355,28 @@ int main(int argc, char *argv[])
 
 	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
 	DAG = initDagWithDataSet(argv[1]);
+	printf("DAG initialized\n");
 	m_N_padded = round_mul_up(DAG->len,2);
 	//DAG->Print();
 	//cout<<"\n";
 	//print(DAG->adj, DAG->n, DAG->n, ", ");
 	
 	int n_entries = entry_discover();
+	printf("entries discovered\n");
 	// cout<<"entrypoints: "<<n_entries<<endl;
 	// print(entrypoints, DAG->n, ", ", true);
 	// cout<<"\n";
 
 	const int metrics_len = m_N_padded;
 	compute_metrics();
+	printf("metrics computed\n");
 
 	//cout<<"metrics: "<<metrics_len<<endl;
 	//print(metrics, DAG->n, "\n", true);
 	//cout<<"\n";
 
 	Sort_Mergesort();	
+	printf("array sorted\n");
 
 	//cout<<"sorted: "<<endl;
 	//print(ordered_metrics, metrics_len);
@@ -468,9 +455,9 @@ bool operator>=(const cl_int2& l, const cl_int2& r){ return !(l < r); }
 
 void verify() {
 	//Ciclare su ordered_metrics e verificare che siano ordinati
-	for (int i = 0; i < DAG->n - 1; ++i) {
+	for (int i = 0; i < DAG->len - 1; ++i) {
 		if(ordered_metrics[i] < ordered_metrics[i+1]){
-			fprintf(stderr, "ordered_metrics[%d] = %d > ordered_metrics[%d] = %d\n", i, ordered_metrics[i], i+1, ordered_metrics[i+1]);
+			fprintf(stderr, "ordered_metrics[%d] = (%d, %d) < ordered_metrics[%d] = (%d, %d)\n", i, ordered_metrics[i].x, ordered_metrics[i].y, i+1, ordered_metrics[i+1].x, ordered_metrics[i+1].y);
 			error("mismatch");
 		}
 	}

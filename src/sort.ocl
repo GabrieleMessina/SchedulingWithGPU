@@ -103,7 +103,7 @@ __kernel void Sort_MergesortGlobalSmall(const __global int2* inArray, __global i
 	//printf("get_id: %d, %d, %d\n", get_local_id(0), get_group_id(0), get_global_id(0));
 
 	// within one stride merge the different parts
-	const uint baseIndex = get_global_id(0) * stride;//ogni work item lavora su due item?
+	const uint baseIndex = get_global_id(0) * stride;//ogni work item lavora su due item la prima volta, poi 4, 8 ecc.
 	const uint baseLocalIndex = get_local_id(0) * 2;
 
 	uint middle = baseIndex + (stride >> 1); //stride/2

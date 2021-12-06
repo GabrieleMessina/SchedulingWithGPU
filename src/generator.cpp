@@ -56,6 +56,7 @@ int main(int argc, char const *argv[])
 	}
 
     file << n_task << endl;
+    bool *child_occupied = new bool[n_task];
     for (int i = 0; i < n_task; i++)
     {
         // cout<< "task " << i << endl;
@@ -69,11 +70,12 @@ int main(int argc, char const *argv[])
         }
         int task_weight = (rand() % MAX_TASK_WEIGHT) + 1;
         file << task_weight << space << n_child << space;
-        bool *child_occupied = new bool[n_task]; for (int j = 0; j < n_task; j++){ child_occupied[j] = (j<=i) ? 1 : 0;} //inizializzo i posti occupati mettendo quelli precedenti al parent e il parent stesso come già occupati in modo che l'algoritmo non li scelga.
+        for (int j = 0; j < n_task; j++){ child_occupied[j] = (j<=i) ? 1 : 0;} //inizializzo i posti occupati mettendo quelli precedenti al parent e il parent stesso come già occupati in modo che l'algoritmo non li scelga.
         
+        int child_index;
+        int link_weight;
         for (int j = 0; j < n_child; j++)
         {
-            int child_index;
             do
             {
                 //srand(time(NULL));
@@ -82,7 +84,7 @@ int main(int argc, char const *argv[])
             } 
             while (child_occupied[child_index] == 1);
             
-            int link_weight = (rand() % MAX_TASK_WEIGHT) + 1;
+            link_weight = (rand() % MAX_TASK_WEIGHT) + 1;
             file << child_index << space << link_weight << space;
             child_occupied[child_index] = 1;
         }
