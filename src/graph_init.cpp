@@ -5,6 +5,8 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <chrono>
+#include <ctime>   
 #include "dag.h"
 #include "utils/print_stuff.h"
 
@@ -31,7 +33,8 @@ Graph<int> *DAG;
 Graph<int>* initDagWithDataSet(string fileName);
 
 
-void measurePerformance(cl_event init_evt, cl_event read_nodes_evt, cl_event read_edges_evt, int nels, size_t memsize);
+void measurePerformance(cl_event entry_discover_evt,cl_event compute_metrics_evt, cl_event sort_task_evt, int nels);
+void measurePerformance(cl_event evt, int nels, string event_name);
 void verify();
 
 int *entrypoints; 
@@ -66,7 +69,7 @@ cl_mem n_entrypoints_GPU;
 cl_mem entrypoints_GPU;
 
 
-int entry_discover(){
+cl_event entry_discover(){
 	int const n_nodes = DAG->len;
 	size_t nodes_memsize = n_nodes*sizeof(int);
 	size_t edges_memsize = n_nodes*n_nodes*sizeof(bool);
@@ -115,7 +118,7 @@ int entry_discover(){
 
 	//PULIZIA FINALE
 	clReleaseKernel(entry_discover_k);
-	return *n_entrypoints;
+	return entry_discover_evt;
 }
 
 cl_event _compute_metrics(cl_mem graph_nodes_GPU, cl_mem queue_GPU, cl_mem next_queue_GPU, cl_mem graph_edges_GPU, cl_mem metrics_GPU)
@@ -158,7 +161,7 @@ cl_int2 *metrics, *ordered_metrics;
 //CREO MEMORIA BUFFER IN GPU
 cl_mem graph_nodes_GPU, queue_GPU, queue_count_GPU, next_queue_GPU, next_queue_count_GPU, metrics_GPU, ordered_metrics_GPU;
 
-void compute_metrics(){
+cl_event compute_metrics(){
 	int const n_nodes = DAG->len;
 	const int metrics_len = m_N_padded;
 	queue = entrypoints;
@@ -246,10 +249,12 @@ void compute_metrics(){
 	clReleaseMemObject(graph_edges_GPU);
 
 	clReleaseKernel(compute_metrics_k);
+
+	return compute_metrics_evt;
 }
 
 #define MERGESORT_SMALL_STRIDE 1024 
-void Sort_Mergesort()
+cl_event Sort_Mergesort()
 { 
 	int c = 0;
 	const int metrics_len = m_N_padded;
@@ -324,6 +329,7 @@ void Sort_Mergesort()
 			err = clEnqueueNDRangeKernel(CommandQueue, m_MergesortGlobalBigKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &sort_task_evt);
 			ocl_check(err, "Error executing kernel m_MergesortGlobalBigKernel!");
 
+			//TODO: check this if
 			if (stride >= 1024 * 1024) ocl_check(clFinish(CommandQueue), "Failed finish CommandQueue at mergesort for bigger strides.");
 			swap(metrics_GPU, ordered_metrics_GPU);
 		}
@@ -340,9 +346,12 @@ void Sort_Mergesort()
 	clReleaseKernel(m_MergesortStartKernel);
 	clReleaseKernel(m_MergesortGlobalSmallKernel);
 	clReleaseKernel(m_MergesortGlobalBigKernel);
+
+	return sort_task_evt;
 }
 
-
+std::chrono::system_clock::time_point start_time;
+std::chrono::system_clock::time_point end_time;
 
 int main(int argc, char *argv[])
 {
@@ -350,6 +359,8 @@ int main(int argc, char *argv[])
 	if (argc != 2) {
 		error("syntax: graph_init datasetName");
 	}
+
+	start_time = std::chrono::system_clock::now();
 
 	ocl_init("./graph_init.ocl","entry_discover", "compute_metrics");
 
@@ -361,21 +372,21 @@ int main(int argc, char *argv[])
 	//cout<<"\n";
 	//print(DAG->adj, DAG->n, DAG->n, ", ");
 	
-	int n_entries = entry_discover();
+	cl_event entry_discover_evt = entry_discover();
 	printf("entries discovered\n");
 	// cout<<"entrypoints: "<<n_entries<<endl;
 	// print(entrypoints, DAG->n, ", ", true);
 	// cout<<"\n";
 
 	const int metrics_len = m_N_padded;
-	compute_metrics();
+	cl_event compute_metrics_evt = compute_metrics();
 	printf("metrics computed\n");
 
 	//cout<<"metrics: "<<metrics_len<<endl;
 	//print(metrics, DAG->n, "\n", true);
 	//cout<<"\n";
 
-	Sort_Mergesort();	
+	cl_event sort_task_evt = Sort_Mergesort();	
 	printf("array sorted\n");
 
 	//cout<<"sorted: "<<endl;
@@ -383,14 +394,16 @@ int main(int argc, char *argv[])
 	//print(ordered_metrics, metrics_len, "\n");
 	//cout<<"\n";
 	
+	end_time = std::chrono::system_clock::now();
 
 	//METRICHE
-	//measurePerformance(entry_discover_evt, read_nodes_evt,read_edges_evt, n_nodes, nodes_memsize);
+	measurePerformance(entry_discover_evt, sort_task_evt,entry_discover_evt, DAG->len);
 	//VERIFICA DELLA CORRETTEZZA
 	verify();
 
 	//PULIZIA FINALE
 	free(DAG);
+
 	//system("PAUSE");
 }
 
@@ -428,18 +441,48 @@ void ocl_init(char* progName, char* kernelNameEntryDiscover, char *kernelNameCom
 }
 
 
-void measurePerformance(cl_event init_evt, cl_event read_nodes_evt, cl_event read_edges_evt, int nels, size_t memsize){
-	double runtime_init_ms = runtime_ms(init_evt);
-	double runtime_read_nodes_ms = runtime_ms(read_nodes_evt);
-	double runtime_read_edges_ms = runtime_ms(read_edges_evt);
+void measurePerformance(cl_event entry_discover_evt,cl_event compute_metrics_evt, cl_event sort_task_evt, int nels){
+	double runtime_discover_ms = runtime_ms(entry_discover_evt);
+	double runtime_metrics_ms = runtime_ms(compute_metrics_evt);
+	double runtime_sorts_ms = runtime_ms(sort_task_evt);
 
 	//TODO: check the math as algorithms changed
-	printf("init: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-		runtime_init_ms, nels/runtime_init_ms/1.0e6, memsize/runtime_init_ms/1.0e6);
-	printf("read nodes: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-		runtime_read_nodes_ms, nels/runtime_read_nodes_ms/1.0e6, memsize/runtime_read_nodes_ms/1.0e6);
-	printf("read edges: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-		runtime_read_edges_ms, nels/runtime_read_edges_ms/1.0e6, memsize/runtime_read_edges_ms/1.0e6);
+	printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+		runtime_discover_ms, nels/runtime_discover_ms/1.0e6, preferred_wg_size/runtime_discover_ms/1.0e6);
+	printf("compute metrics: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+		runtime_metrics_ms, nels/runtime_metrics_ms/1.0e6, preferred_wg_size/runtime_metrics_ms/1.0e6);
+	printf("sort tasks: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+		runtime_sorts_ms, nels/runtime_sorts_ms/1.0e6, preferred_wg_size/runtime_sorts_ms/1.0e6);
+
+	std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
+	std::chrono::duration<double> elapsed_seconds = end_time-start_time;
+	char *end_date_time = std::ctime(&end_time_t); end_date_time[strcspn(end_date_time , "\n")] = 0;
+
+	double total_elapsed_time_GPU = total_runtime_ms(entry_discover_evt, sort_task_evt);
+	int platform_id = 0;
+	char *platform_name = getSelectedPlatformInfo(platform_id);
+	int device_id = 0;
+	char *device_name = getSelectedDeviceInfo(device_id);
+	
+	//stampo i file in un .csv per poter analizzare i dati successivamente.
+	FILE *fp;
+	fp = fopen("execution_results.txt", "a");
+	if (fp == NULL) {
+		printf("Error opening file!\n");
+		exit(1);
+	}
+	
+	fprintf(fp,"%s, %f, %f, %s, %s, %.4g, %.4g, %.4g, %d, %d\n", 
+		end_date_time, elapsed_seconds.count(), total_elapsed_time_GPU, platform_name, device_name, runtime_discover_ms, runtime_metrics_ms, runtime_sorts_ms, nels, preferred_wg_size);
+	
+	fflush(fp);
+	fclose(fp);
+}
+
+void measurePerformance(cl_event evt, int nels, string event_name = "event"){
+	double evt_ms = runtime_ms(evt);
+	printf("evt %s: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+		event_name, evt_ms, nels/evt_ms/1.0e6, preferred_wg_size/evt_ms/1.0e6);
 }
 
 bool operator<(const cl_int2& l, const cl_int2& r)
@@ -454,7 +497,7 @@ bool operator<=(const cl_int2& l, const cl_int2& r){ return !(l > r); }
 bool operator>=(const cl_int2& l, const cl_int2& r){ return !(l < r); }
 
 void verify() {
-	//Ciclare su ordered_metrics e verificare che siano ordinati
+	//scandire ordered_metrics e verificare che sia ordinati
 	for (int i = 0; i < DAG->len - 1; ++i) {
 		if(ordered_metrics[i] < ordered_metrics[i+1]){
 			fprintf(stderr, "ordered_metrics[%d] = (%d, %d) < ordered_metrics[%d] = (%d, %d)\n", i, ordered_metrics[i].x, ordered_metrics[i].y, i+1, ordered_metrics[i+1].x, ordered_metrics[i+1].y);

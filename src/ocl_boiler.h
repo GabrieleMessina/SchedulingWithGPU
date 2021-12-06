@@ -76,6 +76,14 @@ void CheckCLError(cl_int err, const char *msg, ...){
 	}
 }
 
+char platform_name[BUFSIZE];
+int platform_number = 0;
+
+char* getSelectedPlatformInfo(int &platform_number_out){
+	platform_number_out = platform_number;
+	return platform_name;
+}
+
 // Return the ID of the platform specified in the OCL_PLATFORM
 // environment variable (or the first one if none specified)
 cl_platform_id select_platform() {
@@ -98,25 +106,30 @@ cl_platform_id select_platform() {
 	const char * const env = fgets(buff, 2, config);
 	fclose(config);
 
-	int nump = 0;
-	if(buff && buff[0] != '\0')nump = atoi(buff);
+	if(buff && buff[0] != '\0')platform_number = atoi(buff);
 
-	if (nump >= nplats) {
-		fprintf(stderr, "no platform number %u", nump);
+	if (platform_number >= nplats) {
+		fprintf(stderr, "no platform number %u", platform_number);
 		exit(1);
 	}
 
-	cl_platform_id choice = plats[nump];
-
-	char buffer[BUFSIZE];
+	cl_platform_id choice = plats[platform_number];
 
 	err = clGetPlatformInfo(choice, CL_PLATFORM_NAME, BUFSIZE,
-		buffer, NULL);
+		platform_name, NULL);
 	ocl_check(err, "getting platform name");
 
-	printf("selected platform %d: %s\n", nump, buffer);
+	printf("selected platform %d: %s\n", platform_number, platform_name);
 
 	return choice;
+}
+
+char device_name[BUFSIZE];
+int device_number = 0;
+
+char* getSelectedDeviceInfo(int &device_number_out){
+	device_number_out = device_number;
+	return device_name;
 }
 
 // Return the ID of the device (of the given platform p) specified in the
@@ -127,9 +140,9 @@ cl_device_id select_device(cl_platform_id p)
 	cl_int err;
 	cl_device_id *devs;
 	const char * const env = getenv("OCL_DEVICE");
-	cl_uint numd = 0;
+	cl_uint device_number = 0;
 	if (env && env[0] != '\0')
-		numd = atoi(env);
+		device_number = atoi(env);
 
 	err = clGetDeviceIDs(p, CL_DEVICE_TYPE_ALL, 0, NULL, &ndevs);
 	ocl_check(err, "counting devices");
@@ -141,20 +154,18 @@ cl_device_id select_device(cl_platform_id p)
 	err = clGetDeviceIDs(p, CL_DEVICE_TYPE_ALL, ndevs, devs, NULL);
 	ocl_check(err, "devices #2");
 
-	if (numd >= ndevs) {
-		fprintf(stderr, "no device number %u", numd);
+	if (device_number >= ndevs) {
+		fprintf(stderr, "no device number %u", device_number);
 		exit(1);
 	}
 
-	cl_device_id choice = devs[numd];
-
-	char buffer[BUFSIZE];
+	cl_device_id choice = devs[device_number];
 
 	err = clGetDeviceInfo(choice, CL_DEVICE_NAME, BUFSIZE,
-		buffer, NULL);
+		device_name, NULL);
 	ocl_check(err, "device name");
 
-	printf("selected device %d: %s\n", numd, buffer);
+	printf("selected device %d: %s\n", device_number, device_name);
 
 	return choice;
 }
@@ -247,7 +258,7 @@ size_t get_preferred_work_group_size_multiple(cl_kernel k, cl_command_queue q)
 }
 
 // Runtime of an event, in nanoseconds. Note that if NS is the
-// runtimen of an event in nanoseconds and NB is the number of byte
+// runtime of an event in nanoseconds and NB is the number of byte
 // read and written during the event, NB/NS is the effective bandwidth
 // expressed in GB/s
 cl_ulong runtime_ns(cl_event evt)
