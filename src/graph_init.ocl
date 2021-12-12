@@ -20,7 +20,7 @@ kernel void entry_discover(const int n_nodes, global bool * restrict edges, vola
 {
 	int i = get_global_id(0);
 	if(i >= n_nodes) return;
-	
+
 	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
 
 	for(int j=0; j<n_nodes; j++){
@@ -29,7 +29,7 @@ kernel void entry_discover(const int n_nodes, global bool * restrict edges, vola
 		}
 	}
 
-	entries[i] = i;
+	entries[i] = 1;
 
 	//int old_n_entries = atomic_inc(n_entries);  //incremento il puntatore alla lista di entries per essere sicuro che nessuno scriva in quella posizione.
 	//atomic_xchg(&entries[old_n_entries], i); //essendo sicuro che la posizione non è stata scritta inserisco il mio dato senza paura di sovrascrivere qualcosa.
@@ -38,7 +38,54 @@ kernel void entry_discover(const int n_nodes, global bool * restrict edges, vola
 }
 
 
-kernel void compute_metrics(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+{
+	int i = get_global_id(0);
+	int current_node_index = i;
+	if(i >= n_nodes){
+		return;
+	} 
+
+	if(queue_[current_node_index] <= 0)return;
+	//se sono stato messo in coda un numero di volte pari al numero dei miei parent, allora posso proseguire, altrimenti non faccio nulla.
+	//in particolare proseguire significa calcolare la metrica dai miei parent scegliendo quella più pesante e mettere in coda i miei figli.
+
+	//per controllare di essere stato messo in coda un numero sufficiente di volte, l'int2 delle metriche viene inizializzato con il numero dei parent nella y.
+	//in questo modo ogni volta che il nodo viene messo in coda può decrementare il suo y fino a quando non diventa 0, a qual punto può procedere al calcolo del rank.
+	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
+	metriche[i].y = metriche[i].y - queue_[current_node_index];
+	queue_[current_node_index]  = 0;
+	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
+	if(metriche[i].y > 0)return;
+	metriche[current_node_index] = (int2)(nodes[current_node_index],0);
+	//calcolo il livello del nodo attuale e il suo rank a partire dai parent
+	int2 metrics_with_this_parent;
+	for(int parent = 0; parent<n_nodes; parent++){
+		int edge_weight = edges[matrix_to_array_indexes(parent, i, n_nodes)]; //controllo tutti i parent di current_node
+		if(edge_weight > 0){
+			int weight_with_this_parent = edge_weight + metriche[parent].x + nodes[current_node_index];
+			int level_with_this_parent = metriche[parent].y+1;
+			metrics_with_this_parent = (int2)(weight_with_this_parent, level_with_this_parent);
+			if(gt(metrics_with_this_parent, metriche[current_node_index]))//prendo il maggiore peso peggiore che il nodo ottiene con i suoi parent.
+				metriche[current_node_index] = metrics_with_this_parent;
+		}
+	}
+
+	for(int j=0; j<n_nodes; j++){
+		int adiacent = edges[matrix_to_array_indexes(current_node_index, j, n_nodes)];
+		if(adiacent > 0){
+			atomic_inc(&next_queue_[j]);
+		}
+	}
+}
+
+/**
+ * In questa implementazione l'idea è simile ad una ricerca in ampiezza.
+ * Per ogni nodo si calcola il suo peso e si aggiungono i suoi figli alla coda.
+ * Il problema di questa implementazione è che ogni nodo viene aggiunto alla coda molte volte e quindi questo algoritmo viene ripetuto molte volte per ogni nodo.
+ * Questo impiegava circa due secondi per 2048 elementi, l'implementazione successiva mezzo secondo.
+ */
+kernel void compute_metrics_first_implementation(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	//TODO: queue count non più necessario, ma forse nex_queue_count necessario per capire se ho finito di calcolare tutte le metriche o se devo ciclare ancora.
 
@@ -91,16 +138,6 @@ kernel void compute_metrics(global int * restrict nodes, global int *queue_, glo
 
 	//printf("work item: (%d), dimensione code: (%d, %d), nodo: (%d, %d), nuova metrica: (%d, %d).\n", i, *queue_count, *next_queue_count, current_node_index, nodes[current_node_index], metriche[current_node_index].x, metriche[current_node_index].y);
 }
-
-
-
-kernel void schedule_on_processor /*sort_the_tasks*/(const int n_nodes, const int n_processors, global int * restrict nodes, global int * restrict edges)
-{
-	
-}
-
-
-
 
 // Comincio la BFS.
 

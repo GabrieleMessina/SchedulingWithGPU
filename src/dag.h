@@ -64,7 +64,8 @@ template<class T> class Queue{
 /* IMPLEMENTAZIONE DELLA DAG (DIRECT ACYCLIC GRAPH)*/
 template<class T> class Graph{
 	public:
-	int len, adj_len, n, m; //lunghezza, numero di nodi, numero di archi
+	//lunghezza approssimata ad un numero comodo, superficie della matrice, numero reale di nodi(minore di len che è approssimato) ,numero di archi
+	int len, adj_len, n, m; 
 	T *nodes;
 	bool *adj; //TODO: adj potrebbe già essere un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 	//int *color, *p, *d, *f; //colore node, predecessore, distanza o inizio visita, fine visisita
@@ -219,6 +220,11 @@ template<class T> class Graph{
 	}
 };
 
+size_t round_to_mul_up(size_t gws, size_t lws)
+{
+	return ((gws + lws - 1)/lws)*lws;
+}
+
 
 Graph<int>* initDagWithDataSet(string dataset_file_name){
 	ifstream data_set;
@@ -234,7 +240,7 @@ Graph<int>* initDagWithDataSet(string dataset_file_name){
 	
 	int n_nodes = 0;
 	data_set >> n_nodes;
-		
+
 	Graph<int> *DAG = new Graph<int>(n_nodes);
 	if (!DAG) {
 		data_set.close();
@@ -245,7 +251,7 @@ Graph<int>* initDagWithDataSet(string dataset_file_name){
 	//leggo tutti gli id in prima posizione in modo da creare la dag senza adj per il momento.
 	int value, n_successor, successor_index, data_transfer;
 	while(data_set >> value >> n_successor){
-		int index = DAG->insertNode(value);
+		int current_node_index = DAG->insertNode(value);
 		for (int i = 0; i < n_successor; i++)
 		{
 			data_set>>successor_index>>data_transfer;
@@ -257,15 +263,29 @@ Graph<int>* initDagWithDataSet(string dataset_file_name){
 	data_set >> n_nodes;
 
 	//adesso leggo di nuovo per creare la adj
-
+	int current_node_index = 0;
 	while(data_set >> value >> n_successor){
 		for (int i = 0; i < n_successor; i++)
 		{
 			data_set>>successor_index>>data_transfer;
-			DAG->insertEdgeByIndex(DAG->indexOfNode(value), successor_index, 1/*data_transfer*/); //TODO: al momento assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
+			if(successor_index <= current_node_index) {
+				cerr<<"si sta tentando di aggiungere un arco che potrebbe causare un loop e rendere quindi il grafico ciclico"<<endl;
+				continue;
+			}
+			//questo è più veloce perché crea meno nodi in quanto nodi con lo stesso peso vengono considerati lo stesso nodo: DAG->insertEdgeByIndex(DAG->indexOfNode(value), successor_index, 1/*data_transfer*/); //assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
+			DAG->insertEdgeByIndex(current_node_index, successor_index, 1/*data_transfer*/); //assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
 		}
+		current_node_index++;
 	}
-	//TODO: e se mantenessi in memoria una matrice quadrata con tutti questi dati in fila per ogni task? IN modo da avere coalescenza?
+
+	cout<<"#edge:"<<DAG->m<<endl;
+
+	//padding per convenienza
+	while (current_node_index < n_nodes)
+	{
+		DAG->insertNode(-1);
+		current_node_index++;
+	}
 
 	data_set.close();
 	return DAG;	

@@ -15,13 +15,20 @@ void print(T *v, int len, string separator = " ", bool withIndexes = false){
 
 
 template<typename T>
-bool isEmpty(T *v, int len, T default = 0){
+bool isEmpty(T *v, int len, T default_v = 0){
+	return howManyGreater(v, len, default_v) == 0;
+}
+
+template<typename T>
+int howManyGreater(T *v, int len, T default_v = 0){
+	int elements = 0;
 	for (int i = 0; i < len; i++)
 	{
-		if(v[i] > default)
-			return false;
+		if(v[i] > default_v)
+			elements++;
 	}
-	return true;
+	//cout<<"in coda ci sono: "<<elements<<" elementi\n";
+	return elements;
 }
 
 template<typename T>

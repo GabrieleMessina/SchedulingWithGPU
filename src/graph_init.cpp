@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <fstream>
-#include <vector>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -9,8 +9,6 @@
 #include <ctime>   
 #include "dag.h"
 #include "utils/print_stuff.h"
-
-#include <math.h>
 #define CL_TARGET_OPENCL_VERSION 120
 #include "ocl_boiler.h"
 
@@ -25,7 +23,7 @@ void error(char const *str)
 cl_context ctx;
 cl_command_queue que;
 cl_int err;
-cl_kernel entry_discover_k, compute_metrics_k, /*sort_task_k,*/ m_MergesortGlobalBigKernel, m_MergesortGlobalSmallKernel, m_MergesortStartKernel;
+cl_kernel entry_discover_k, compute_metrics_k, m_MergesortGlobalBigKernel, m_MergesortGlobalSmallKernel, m_MergesortStartKernel;
 void ocl_init(char *progName, char *kernelNameEntryDiscover, char *kernelNameComputeMetrics);
 size_t preferred_wg_size;
 
@@ -33,7 +31,7 @@ Graph<int> *DAG;
 Graph<int>* initDagWithDataSet(string fileName);
 
 
-void measurePerformance(cl_event entry_discover_evt,cl_event compute_metrics_evt, cl_event sort_task_evt, int nels);
+void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_evt, cl_event *sort_task_evts, int nels);
 void measurePerformance(cl_event evt, int nels, string event_name);
 void verify();
 
@@ -42,7 +40,8 @@ size_t m_N_padded;
 cl_event _entry_discover(int n_nodes, cl_mem graph_edges_GPU, cl_mem n_entrypoints_GPU, cl_mem entrypoints_GPU)
 {
 	int arg_index = 0;
-	size_t gws[] = { n_nodes }; //TODO: round mul up
+	const size_t lws[] = { preferred_wg_size };
+	const size_t gws[] = { round_mul_up(n_nodes, lws[0]) };
 
 	cl_int err;
 	err = clSetKernelArg(entry_discover_k, arg_index++, sizeof(n_nodes), &n_nodes);
@@ -56,7 +55,7 @@ cl_event _entry_discover(int n_nodes, cl_mem graph_edges_GPU, cl_mem n_entrypoin
 
 	cl_event entry_discover_evt;
 	err = clEnqueueNDRangeKernel(que, entry_discover_k,
-		1, NULL, gws, NULL,
+		1, NULL, gws, lws,
 		0, NULL, &entry_discover_evt);
 
 	ocl_check(err, "enqueue entry_discover");
@@ -75,7 +74,7 @@ cl_event entry_discover(){
 	size_t edges_memsize = n_nodes*n_nodes*sizeof(bool);
 
 	int *n_entrypoints = new int(0);
-	entrypoints = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) entrypoints[i] = -1;
+	entrypoints = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) entrypoints[i] = 0;
 	size_t entrypoints_memsize = n_nodes*sizeof(int);
 
 	//CREO MEMORIA BUFFER IN GPU
@@ -125,10 +124,8 @@ cl_event _compute_metrics(cl_mem graph_nodes_GPU, cl_mem queue_GPU, cl_mem next_
 {
 	int arg_index = 0;
 	int const n_nodes = DAG->len;
-	//size_t lws[] = { n_nodes * 2 }; //number of work item to launch in the same work group, that means they are garanted to be executed at the same time.
-	//size_t gws[] = {GetGlobalWorkSize(n_nodes, lws[0])}; //total work item to launch.
-	const size_t gws[] = { n_nodes }; //TODO: round mul up
-	//const size_t gws[] = { round_mul_up(n_nodes, preferred_wg_size) };
+	const size_t lws[] = { preferred_wg_size };
+	const size_t gws[] = { round_mul_up(n_nodes, lws[0]) };
 
 	cl_int err;
 	err = clSetKernelArg(compute_metrics_k, arg_index++, sizeof(graph_nodes_GPU), &graph_nodes_GPU);
@@ -146,7 +143,7 @@ cl_event _compute_metrics(cl_mem graph_nodes_GPU, cl_mem queue_GPU, cl_mem next_
 
 	cl_event compute_metrics_evt;
 	err = clEnqueueNDRangeKernel(que, compute_metrics_k,
-		1, NULL, gws, NULL,
+		1, NULL, gws, lws,
 		0, NULL, &compute_metrics_evt);
 
 	ocl_check(err, "enqueue compute_metrics");
@@ -161,21 +158,29 @@ cl_int2 *metrics, *ordered_metrics;
 //CREO MEMORIA BUFFER IN GPU
 cl_mem graph_nodes_GPU, queue_GPU, queue_count_GPU, next_queue_GPU, next_queue_count_GPU, metrics_GPU, ordered_metrics_GPU;
 
-cl_event compute_metrics(){
+cl_event* compute_metrics(){
 	int const n_nodes = DAG->len;
-	const int metrics_len = m_N_padded;
+	const int metrics_len = m_N_padded; //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	queue = entrypoints;
-	next_queue = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = -1;
+	next_queue = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
 	nodes_memsize = n_nodes*sizeof(int);
 	queue_memsize = n_nodes*sizeof(int);
 	edges_memsize = n_nodes*n_nodes*sizeof(bool);
 	metrics_memsize = metrics_len*sizeof(cl_int2);
 
 	//Creo e inizializzo memoria host e device per array che conterrà le metriche.
+	//le metriche vengono inizializzate con il numero di parent in y per necessità del kernel.
 	if(metrics_len < (DAG->len)) error("array metrics più piccolo di nodes array");
-	metrics = new cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) { metrics[i].x = i; metrics[i].y = 0; }
+	metrics = new cl_int2[metrics_len]; 
+	for (int i = 0; i < metrics_len; i++) { 
+		metrics[i].x = 0; metrics[i].y = 0; 
+		if(i > n_nodes) continue;
+		for (int j = 0; j < n_nodes; j++) {
+			int parent_of_node = DAG->adj[matrix_to_array_indexes(j, i, n_nodes)];
+			if(parent_of_node > 0) metrics[i].y++;
+		}
+	}
 	
-
 	//CREO MEMORIA BUFFER IN GPU
 	graph_nodes_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nodes_memsize, NULL, &err);
 	ocl_check(err, "create buffer graph_nodes_GPU");
@@ -185,7 +190,6 @@ cl_event compute_metrics(){
 	ocl_check(err, "create buffer next_queue_GPU");
 	metrics_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, metrics_memsize, NULL, &err);
 	ocl_check(err, "create buffer metrics_GPU");
-
 	//PASSARE I DATI DELLA DAG ALLA GPU 
 	cl_event write_nodes_evt, write_queue_evt, write_next_queue_evt, write_edges_evt,  write_metrics_evt, write_visited_evt;
 	err = clEnqueueWriteBuffer(que, graph_nodes_GPU, CL_TRUE,
@@ -210,17 +214,20 @@ cl_event compute_metrics(){
 	ocl_check(err, "write into metrics_GPU");
 	//graph_edges_GPU già dichiarato al passo precedente, non duplico.
 
-	cl_event compute_metrics_evt = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
-	
+	howManyGreater(queue, n_nodes, 0);
+
+	cl_event compute_metrics_evt_start, compute_metrics_evt_end;
+	compute_metrics_evt_end = compute_metrics_evt_start = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
 	//se non vogliamo farlo ad ogni ciclo, dovremmo mantenere un bool nel kernel che viene settato a true appena qualcuno scrive in next_queue, quindi invece di tutto next_queue possiamo leggere ad ogni ciclo solo il bit.
 	cl_event read_next_queue_evt, read_metrics_evt;
-	err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt, &read_next_queue_evt);
+	err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt_start, &read_next_queue_evt);
 	ocl_check(err, "read buffer next_queue_GPU");
-
-	while(!isEmpty(next_queue, n_nodes, -1)) {
+	
+	int count = 1;
+	while(!isEmpty(next_queue, n_nodes, 0)) {
 		//scambio le due code e reinizializzo la next_queue in modo da poter essere riutilizzata.
 		queue_GPU = next_queue_GPU;
-		next_queue = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = -1;
+		next_queue = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
 
 		//passo il next_array reinizializzato alla GPU.
 		next_queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
@@ -228,17 +235,19 @@ cl_event compute_metrics(){
 		err = clEnqueueWriteBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue,0, NULL, &write_next_queue_evt);
 		ocl_check(err, "write into next_queue_GPU");
 
-		compute_metrics_evt = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
+		compute_metrics_evt_end = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
 
 		//leggo il nuovo next_array dalla GPU.
-		err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt, &read_next_queue_evt);
+		err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt_end, &read_next_queue_evt);
 		ocl_check(err, "read buffer next_queue_GPU");
+		count++;
 	}
+	cout<<"count:"<<count<<endl; //1278 vs 47
 
 	//PASSA I RISULTATI DALLA GPU ALLA CPU
 	err = clEnqueueReadBuffer(que, metrics_GPU, CL_TRUE,
 		0, metrics_memsize, metrics,
-		1, &compute_metrics_evt, &read_metrics_evt);
+		1, &compute_metrics_evt_end, &read_metrics_evt);
 	ocl_check(err, "read buffer metrics_GPU");
 
 	//PULIZIA FINALE
@@ -250,19 +259,24 @@ cl_event compute_metrics(){
 
 	clReleaseKernel(compute_metrics_k);
 
+	cl_event *compute_metrics_evt = new cl_event[2];
+	compute_metrics_evt[0] = compute_metrics_evt_start;
+	compute_metrics_evt[1] = compute_metrics_evt_end;
 	return compute_metrics_evt;
 }
 
+int task_event_launched = 0;
 #define MERGESORT_SMALL_STRIDE 1024 
-cl_event Sort_Mergesort()
+cl_event* Sort_Mergesort()
 { 
 	int c = 0;
 	const int metrics_len = m_N_padded;
-	cl_event sort_task_evt;
+	cl_event temp;
+	cl_event *sort_task_evts = new cl_event[32];
+	task_event_launched = 0;
 	cl_context Context = ctx; 
 	cl_command_queue CommandQueue = que;
-	size_t LocalWorkSize[3] = { preferred_wg_size,1,1 }; //TODO:il lws necessita di essere un multiplo di m_N_padded, suppongo a causa dell'implementazione, è un problema?
-	//TODO fix memory problem when many elements. -> CL_OUT_OF_RESOURCES
+	size_t LocalWorkSize[3] = { preferred_wg_size,1,1 }; 
 	size_t globalWorkSize[1];
 	size_t localWorkSize[1];
 
@@ -281,6 +295,20 @@ cl_event Sort_Mergesort()
 	globalWorkSize[0] = GetGlobalWorkSize(m_N_padded/2, localWorkSize[0]);
 	unsigned int locLimit = 1;
 
+	// if (m_N_padded >= LocalWorkSize[0] * 2) {
+	// 	locLimit = 2 * LocalWorkSize[0];
+
+	// 	// start with a local variant first, ASSUMING we have more than localWorkSize[0] * 2 elements
+	// 	err = clSetKernelArg(m_MergesortStartKernel, 0, sizeof(cl_mem), (void*)&metrics_GPU);
+	// 	err |= clSetKernelArg(m_MergesortStartKernel, 1, sizeof(cl_mem), (void*)&ordered_metrics_GPU);
+	// 	ocl_check(err, "Failed to set kernel args: MergeSortStart");
+
+	// 	err = clEnqueueNDRangeKernel(CommandQueue, m_MergesortStartKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &sort_task_evts[task_event_launched++]);
+	// 	ocl_check(err, "Error executing MergeSortStart kernel!");
+
+	// 	swap(metrics_GPU, ordered_metrics_GPU);
+	// }
+
 	// proceed with the global variant
 	unsigned int stride = 2 * locLimit;
 	if (m_N_padded <= MERGESORT_SMALL_STRIDE) {
@@ -290,7 +318,7 @@ cl_event Sort_Mergesort()
 		err = clSetKernelArg(m_MergesortGlobalSmallKernel, 3, sizeof(cl_uint), (void*)&m_N_padded);
 		ocl_check(err, "Failed to set kernel args: MergeSortGlobal");
 
-		for (; stride <= m_N_padded; stride <<= 1) { // crea i branch per il merge sort.
+		for (; stride <= m_N_padded; stride <<= 1 /*stride x 2*/) { // crea i branch per il merge sort.
 			//calculate work sizes
 			size_t neededWorkers = m_N_padded / stride;
 
@@ -302,7 +330,7 @@ cl_event Sort_Mergesort()
 			err |= clSetKernelArg(m_MergesortGlobalSmallKernel, 2, sizeof(cl_uint), (void*)&stride);
 			ocl_check(err, "Failed to set kernel args: m_MergesortGlobalSmallKernel");
 
-			err = clEnqueueNDRangeKernel(CommandQueue, m_MergesortGlobalSmallKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &sort_task_evt);
+			err = clEnqueueNDRangeKernel(CommandQueue, m_MergesortGlobalSmallKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &sort_task_evts[task_event_launched++]);
 			ocl_check(err, "Error executing kernel m_MergesortGlobalSmallKernel! - %d, %d", localWorkSize[0], globalWorkSize[0]);
 
 			swap(metrics_GPU, ordered_metrics_GPU);
@@ -326,7 +354,7 @@ cl_event Sort_Mergesort()
 			err |= clSetKernelArg(m_MergesortGlobalBigKernel, 2, sizeof(cl_uint), (void*)&stride);
 			ocl_check(err, "Failed to set kernel args: m_MergesortGlobalBigKernel");
 
-			err = clEnqueueNDRangeKernel(CommandQueue, m_MergesortGlobalBigKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &sort_task_evt);
+			err = clEnqueueNDRangeKernel(CommandQueue, m_MergesortGlobalBigKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &sort_task_evts[task_event_launched++]);
 			ocl_check(err, "Error executing kernel m_MergesortGlobalBigKernel!");
 
 			//TODO: check this if
@@ -338,7 +366,7 @@ cl_event Sort_Mergesort()
 	cl_event read_sorted_metrics_evt;
 	err = clEnqueueReadBuffer(que, metrics_GPU, CL_TRUE, //turns out this is the right array to read from because the other one is missing the last step of course...
 		0, metrics_memsize, ordered_metrics,
-		1, &sort_task_evt, &read_sorted_metrics_evt);
+		1, &sort_task_evts[task_event_launched-1], &read_sorted_metrics_evt);
 	ocl_check(err, "read buffer ordered_metrics_GPU");
 
 	clReleaseMemObject(metrics_GPU);
@@ -347,7 +375,7 @@ cl_event Sort_Mergesort()
 	clReleaseKernel(m_MergesortGlobalSmallKernel);
 	clReleaseKernel(m_MergesortGlobalBigKernel);
 
-	return sort_task_evt;
+	return sort_task_evts;
 }
 
 std::chrono::system_clock::time_point start_time;
@@ -366,38 +394,39 @@ int main(int argc, char *argv[])
 
 	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
 	DAG = initDagWithDataSet(argv[1]);
-	printf("DAG initialized\n");
-	m_N_padded = round_mul_up(DAG->len,2);
+	m_N_padded = pow(2, ceil(log(DAG->len)/log(2))); //padded to the next power of 2
+
+	//printf("DAG initialized\n");
 	//DAG->Print();
 	//cout<<"\n";
-	//print(DAG->adj, DAG->n, DAG->n, ", ");
+	//print(DAG->adj, DAG->len, DAG->len, ", ");
 	
 	cl_event entry_discover_evt = entry_discover();
 	printf("entries discovered\n");
-	// cout<<"entrypoints: "<<n_entries<<endl;
-	// print(entrypoints, DAG->n, ", ", true);
-	// cout<<"\n";
+	//cout<<"entrypoints: "<<n_entries<<endl;
+	//print(entrypoints, DAG->len, ", ", true);
+	//cout<<"\n";
 
 	const int metrics_len = m_N_padded;
-	cl_event compute_metrics_evt = compute_metrics();
+	cl_event *compute_metrics_evt = compute_metrics();
 	printf("metrics computed\n");
 
 	//cout<<"metrics: "<<metrics_len<<endl;
-	//print(metrics, DAG->n, "\n", true);
+	//print(metrics, DAG->len, "\n", true);
 	//cout<<"\n";
 
-	cl_event sort_task_evt = Sort_Mergesort();	
+	cl_event *sort_task_evts = Sort_Mergesort();	
 	printf("array sorted\n");
 
 	//cout<<"sorted: "<<endl;
-	//print(ordered_metrics, metrics_len);
-	//print(ordered_metrics, metrics_len, "\n");
+	//print(ordered_metrics, DAG->len, "\n", true);
+	//print(ordered_metrics, metrics_len, "\n"); //per vedere anche i dati aggiunti per padding
 	//cout<<"\n";
 	
 	end_time = std::chrono::system_clock::now();
 
 	//METRICHE
-	measurePerformance(entry_discover_evt, sort_task_evt,entry_discover_evt, DAG->len);
+	measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, DAG->len);
 	//VERIFICA DELLA CORRETTEZZA
 	verify();
 
@@ -427,8 +456,6 @@ void ocl_init(char* progName, char* kernelNameEntryDiscover, char *kernelNameCom
 	ocl_check(err, "create kernel %s", kernelNameEntryDiscover);
 	compute_metrics_k = clCreateKernel(prog, kernelNameComputeMetrics, &err);
 	ocl_check(err, "create kernel %s", kernelNameComputeMetrics);
-	// sort_task_k = clCreateKernel(prog2, "Sort_MergesortStart", &err);
-	// ocl_check(err, "create kernel %s", "Sort_MergesortStart");
 
 	preferred_wg_size = get_preferred_work_group_size_multiple(compute_metrics_k, que);
 
@@ -440,11 +467,34 @@ void ocl_init(char* progName, char* kernelNameEntryDiscover, char *kernelNameCom
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalBig");
 }
 
+bool is_file_empty(FILE *fp){
+	fseek (fp, 0, SEEK_END);
+	int size = ftell(fp);	
+	rewind(fp);
+	return size == 0;
+}
 
-void measurePerformance(cl_event entry_discover_evt,cl_event compute_metrics_evt, cl_event sort_task_evt, int nels){
+std::string exec(const char* cmd) {
+    char buffer[128];
+    std::string result = "";
+    FILE* pipe = _popen(cmd, "r");
+    if (!pipe) throw std::runtime_error("popen() failed!");
+    try {
+        while (fgets(buffer, sizeof buffer, pipe) != NULL) {
+            result += buffer;
+        }
+    } catch (...) {
+        _pclose(pipe);
+        throw;
+    }
+    _pclose(pipe);
+    return result;
+}
+
+void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_evt, cl_event *sort_task_evts, int nels){
 	double runtime_discover_ms = runtime_ms(entry_discover_evt);
-	double runtime_metrics_ms = runtime_ms(compute_metrics_evt);
-	double runtime_sorts_ms = runtime_ms(sort_task_evt);
+	double runtime_metrics_ms = total_runtime_ms(compute_metrics_evt[0], compute_metrics_evt[1]);
+	double runtime_sorts_ms =  total_runtime_ms(sort_task_evts[0], sort_task_evts[task_event_launched-1]);
 
 	//TODO: check the math as algorithms changed
 	printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
@@ -458,23 +508,37 @@ void measurePerformance(cl_event entry_discover_evt,cl_event compute_metrics_evt
 	std::chrono::duration<double> elapsed_seconds = end_time-start_time;
 	char *end_date_time = std::ctime(&end_time_t); end_date_time[strcspn(end_date_time , "\n")] = 0;
 
-	double total_elapsed_time_GPU = total_runtime_ms(entry_discover_evt, sort_task_evt);
+	double total_elapsed_time_GPU = total_runtime_ms(entry_discover_evt, sort_task_evts[task_event_launched-1]);
 	int platform_id = 0;
 	char *platform_name = getSelectedPlatformInfo(platform_id);
 	int device_id = 0;
 	char *device_name = getSelectedDeviceInfo(device_id);
 	
+	int gpu_temperature = -1;
+	string gpu_temperature_string = exec("get_current_gpu_temperature.cmd");
+	if(gpu_temperature_string.length() != 0){
+		size_t start_sub = gpu_temperature_string.find(':')+1, end_sub = gpu_temperature_string.find_last_of('C')-1;
+		gpu_temperature_string = gpu_temperature_string.substr(start_sub, end_sub-start_sub);
+		gpu_temperature = atoi(gpu_temperature_string.c_str());
+	}
+	int cpu_temperature = -1;
+	string cpu_temperature_string = exec("get_current_cpu_temperature.cmd");
+	if(cpu_temperature_string.length() != 0){
+		cpu_temperature = atoi(cpu_temperature_string.c_str());
+	}
 	//stampo i file in un .csv per poter analizzare i dati successivamente.
 	FILE *fp;
-	fp = fopen("execution_results.txt", "a");
+	fp = fopen("execution_results.csv", "a");
 	if (fp == NULL) {
 		printf("Error opening file!\n");
 		exit(1);
 	}
+	if(is_file_empty(fp))
+		fprintf(fp, "DATA, TOTAL RUN SECONDS CPU, TOTAL RUN SECONDS GPU, PLATFORM, DEVICE, DISCOVER ENTRIES RUNTIME MS, COMPUTE METRICS RUNTIME MS, SORT RUNTIME MS, N TASKS, PREFERRED WORK GROUP SIZE, GPU TEMPERATURE, CPU TEMPERATURE\n");
 	
-	fprintf(fp,"%s, %f, %f, %s, %s, %.4g, %.4g, %.4g, %d, %d\n", 
-		end_date_time, elapsed_seconds.count(), total_elapsed_time_GPU, platform_name, device_name, runtime_discover_ms, runtime_metrics_ms, runtime_sorts_ms, nels, preferred_wg_size);
-	
+	fprintf(fp,"%s, %.4g, %.4g, %s, %s, %.4g, %.4g, %.4g, %d, %d, %d, %d\n", 
+	end_date_time, elapsed_seconds.count(), total_elapsed_time_GPU/1000, platform_name, device_name, runtime_discover_ms, runtime_metrics_ms, runtime_sorts_ms, nels, preferred_wg_size, gpu_temperature, cpu_temperature);
+
 	fflush(fp);
 	fclose(fp);
 }
@@ -485,26 +549,26 @@ void measurePerformance(cl_event evt, int nels, string event_name = "event"){
 		event_name, evt_ms, nels/evt_ms/1.0e6, preferred_wg_size/evt_ms/1.0e6);
 }
 
+//Una l è minore di r se hanno lo stesso livello, e l ha peso maggiore o se l ha livello minore di r.
 bool operator<(const cl_int2& l, const cl_int2& r)
 {
     if(l.y == r.y){
-		return l.x < r.x;
+		return l.x > r.x; //peso maggiore
 	}
-	return l.y > r.y;
+	return l.y < r.y; //o livello più basso
 }
 bool operator> (const cl_int2& l, const cl_int2& r){ return (r < l); }
 bool operator<=(const cl_int2& l, const cl_int2& r){ return !(l > r); }
 bool operator>=(const cl_int2& l, const cl_int2& r){ return !(l < r); }
 
 void verify() {
+	//TODO: calcolare le metriche su CPU e verificare che siano identiche a quelle calcolate su GPU;
 	//scandire ordered_metrics e verificare che sia ordinati
 	for (int i = 0; i < DAG->len - 1; ++i) {
-		if(ordered_metrics[i] < ordered_metrics[i+1]){
-			fprintf(stderr, "ordered_metrics[%d] = (%d, %d) < ordered_metrics[%d] = (%d, %d)\n", i, ordered_metrics[i].x, ordered_metrics[i].y, i+1, ordered_metrics[i+1].x, ordered_metrics[i+1].y);
+		if(ordered_metrics[i] > ordered_metrics[i+1]){
+			fprintf(stderr, "ordered_metrics[%d] = (%d, %d) > ordered_metrics[%d] = (%d, %d)\n", i, ordered_metrics[i].x, ordered_metrics[i].y, i+1, ordered_metrics[i+1].x, ordered_metrics[i+1].y);
 			error("mismatch");
 		}
 	}
 	printf("Everything sorted, verified\n");
 }
-
-
