@@ -117,7 +117,7 @@ __kernel void Sort_MergesortGlobalSmall(const __global int2* inArray, __global i
 	local_buffer[baseLocalIndex + 1] = inArray[left];
 
 #pragma unroll
-	for (uint i = baseIndex; i < (baseIndex + stride); i++) {
+	for (uint i = baseIndex; i < (baseIndex + stride); i++) { // per ogni elemento di mia competenza
 		// check which value should be written out
 		local_buffer[baseLocalIndex + (int)selectLeft] = (selectLeft) ? inArray[left] : inArray[right];
 		selectLeft = left < middle && (right == (baseIndex + stride) || lte(local_buffer[baseLocalIndex + 1], local_buffer[baseLocalIndex]));

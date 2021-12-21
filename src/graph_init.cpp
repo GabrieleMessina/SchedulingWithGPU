@@ -8,9 +8,12 @@
 #include <chrono>
 #include <ctime>   
 #include "dag.h"
-#include "utils/print_stuff.h"
 #define CL_TARGET_OPENCL_VERSION 120
 #include "ocl_boiler.h"
+#include "utils/print_stuff.h"
+
+#include "windows.h"
+#include "psapi.h"
 
 using namespace std;
 
@@ -18,6 +21,26 @@ void error(char const *str)
 {
 	fprintf(stderr, "%s\n", str);
 	exit(1);
+}
+
+bool isEmpty(cl_int4 *v, int len, cl_int4 default_v = cl_int4{0,0,0,0}){
+	for (int i = 0; i < len; i++)
+	{
+		if(v[i].s0 != default_v.s0 || v[i].s1 != default_v.s1 || v[i].s2 != default_v.s2 || v[i].s3 != default_v.s3)
+			return false;
+	}
+	return true;
+}
+
+void printInt4(cl_int4 *v, int len, string separator = " ", bool withIndexes = false){
+	for (int i = 0; i < len; i++)
+	{
+		if(withIndexes)
+			cout << i << ":";
+		cout<<"("<<v[i].x<<", "<<v[i].y<<", "<<v[i].z<<", "<<v[i].w<<")"<<separator;
+	}
+	
+	cout<<"\n";
 }
 
 cl_context ctx;
@@ -30,7 +53,7 @@ size_t preferred_wg_size;
 Graph<int> *DAG;
 Graph<int>* initDagWithDataSet(string fileName);
 
-
+void printMemoryUsage();
 void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_evt, cl_event *sort_task_evts, int nels);
 void measurePerformance(cl_event evt, int nels, string event_name);
 void verify();
@@ -151,13 +174,140 @@ cl_event _compute_metrics(cl_mem graph_nodes_GPU, cl_mem queue_GPU, cl_mem next_
 	return compute_metrics_evt;
 }
 
-int *queue_count , *next_queue_count, *queue, *next_queue, *visited;
+int *queue_count , *next_queue_count, *visited;
+cl_int4 *next_queue_4, *queue_4;
 size_t queue_memsize, nodes_memsize, edges_memsize, visited_memsize, metrics_memsize;
 cl_int2 *metrics, *ordered_metrics;
 
 //CREO MEMORIA BUFFER IN GPU
 cl_mem graph_nodes_GPU, queue_GPU, queue_count_GPU, next_queue_GPU, next_queue_count_GPU, metrics_GPU, ordered_metrics_GPU;
 
+cl_event* compute_metrics_int4(){
+	int const n_nodes = DAG->len;
+	int const queue_len = ceil(n_nodes/4.0);
+	const int metrics_len = m_N_padded; //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
+	
+	queue_4 = new cl_int4[queue_len];
+
+
+	for (int i = 0; i < queue_len; i++)
+	{
+		int j = i*4;
+		queue_4[i].x = (j<n_nodes)?entrypoints[j++]:0;
+		queue_4[i].y = (j<n_nodes)?entrypoints[j++]:0;
+		queue_4[i].z = (j<n_nodes)?entrypoints[j++]:0;
+		queue_4[i].w = (j<n_nodes)?entrypoints[j]:0;
+	}
+
+	next_queue_4 = new cl_int4[queue_len]; for (int i = 0; i < queue_len; i++) next_queue_4[i] = cl_int4{0,0,0,0};
+	queue_memsize = queue_len*sizeof(cl_int4);
+	nodes_memsize = n_nodes*sizeof(int);
+	edges_memsize = n_nodes*n_nodes*sizeof(bool);
+	metrics_memsize = metrics_len*sizeof(cl_int2);
+
+	//Creo e inizializzo memoria host e device per array che conterrà le metriche.
+	//le metriche vengono inizializzate con il numero di parent in y per necessità del kernel.
+	if(metrics_len < (DAG->len)) error("array metrics più piccolo di nodes array");
+	metrics = new cl_int2[metrics_len]; 
+	for (int i = 0; i < metrics_len; i++) { 
+		metrics[i].x = 0; metrics[i].y = 0; 
+		if(i > n_nodes) continue;
+		for (int j = 0; j < n_nodes; j++) {
+			int parent_of_node = DAG->adj[matrix_to_array_indexes(j, i, n_nodes)];
+			if(parent_of_node > 0) metrics[i].y++;
+		}
+	}
+	
+	//CREO MEMORIA BUFFER IN GPU
+	graph_nodes_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nodes_memsize, NULL, &err);
+	ocl_check(err, "create buffer graph_nodes_GPU");
+	queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
+	ocl_check(err, "create buffer queue_GPU");
+	next_queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
+	ocl_check(err, "create buffer next_queue_GPU");
+	metrics_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, metrics_memsize, NULL, &err);
+	ocl_check(err, "create buffer metrics_GPU");
+	//PASSARE I DATI DELLA DAG ALLA GPU 
+	cl_event write_nodes_evt, write_queue_evt, write_next_queue_evt, write_edges_evt,  write_metrics_evt, write_visited_evt;
+	err = clEnqueueWriteBuffer(que, graph_nodes_GPU, CL_TRUE,0, nodes_memsize, DAG->nodes,0, NULL, &write_nodes_evt);
+	ocl_check(err, "write dataset nodes into graph_nodes_GPU");
+	err = clEnqueueWriteBuffer(que, queue_GPU, CL_TRUE,0, queue_memsize, queue_4,0, NULL, &write_queue_evt);
+	ocl_check(err, "write into queue_GPU");
+	err = clEnqueueWriteBuffer(que, next_queue_GPU, CL_TRUE,0, queue_memsize, next_queue_4,0, NULL, &write_next_queue_evt);
+	ocl_check(err, "write into next_queue_GPU");
+	err = clEnqueueWriteBuffer(que, metrics_GPU, CL_TRUE,0, metrics_memsize, metrics,0, NULL, &write_metrics_evt);
+	ocl_check(err, "write into metrics_GPU");
+	//graph_edges_GPU già dichiarato al passo precedente, non duplico.
+
+	//howManyGreater(queue_4, queue_len, 0);
+
+	cl_event compute_metrics_evt_start, compute_metrics_evt_end;
+	compute_metrics_evt_end = compute_metrics_evt_start = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
+	//se non vogliamo farlo ad ogni ciclo, dovremmo mantenere un bool nel kernel che viene settato a true appena qualcuno scrive in next_queue, quindi invece di tutto next_queue possiamo leggere ad ogni ciclo solo il bit.
+	cl_event read_next_queue_evt, read_metrics_evt;
+	//printMemoryUsage();
+	err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue_4, 1, &compute_metrics_evt_start, &read_next_queue_evt);
+	ocl_check(err, "read buffer next_queue_GPU 0");
+	//printInt4(next_queue_4, queue_len, "\n", true);
+
+
+	int count = 1;
+
+	//TODO: questo continuo scambiare array giganti tra host e device rende inutile tutto il lavoro, lavorare su buffer condiviso, o spostare questa logica sul kernel.
+	// credo sia possibile spostare questo loop nel kernel aggiungendo una barrier alla fine del ciclo.
+	// potremmo anche avere un work item(quello con id 0 ad esempio) che si occupa di coordinare gli altri se serve.
+	while(!isEmpty(next_queue_4, queue_len, cl_int4{0,0,0,0})) {
+		//scambio le due code e reinizializzo la next_queue in modo da poter essere riutilizzata.
+		//queue_GPU = next_queue_GPU;
+		swap(queue_GPU, next_queue_GPU);
+		swap(queue_4, next_queue_4);
+		for (int i = 0; i < queue_len; i++) next_queue_4[i] = cl_int4{0,0,0,0};
+
+		//passo il next_array reinizializzato alla GPU.
+		//next_queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
+		//ocl_check(err, "create buffer next_queue_GPU");
+		err = clEnqueueWriteBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue_4 ,0, NULL, &write_next_queue_evt);
+		ocl_check(err, "write into next_queue_GPU {0}", count);
+
+		//O(n_nodes); => O(n_nodes^3)
+		compute_metrics_evt_end = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
+
+		//leggo il nuovo next_array dalla GPU.
+		err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue_4, 1, &compute_metrics_evt_end, &read_next_queue_evt);
+		ocl_check(err, "read buffer next_queue_GPU {0}", count);
+
+		//printInt4(next_queue_4, queue_len);
+
+		count++;
+	}
+
+	cout<<"count:"<<count<<endl; //1278 vs 47
+
+	//PASSA I RISULTATI DALLA GPU ALLA CPU
+	err = clEnqueueReadBuffer(que, metrics_GPU, CL_TRUE,
+		0, metrics_memsize, metrics,
+		1, &compute_metrics_evt_end, &read_metrics_evt);
+	ocl_check(err, "read buffer metrics_GPU");
+
+	//PULIZIA FINALE
+	clReleaseMemObject(queue_GPU);
+	clReleaseMemObject(queue_count_GPU);
+	clReleaseMemObject(next_queue_GPU);
+	clReleaseMemObject(next_queue_count_GPU);
+	clReleaseMemObject(graph_edges_GPU);
+
+	clReleaseKernel(compute_metrics_k);
+
+	// free(queue_4);
+	// free(next_queue_4);
+
+	cl_event *compute_metrics_evt = new cl_event[2];
+	compute_metrics_evt[0] = compute_metrics_evt_start;
+	compute_metrics_evt[1] = compute_metrics_evt_end;
+	return compute_metrics_evt;
+}
+
+int *queue, *next_queue;
 cl_event* compute_metrics(){
 	int const n_nodes = DAG->len;
 	const int metrics_len = m_N_padded; //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -223,25 +373,54 @@ cl_event* compute_metrics(){
 	err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt_start, &read_next_queue_evt);
 	ocl_check(err, "read buffer next_queue_GPU");
 	
+
 	int count = 1;
+	// COMPUTE_METRICS_SECOND_IMPLEMENTATION
+	// while(!isEmpty(next_queue, n_nodes, 0)) {
+	// 	//scambio le due code e reinizializzo la next_queue in modo da poter essere riutilizzata.
+	// 	queue_GPU = next_queue_GPU;
+	// 	free(next_queue);
+	// 	next_queue = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
+
+	// 	//passo il next_array reinizializzato alla GPU.
+	// 	clReleaseMemObject(next_queue_GPU);
+	// 	next_queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
+	// 	ocl_check(err, "create buffer next_queue_GPU");
+	// 	err = clEnqueueWriteBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue,0, NULL, &write_next_queue_evt);
+	// 	ocl_check(err, "write into next_queue_GPU");
+
+	// 	compute_metrics_evt_end = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
+
+	// 	//leggo il nuovo next_array dalla GPU.
+	// 	err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt_end, &read_next_queue_evt);
+	// 	ocl_check(err, "read buffer next_queue_GPU");
+	// 	count++;
+	// }
+
+	// O(n_nodes^2) 
 	while(!isEmpty(next_queue, n_nodes, 0)) {
 		//scambio le due code e reinizializzo la next_queue in modo da poter essere riutilizzata.
-		queue_GPU = next_queue_GPU;
-		next_queue = new int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
+		//queue_GPU = next_queue_GPU;
+		swap(queue_GPU, next_queue_GPU);
+		swap(queue, next_queue);
+		for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
 
 		//passo il next_array reinizializzato alla GPU.
-		next_queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
-		ocl_check(err, "create buffer next_queue_GPU");
+		//next_queue_GPU = clCreateBuffer(ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
+		//ocl_check(err, "create buffer next_queue_GPU");
 		err = clEnqueueWriteBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue,0, NULL, &write_next_queue_evt);
 		ocl_check(err, "write into next_queue_GPU");
 
+		//O(n_nodes); => O(n_nodes^3)
 		compute_metrics_evt_end = _compute_metrics(graph_nodes_GPU, queue_GPU, next_queue_GPU, graph_edges_GPU, metrics_GPU);
 
 		//leggo il nuovo next_array dalla GPU.
 		err = clEnqueueReadBuffer(que, next_queue_GPU, CL_TRUE, 0, queue_memsize, next_queue, 1, &compute_metrics_evt_end, &read_next_queue_evt);
 		ocl_check(err, "read buffer next_queue_GPU");
+
 		count++;
 	}
+
 	cout<<"count:"<<count<<endl; //1278 vs 47
 
 	//PASSA I RISULTATI DALLA GPU ALLA CPU
@@ -258,6 +437,10 @@ cl_event* compute_metrics(){
 	clReleaseMemObject(graph_edges_GPU);
 
 	clReleaseKernel(compute_metrics_k);
+
+	//free(entrypoints); //non necessario perché uno dei due fra queue e next_queue punta a entrypoints, facendo quindi il free di quei due viene liberato automaticamente anche questo.
+	// free(queue);
+	// free(next_queue);
 
 	cl_event *compute_metrics_evt = new cl_event[2];
 	compute_metrics_evt[0] = compute_metrics_evt_start;
@@ -378,20 +561,35 @@ cl_event* Sort_Mergesort()
 	return sort_task_evts;
 }
 
+
+
+  /*************************************************/
+ //-----------------------------------------------//
+//-----------------------------------------------//
+
 std::chrono::system_clock::time_point start_time;
 std::chrono::system_clock::time_point end_time;
+
+bool isVector4Version = false;
 
 int main(int argc, char *argv[])
 {
 
-	if (argc != 2) {
-		error("syntax: graph_init datasetName");
+	if (argc < 2) {
+		error("syntax: graph_init datasetName [vector4 version (false)]");
+	}else{
+		if(argc > 2)isVector4Version = (strcmp(argv[2],"true") == 0);
 	}
 
 	start_time = std::chrono::system_clock::now();
 
-	ocl_init("./graph_init.ocl","entry_discover", "compute_metrics");
-
+	if(isVector4Version)ocl_init("./graph_init.ocl","entry_discover", "compute_metrics_4");
+	else ocl_init("./graph_init.ocl","entry_discover", "compute_metrics");
+	
+	if(isVector4Version)
+		cout<<"vector4 version"<<endl;
+	else cout<<"standard version"<<endl;
+	
 	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
 	DAG = initDagWithDataSet(argv[1]);
 	m_N_padded = pow(2, ceil(log(DAG->len)/log(2))); //padded to the next power of 2
@@ -408,7 +606,9 @@ int main(int argc, char *argv[])
 	//cout<<"\n";
 
 	const int metrics_len = m_N_padded;
-	cl_event *compute_metrics_evt = compute_metrics();
+	cl_event *compute_metrics_evt;
+	if(isVector4Version) compute_metrics_evt = compute_metrics_int4();
+	else compute_metrics_evt = compute_metrics();
 	printf("metrics computed\n");
 
 	//cout<<"metrics: "<<metrics_len<<endl;
@@ -418,7 +618,7 @@ int main(int argc, char *argv[])
 	cl_event *sort_task_evts = Sort_Mergesort();	
 	printf("array sorted\n");
 
-	//cout<<"sorted: "<<endl;
+	cout<<"sorted: "<<endl;
 	//print(ordered_metrics, DAG->len, "\n", true);
 	//print(ordered_metrics, metrics_len, "\n"); //per vedere anche i dati aggiunti per padding
 	//cout<<"\n";
@@ -432,6 +632,9 @@ int main(int argc, char *argv[])
 
 	//PULIZIA FINALE
 	free(DAG);
+	//free(entrypoints);
+	// free(metrics);
+	// free(ordered_metrics);
 
 	//system("PAUSE");
 }
@@ -539,8 +742,22 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	fprintf(fp,"%s, %.4g, %.4g, %s, %s, %.4g, %.4g, %.4g, %d, %d, %d, %d\n", 
 	end_date_time, elapsed_seconds.count(), total_elapsed_time_GPU/1000, platform_name, device_name, runtime_discover_ms, runtime_metrics_ms, runtime_sorts_ms, nels, preferred_wg_size, gpu_temperature, cpu_temperature);
 
+	printMemoryUsage();
+	
 	fflush(fp);
 	fclose(fp);
+}
+
+void printMemoryUsage(){
+	//virtual memory used by program
+	PROCESS_MEMORY_COUNTERS_EX pmc;
+	GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+	SIZE_T virtualMemUsedByMe = pmc.PrivateUsage; //in bytes
+
+	//ram used by program
+	SIZE_T physMemUsedByMe = pmc.WorkingSetSize; //in bytes
+ 
+	printf("Memory usage: %dMB, %dMB \n", virtualMemUsedByMe / 1000 / 1000, physMemUsedByMe / 1000 / 1000);
 }
 
 void measurePerformance(cl_event evt, int nels, string event_name = "event"){

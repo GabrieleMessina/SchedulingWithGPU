@@ -14,10 +14,16 @@ void print(T *v, int len, string separator = " ", bool withIndexes = false){
 }
 
 
-template<typename T>
-bool isEmpty(T *v, int len, T default_v = 0){
-	return howManyGreater(v, len, default_v) == 0;
+bool isEmpty(int *v, int len, int default_v = 0){
+	for (int i = 0; i < len; i++)
+	{
+		if(v[i] != default_v)
+			return false;
+	}
+	return true;
 }
+
+
 
 template<typename T>
 int howManyGreater(T *v, int len, T default_v = 0){
