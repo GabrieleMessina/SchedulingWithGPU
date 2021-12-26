@@ -15,6 +15,35 @@ int gt (int2 V1, int2 V2){
 	return compare(V1, V2) > 0;
 }
 
+bool isEmpty(int4 *v, int len, int4 default_v, int starting_from){
+	#pragma unroll
+	for (int i = starting_from; i < len; i++)
+	{
+		if(v[i].x != default_v.x || v[i].y != default_v.y || v[i].z != default_v.z || v[i].w != default_v.w){
+			return false;
+		}
+	}
+	return true;
+}
+
+inline void swap(int4 *a, int4 *b) {
+	int4 tmp;
+	tmp = *b;
+	*b = *a;
+	*a = tmp;
+}
+
+void print(int4 *v, int len, bool withIndexes){
+	for (int i = 0; i < len; i++)
+	{
+		if(withIndexes)
+			printf("%d:", i);	
+		printf("{%d,%d,%d,%d} - ", v[i].x, v[i].y, v[i].z, v[i].w);	
+	}
+	
+	printf("\n");
+}
+
 //ricerca delle leaf da cui cominciare la BFS
 kernel void entry_discover(const int n_nodes, global bool * restrict edges, volatile global int *n_entries, global int * entries)
 {
@@ -22,7 +51,7 @@ kernel void entry_discover(const int n_nodes, global bool * restrict edges, vola
 	if(i >= n_nodes) return;
 
 	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
-#pragma unroll
+	#pragma unroll
 	for(int j=0; j<n_nodes; j++){
 		if(edges[matrix_to_array_indexes(j,i,n_nodes)] != 0){ //per cercare le root invece delle leaf invertire i e j
 			return;
@@ -44,6 +73,50 @@ bool isEven(int a){
 bool firstOfFour(int a){
 	return (a%4) == 0;
 }
+kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/);
+
+kernel void compute_metrics_eighth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+{	
+	
+}
+/**
+* Gestisco i singoli work group per evitare i problemi di dead lock della variante precedente.
+*/
+kernel void compute_metrics_seventh(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+{	
+	local bool is_empty;
+	local int4 *local_queue; //TODO: dimensione dinamica basata su work_group_size
+	local int4 *local_next_queue; //TODO: dimensione dinamica basata su work_group_size
+	int work_item = get_global_id(0);
+	int work_item_local_index = get_local_id(0);
+	int work_group_size = get_local_size(0);
+	int work_group = get_group_id(0);
+	int global_queue_size = (int)ceil(n_nodes / 4.0); 
+	int local_queue_size = (int)ceil(global_queue_size / (float)work_group_size); //non è la lunghezza dalla coda globale ma la lunghezza di cui si deve occupare questo work group.
+	// printf("queue_size: %d\n", queue_size);
+
+	async_work_group_copy(local_queue, queue_ + work_group * local_queue_size, local_queue_size, NULL);
+	async_work_group_copy(local_next_queue, next_queue_ + work_group * local_queue_size, local_queue_size, NULL);
+
+	if(work_item >= global_queue_size){
+		return;
+	}
+
+	#pragma unroll
+	do{
+		compute_metrics_item(nodes, queue_, next_queue_, n_nodes, edges, metriche);
+		async_work_group_copy(local_queue, queue_ + work_group * local_queue_size, local_queue_size, NULL);
+		async_work_group_copy(local_next_queue, next_queue_ + work_group * local_queue_size, local_queue_size, NULL);
+		barrier(CLK_GLOBAL_MEM_FENCE); //forse inutile perché la copia è già una barriera.
+		if(work_item == 0){//solo un WI si occupa di invertire le due code.
+			//print(queue_, queue_size, true);
+			swap(local_queue, local_next_queue);
+			for (int i = 0; i < global_queue_size; i++) next_queue_[i] = (int4){0,0,0,0};
+		}
+		if(work_item_local_index == 0) is_empty = isEmpty(local_queue, local_queue_size, (int4){0,0,0,0}, 0);
+		barrier(CLK_GLOBAL_MEM_FENCE);
+	}while(!is_empty);
+}
 
 /**
 * calcolo le metriche prendendo quattro elementi alla volta dalla coda, ma  visto che
@@ -51,7 +124,7 @@ bool firstOfFour(int a){
 * ho reso la coda un array di int4 in modo che l'accesso multiplo sia più efficiente.
 * Risultato: si nota effettivamente un netto miglioramente, credo tuttavia di poter rifinire ancora.
 */
-kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
 	int work_item = get_global_id(0);
 	
@@ -64,7 +137,7 @@ kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queu
 		int node_index = work_item * 4 + i;
 		int node;
 		switch(i){
-			case 0:
+			case 0: //TODO: funziona solo se potenza del due, per n_nodes diversi da problemi.
 				node = queue_[work_item].x; break;
 			case 1:
 				node = queue_[work_item].y; break;
@@ -77,7 +150,6 @@ kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queu
 		if(node <= 0)indexes_to_analyze[i] = 0; //Non è in coda.
 		else {
 			metriche[node_index].y = metriche[node_index].y - node;
-			node = 0; //dovrebbe essere queue_[work_item].qualcosa.
 		}
 
 		if(metriche[node_index].y > 0)indexes_to_analyze[i] = 0; //non ancora tutti i parent sono stati analizzati.
@@ -106,6 +178,120 @@ kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queu
 			int child = j;
 			int adiacent = edges[matrix_to_array_indexes(node_index, child, n_nodes)];
 			if(adiacent > 0){ //TODO: prendi a quattro a quattro.
+				printf("%d parent di %d\n", node_index, child);
+				int globalIndexStart = (int)(floor(j/4.0));
+				//printf("%d parent di %d -> %d\n", node_index, child, globalIndexStart);	
+				volatile global int *four_next_nodes = &(next_queue_[globalIndexStart]);
+				atomic_inc(&(four_next_nodes[j-globalIndexStart*4]));
+			}
+		}
+	}
+}
+
+kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/);
+
+/**
+* Questa volta tutta la logica è implementata su GPU evitando l'overhead del passaggio di dati da host a device e viceversa.
+* Risultato: il codice non funzione perché ci sono workitem che non vengono istanziati e che quindi non calcolano mai il valore della metrica per il loro task,
+* questo perché i WI stanno in attesa continua che la coda sia vuota e non ritornano mai.
+*/
+global bool flipFlop = false;
+kernel void compute_metrics_sixth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+{	
+	int work_item = get_global_id(0);
+	int work_item_local_index = get_local_id(0);
+	int work_group_size = get_local_size(0);
+	int global_queue_size = (int)ceil(n_nodes / 4.0); 
+	int local_queue_size = ceil(global_queue_size / (float)work_group_size); //non è la lunghezza dalla coda globale ma la lunghezza di cui si deve occupare questo work group.
+	// printf("queue_size: %d\n", queue_size);
+	if(work_item >= global_queue_size){
+		return;
+	} 
+
+	//TODO: posso fare swap in local memory? divido la global memory in chank?
+	
+	#pragma unroll
+	do{
+		if(flipFlop) compute_metrics_fifth(nodes, next_queue_, queue_, n_nodes, edges, metriche);
+		else compute_metrics_fifth(nodes, queue_, next_queue_, n_nodes, edges, metriche);
+		barrier(CLK_GLOBAL_MEM_FENCE);
+		if(work_item == 0){//solo un WI si occupa di invertire le due code.
+			//print(queue_, queue_size, true);
+			if(flipFlop) print(next_queue_, global_queue_size, true);
+			else print(queue_, global_queue_size, true);
+			if(flipFlop) for (int i = 0; i < global_queue_size; i++) next_queue_[i] = (int4){0,0,0,0};
+			else for (int i = 0; i < global_queue_size; i++) queue_[i] = (int4){0,0,0,0};
+			flipFlop = !flipFlop;
+		}
+		barrier(CLK_GLOBAL_MEM_FENCE);
+	}while(
+		(flipFlop && !isEmpty(next_queue_, local_queue_size, (int4){0,0,0,0}, 0)) ||
+		(!flipFlop && !isEmpty(queue_, local_queue_size, (int4){0,0,0,0}, 0))
+	);
+}
+
+
+/**
+* calcolo le metriche prendendo quattro elementi alla volta dalla coda, ma  visto che
+* gli esperimenti prendendo a mano più elementi dalla coda hanno peggiorato i tempi di runtime,
+* ho reso la coda un array di int4 in modo che l'accesso multiplo sia più efficiente.
+* Risultato: si nota effettivamente un netto miglioramente, credo tuttavia di poter rifinire ancora.
+*/
+kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+{	
+	int work_item = get_global_id(0);
+	
+	if(work_item >= ceil(n_nodes / 4.0)){
+		return;
+	} 
+	int indexes_to_analyze[4] = {1, 1, 1, 1};
+
+	for(int i=0; i<4; i++){
+		int node_index = work_item * 4 + i;
+		int node;
+		switch(i){
+			case 0: //TODO: funziona solo se potenza del due, per n_nodes diversi da problemi.
+				node = queue_[work_item].x; break;
+			case 1:
+				node = queue_[work_item].y; break;
+			case 2:
+				node = queue_[work_item].z; break;
+			case 3:
+				node = queue_[work_item].w; break;
+			default: break;
+		}
+		if(node <= 0)indexes_to_analyze[i] = 0; //Non è in coda.
+		else {
+			metriche[node_index].y = metriche[node_index].y - node;
+		}
+
+		if(metriche[node_index].y > 0)indexes_to_analyze[i] = 0; //non ancora tutti i parent sono stati analizzati.
+		else metriche[node_index] = (int2)(nodes[node_index],0);
+	}
+
+	if(!indexes_to_analyze[0] && !indexes_to_analyze[1] && !indexes_to_analyze[2] && !indexes_to_analyze[3]) return;
+
+	int2 metrics_with_this_parent_for_left, metrics_with_this_parent_for_right;
+	#pragma unroll
+	for(int i=0; i<4; i++){
+		if(!indexes_to_analyze[i]) continue;
+		#pragma unroll
+		for(int j = 0; j<n_nodes; j++){
+			int parent = j;
+			int node_index = work_item * 4 + i;
+			int edge_weight = edges[matrix_to_array_indexes(parent, node_index, n_nodes)]; //controllo tutti i parent di current_node
+			if(edge_weight > 0){
+				int weight_with_this_parent = edge_weight + metriche[parent].x + nodes[node_index];
+				int level_with_this_parent = metriche[parent].y+1;
+				metrics_with_this_parent_for_left = (int2)(weight_with_this_parent, level_with_this_parent);
+				if(gt(metrics_with_this_parent_for_left, metriche[node_index]))//prendo il maggiore peso peggiore che il nodo ottiene con i suoi parent.
+					metriche[node_index] = metrics_with_this_parent_for_left;
+			}
+
+			int child = j;
+			int adiacent = edges[matrix_to_array_indexes(node_index, child, n_nodes)];
+			if(adiacent > 0){ //TODO: prendi a quattro a quattro.
+				printf("%d parent di %d\n", node_index, child);
 				int globalIndexStart = (int)(floor(j/4.0));
 				//printf("%d parent di %d -> %d\n", node_index, child, globalIndexStart);	
 				volatile global int *four_next_nodes = &(next_queue_[globalIndexStart]);
@@ -325,7 +511,7 @@ kernel void compute_metrics_second(global int * restrict nodes, global int *queu
 	//in questo modo ogni volta che il nodo viene messo in coda può decrementare il suo y fino a quando non diventa 0, a qual punto può procedere al calcolo del rank.
 	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
 	metriche[i].y = metriche[i].y - queue_[current_node_index];
-	queue_[current_node_index]  = 0;
+	queue_[current_node_index]  = 0; //Inutile perchè la queue vine resa next queue che a sua volta viene resettata all fine del ciclo.
 	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
 	if(metriche[i].y > 0)return;
 	metriche[current_node_index] = (int2)(nodes[current_node_index],0);
@@ -424,7 +610,10 @@ kernel void compute_metrics(global int * restrict nodes, global int *queue_, glo
 
 kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {
-	compute_metrics_fifth(nodes, queue_, next_queue_, n_nodes, edges, metriche);
+	
+	compute_metrics_seventh(nodes, queue_, next_queue_, n_nodes, edges, metriche);
+	//compute_metrics_sixth(nodes, queue_, next_queue_, n_nodes, edges, metriche);
+	//compute_metrics_fifth(nodes, queue_, next_queue_, n_nodes, edges, metriche);
 }
 
 

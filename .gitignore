@@ -1,6 +1,8 @@
 ## Project specific file to ignore 
 *log.txt
 .vscode
+src/.vs/**
+build
 
 ##Latex file to ignore
 *.aux
