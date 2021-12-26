@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32014.148
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SchedulingWithGPU", "SchedulingWithGPU.vcxproj", "{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		BigKernelNotVectorized|x86 = BigKernelNotVectorized|x86
+		BigKernelVectorized|x86 = BigKernelVectorized|x86
+		Debug|x86 = Debug|x86
+		SmallKernelNotVectorized|x86 = SmallKernelNotVectorized|x86
+		SmallKernelVectorized|x86 = SmallKernelVectorized|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.BigKernelNotVectorized|x86.ActiveCfg = BigKernelNotVectorized|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.BigKernelNotVectorized|x86.Build.0 = BigKernelNotVectorized|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.BigKernelVectorized|x86.ActiveCfg = BigKernelVectorized|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.BigKernelVectorized|x86.Build.0 = BigKernelVectorized|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.Debug|x86.ActiveCfg = Debug|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.Debug|x86.Build.0 = Debug|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.SmallKernelNotVectorized|x86.ActiveCfg = SmallKernelNotVectorized|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.SmallKernelNotVectorized|x86.Build.0 = SmallKernelNotVectorized|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.SmallKernelVectorized|x86.ActiveCfg = SmallKernelVectorized|Win32
+		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.SmallKernelVectorized|x86.Build.0 = SmallKernelVectorized|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8B64F164-E6D4-4EC4-AEC5-8A8040667231}
+	EndGlobalSection
+EndGlobal
