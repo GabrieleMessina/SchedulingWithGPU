@@ -33,6 +33,20 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, bool vectorized) {
 	return *instance;
 }
 
+OCLBufferManager::~OCLBufferManager() {
+	/*ReleaseGraphEdges();
+	ReleaseNEntrypoints();
+	ReleaseEntrypoints();
+	ReleaseQueue();
+	ReleaseNextQueue();
+	ReleaseMetrics();
+	ReleaseOrderedMetrics();
+	ReleaseNodes();*/
+}
+void OCLBufferManager::Release () {
+	delete instance;
+}
+
 OCLBufferManager *OCLBufferManager::GetInstance() {
 	if (instance != NULL) return instance;
 	error("Attemp to access uninitialized OCLBufferManager");

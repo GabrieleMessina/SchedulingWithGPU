@@ -17,7 +17,10 @@ public:
 	cl_command_queue queue;
 	size_t preferred_wg_size;
 
+	
 	static OCLManager Init(const char* progName, const char* kernelNameEntryDiscover, const char* kernelNameComputeMetrics);
+	static void Release();
+	~OCLManager();
 
 	static OCLManager *GetInstance();
 

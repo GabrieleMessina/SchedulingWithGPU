@@ -31,6 +31,16 @@ OCLManager OCLManager::Init(const char* progName, const char* kernelNameEntryDis
 	return *instance;
 }
 
+OCLManager::~OCLManager() {
+	/*ReleaseEntryDiscoverKernel();
+	ReleaseComputeMetricsKernel();
+	ReleaseSortKernel();*/
+}
+
+void OCLManager::Release() {
+	delete instance;
+}
+
 OCLManager *OCLManager::GetInstance() {
 	if (instance != NULL) return instance;
 	error("Attemp to access uninitialized OCLManager");

@@ -1,7 +1,9 @@
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
 #include "app_globals.h"
 #include "utils.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
 #include <fstream>
 #include <iostream>
@@ -33,6 +35,7 @@ void verify();
 std::chrono::system_clock::time_point start_time;
 std::chrono::system_clock::time_point end_time;
 
+int repeatNTimes = 1;
 bool isVector4Version = false;
 string dataSetName;
 string userResponseToVectorizeQuestion;
@@ -40,60 +43,75 @@ string userResponseToVectorizeQuestion;
 int main(int argc, char *argv[]) {
 
 	if (argc < 2) {
-		//usage("syntax: graph_init datasetName [vector4 version (false)]");
+		//usage("syntax: graph_init datasetName [vector4 version (false)] [how many times? (1)]");
 		cout << "Nome del dataset: ";
 		cin >> dataSetName;
 		cout << "Vettorizzare? true/false: ";
 		cin >> userResponseToVectorizeQuestion;
+		cout << "Quante volte ripetere? ";
+		cin >> repeatNTimes;
 	} else {
 		dataSetName = argv[1];
-		if (argc > 2) {
+		if (argc == 3) {
 			userResponseToVectorizeQuestion = argv[2];
-			isVector4Version = (strcmp(userResponseToVectorizeQuestion.c_str(), "true") == 0);
+			isVector4Version = (strcmp(userResponseToVectorizeQuestion.c_str(), "true") == 0); 
+			cout << "Quante volte ripetere? ";
+			cin >> repeatNTimes;
+		}
+		if (argc > 3) {
+			repeatNTimes = atoi(argv[3]);
 		}
 	}
 
-	start_time = std::chrono::system_clock::now();
+	for (int i = 0; i < repeatNTimes; i++)
+	{
 
-	if(isVector4Version) OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics_4");
-	else OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics");
+		start_time = std::chrono::system_clock::now();
 
-	if(isVector4Version)
-		cout<<"vector4 version"<<endl;
-	else cout<<"standard version"<<endl;
+		if(isVector4Version) OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics_4");
+		else OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics");
 
-	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
-	DAG = Graph<int>::initDagWithDataSet(dataSetName.c_str());
-	int n_nodes = DAG->len;
+		if(isVector4Version)
+			cout<<"vector4 version"<<endl;
+		else cout<<"standard version"<<endl;
 
-	OCLBufferManager::Init(n_nodes, isVector4Version);
+		//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
+		DAG = Graph<int>::initDagWithDataSet(dataSetName.c_str());
+		int n_nodes = DAG->len;
 
-
-	cl_event entry_discover_evt;
-	std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
+		OCLBufferManager::Init(n_nodes, isVector4Version);
 
 
-	cl_event *compute_metrics_evt;
-	if(isVector4Version)
-		std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
-	else 
-		std::tie(compute_metrics_evt, metrics) = ComputeMetrics::Run(DAG, entrypoints);
+		cl_event entry_discover_evt;
+		std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
 
-	cl_event* sort_task_evts;
-	std::tie(sort_task_evts, ordered_metrics) = SortMetrics::MergeSort(metrics, n_nodes);
 
-	end_time = std::chrono::system_clock::now();
+		cl_event *compute_metrics_evt;
+		if(isVector4Version)
+			std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
+		else 
+			std::tie(compute_metrics_evt, metrics) = ComputeMetrics::Run(DAG, entrypoints);
 
-	//METRICHE
-	measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, DAG->len);
-	//VERIFICA DELLA CORRETTEZZA
-	verify();
+		cl_event* sort_task_evts;
+		std::tie(sort_task_evts, ordered_metrics) = SortMetrics::MergeSort(metrics, n_nodes);
 
-	//PULIZIA FINALE
-	free(DAG);
-	free(entrypoints);
-	free(metrics);
-	free(ordered_metrics);
+		end_time = std::chrono::system_clock::now();
+
+		//METRICHE
+		measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, DAG->len);
+		//VERIFICA DELLA CORRETTEZZA
+		verify();
+
+		//PULIZIA FINALE
+		delete DAG;
+		delete[] entrypoints;
+		delete[] metrics;
+		delete[] ordered_metrics;
+
+		OCLManager::Release();
+		OCLBufferManager::Release();
+	_CrtDumpMemoryLeaks();
+	}
 
 	system("PAUSE");
 }
@@ -115,8 +133,10 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 
 	std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
 	std::chrono::duration<double> elapsed_seconds = end_time-start_time;
-	char *end_date_time = std::ctime(&end_time_t);
-	end_date_time[strcspn(end_date_time , "\n")] = 0;
+	tm *end_date_time_info = localtime(&end_time_t);
+	char end_date_time[80];
+	strftime(end_date_time, 80, "%d/%m/%y %H.%M.%S", end_date_time_info);
+	end_date_time[strcspn(end_date_time , "\n")] = 0; //remove new line
 
 	double total_elapsed_time_GPU = total_runtime_ms(entry_discover_evt, sort_task_evts[1]);
 	int platform_id = 0;
@@ -144,10 +164,23 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		exit(1);
 	}
 	if(is_file_empty(fp))
-		fprintf(fp, "DATA, TOTAL RUN SECONDS CPU, TOTAL RUN SECONDS GPU, PLATFORM, DEVICE, DISCOVER ENTRIES RUNTIME MS, COMPUTE METRICS RUNTIME MS, SORT RUNTIME MS, N TASKS, PREFERRED WORK GROUP SIZE, GPU TEMPERATURE, CPU TEMPERATURE\n");
+		fprintf(fp, "DATA; N TASKS; TOTAL RUN SECONDS CPU; TOTAL RUN SECONDS GPU; DISCOVER ENTRIES RUNTIME MS; COMPUTE METRICS RUNTIME MS; SORT RUNTIME MS; VERSION; PLATFORM; PREFERRED WORK GROUP SIZE; GPU TEMPERATURE; CPU TEMPERATURE; DEVICE\n");
 
-	fprintf(fp,"%s, %.4g, %.4g, %s, %s, %.4g, %.4g, %.4g, %d, %d, %d, %d\n",
-	        end_date_time, elapsed_seconds.count(), total_elapsed_time_GPU/1000, m_platform_name, m_device_name, runtime_discover_ms, runtime_metrics_ms, runtime_sorts_ms, nels, CLManager.preferred_wg_size, gpu_temperature, cpu_temperature);
+	fprintf(fp, "%s; %d; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
+		end_date_time, 
+		nels,
+		elapsed_seconds.count(),
+		total_elapsed_time_GPU / 1000,
+		runtime_discover_ms,
+		runtime_metrics_ms,
+		runtime_sorts_ms,
+		(isVector4Version ? "vec4" : "standard"),
+		m_platform_name,
+		CLManager.preferred_wg_size,
+		gpu_temperature,
+		cpu_temperature,
+		m_device_name
+	);
 
 	printMemoryUsage();
 

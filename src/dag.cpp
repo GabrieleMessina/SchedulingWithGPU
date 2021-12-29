@@ -20,12 +20,6 @@ Graph<T>::Graph(int len) {
 }
 
 template<class T>
-Graph<T>::~Graph() {
-	free(nodes);
-	free(adj);
-}
-
-template<class T>
 int Graph<T>::insertNode(T key) {
 	if (n < len) {
 		nodes[n] = key;

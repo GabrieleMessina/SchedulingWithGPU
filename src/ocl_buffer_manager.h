@@ -54,6 +54,8 @@ private:
 	
 public:
 	static OCLBufferManager Init(int nNodes, bool vectorized = false);
+	static void Release();
+	~OCLBufferManager();
 
 	static OCLBufferManager *GetInstance();
 

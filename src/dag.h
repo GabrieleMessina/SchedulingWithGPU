@@ -4,7 +4,7 @@
 #include <iostream>
 #include "utils.h"
 
-template<class T> class Graph {
+template<typename  T> class Graph {
 public:
 	//lunghezza approssimata ad un numero comodo, superficie della matrice, numero reale di nodi(minore di len che è approssimato) ,numero di archi
 	int len, adj_len, n, m;
@@ -12,7 +12,10 @@ public:
 	bool* adj; //TODO: adj potrebbe già essere un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 
 	Graph(int len = 100);
-	~Graph();
+	~Graph() {
+		delete[] nodes;
+		delete[] adj;
+	}
 
 	int insertNode(T key);
 

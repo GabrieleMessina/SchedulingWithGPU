@@ -106,6 +106,9 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 	CLManager.ReleaseComputeMetricsKernel();
 
+	delete[] queue;
+	delete[] next_queue;
+
 	cl_event* compute_metrics_evt = new cl_event[2];
 	compute_metrics_evt[0] = compute_metrics_evt_start;
 	compute_metrics_evt[1] = compute_metrics_evt_end;
@@ -199,6 +202,9 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized(Graph<int>
 	BufferManager.ReleaseGraphEdges();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 	CLManager.ReleaseComputeMetricsKernel();
+
+	delete[] queue;
+	delete[] next_queue;
 
 	cl_event* compute_metrics_evt = new cl_event[2];
 	compute_metrics_evt[0] = compute_metrics_evt_start;

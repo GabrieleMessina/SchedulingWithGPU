@@ -40,6 +40,7 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 	//BufferManager.ReleaseGraphEdges(); //compute metrics is usign it
 	BufferManager.ReleaseEntrypoints(); //TODO: i can map queue buffer on entrypoints buffer because they are the same thing but for now i'm letting this way
 	BufferManager.ReleaseNEntrypoints();
+	delete n_entrypoints;
 	CLManager.ReleaseEntryDiscoverKernel();
 	return make_tuple(entry_discover_evt, entrypoints);
 }
