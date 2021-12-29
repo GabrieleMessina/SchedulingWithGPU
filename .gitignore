@@ -2,7 +2,9 @@
 *log.txt
 .vscode
 src/.vs/**
-build
+src/build
+src/utils/hidden
+src/Debug
 
 ##Latex file to ignore
 *.aux

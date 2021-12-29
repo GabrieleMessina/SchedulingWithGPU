@@ -122,7 +122,7 @@ kernel void compute_metrics_seventh(global int * restrict nodes, global int4 *qu
 * calcolo le metriche prendendo quattro elementi alla volta dalla coda, ma  visto che
 * gli esperimenti prendendo a mano più elementi dalla coda hanno peggiorato i tempi di runtime,
 * ho reso la coda un array di int4 in modo che l'accesso multiplo sia più efficiente.
-* Risultato: si nota effettivamente un netto miglioramente, credo tuttavia di poter rifinire ancora.
+* Risultato: si nota effettivamente un netto miglioramente, credo tuttavia di poter rifinire ancora. //NON È VERO
 */
 kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
@@ -511,7 +511,7 @@ kernel void compute_metrics_second(global int * restrict nodes, global int *queu
 	//in questo modo ogni volta che il nodo viene messo in coda può decrementare il suo y fino a quando non diventa 0, a qual punto può procedere al calcolo del rank.
 	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
 	metriche[i].y = metriche[i].y - queue_[current_node_index];
-	queue_[current_node_index]  = 0; //Inutile perchè la queue vine resa next queue che a sua volta viene resettata all fine del ciclo.
+	//queue_[current_node_index] = 0; //Inutile perchè la queue vine resa next queue che a sua volta viene resettata all fine del ciclo.
 	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
 	if(metriche[i].y > 0)return;
 	metriche[current_node_index] = (int2)(nodes[current_node_index],0);
@@ -535,14 +535,17 @@ kernel void compute_metrics_second(global int * restrict nodes, global int *queu
 		if(adiacent > 0){
 			atomic_inc(&next_queue_[child]);
 		}
+		//printf("*%d: %d-%d\n", i, j,queue_[j]);
+		//printf("~%d: %d-%d\n", i, j,next_queue_[j]);
 	}
+	//printf("%d\n", i);
 }
 
 /**
  * In questa implementazione l'idea è simile ad una ricerca in ampiezza.
  * Per ogni nodo si calcola il suo peso e si aggiungono i suoi figli alla coda.
  * Il problema di questa implementazione è che ogni nodo viene aggiunto alla coda molte volte e quindi questo algoritmo viene ripetuto molte volte per ogni nodo.
- * Questo impiegava circa due secondi per 2048 elementi, l'implementazione successiva mezzo secondo.
+ * Questo impiegava circa due secondi per 2048 elementi, l'implementazione successiva mezzo secondo. NON È VERO.
  */
 kernel void compute_metrics_first(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
 {
@@ -611,9 +614,9 @@ kernel void compute_metrics(global int * restrict nodes, global int *queue_, glo
 kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	
-	compute_metrics_seventh(nodes, queue_, next_queue_, n_nodes, edges, metriche);
+	//compute_metrics_seventh(nodes, queue_, next_queue_, n_nodes, edges, metriche);
 	//compute_metrics_sixth(nodes, queue_, next_queue_, n_nodes, edges, metriche);
-	//compute_metrics_fifth(nodes, queue_, next_queue_, n_nodes, edges, metriche);
+	compute_metrics_fifth(nodes, queue_, next_queue_, n_nodes, edges, metriche); //BEST
 }
 
 
