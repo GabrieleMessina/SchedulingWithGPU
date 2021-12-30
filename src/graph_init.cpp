@@ -1,5 +1,5 @@
 #define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
+#include <cstdlib>
 #include <crtdbg.h>
 #include "app_globals.h"
 #include "utils.h"
@@ -19,8 +19,6 @@
 #include "entry_discover.h"
 #include "compute_metrics.h"
 #include "sort_metrics.h"
-#include "windows.h"
-#include "psapi.h"
 
 using namespace std;
 
@@ -42,7 +40,7 @@ string userResponseToVectorizeQuestion;
 
 int main(int argc, char *argv[]) {
 
-	if (argc < 2) {
+	if (argc <= 1) {
 		//usage("syntax: graph_init datasetName [vector4 version (false)] [how many times? (1)]");
 		cout << "Nome del dataset: ";
 		cin >> dataSetName;
@@ -52,9 +50,8 @@ int main(int argc, char *argv[]) {
 		cin >> repeatNTimes;
 	} else {
 		dataSetName = argv[1];
-		if (argc == 3) {
+		if (argc <= 3) {
 			userResponseToVectorizeQuestion = argv[2];
-			isVector4Version = (strcmp(userResponseToVectorizeQuestion.c_str(), "true") == 0); 
 			cout << "Quante volte ripetere? ";
 			cin >> repeatNTimes;
 		}
@@ -62,15 +59,17 @@ int main(int argc, char *argv[]) {
 			repeatNTimes = atoi(argv[3]);
 		}
 	}
+	isVector4Version = (strcmp(userResponseToVectorizeQuestion.c_str(), "true") == 0);
+	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "s") == 0);
+	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);
+
+	if(isVector4Version) OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics_4");
+	else OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics");
 
 	for (int i = 0; i < repeatNTimes; i++)
 	{
 
 		start_time = std::chrono::system_clock::now();
-
-		if(isVector4Version) OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics_4");
-		else OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics");
-
 		if(isVector4Version)
 			cout<<"vector4 version"<<endl;
 		else cout<<"standard version"<<endl;
@@ -108,11 +107,19 @@ int main(int argc, char *argv[]) {
 		delete[] metrics;
 		delete[] ordered_metrics;
 
-		OCLManager::Release();
+		delete[] compute_metrics_evt;
+		delete[] sort_task_evts;
+
 		OCLBufferManager::Release();
-	_CrtDumpMemoryLeaks();
+		OCLManager::Reset();
+		cout << "-----------------END LOOP---------------------" << endl;
 	}
 
+	cout << "-----------------------------------------" << endl;
+	cout << "-----------------END---------------------" << endl;
+	cout << "-----------------------------------------" << endl << endl;
+
+	_CrtDumpMemoryLeaks();
 	system("PAUSE");
 }
 
@@ -121,15 +128,16 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	double runtime_metrics_ms = total_runtime_ms(compute_metrics_evt[0], compute_metrics_evt[1]);
 	double runtime_sorts_ms =  total_runtime_ms(sort_task_evts[0], sort_task_evts[1]);
 
-	OCLManager CLManager = *OCLManager::GetInstance();
-
-	//TODO: check the math as algorithms changed
-	printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-	       runtime_discover_ms, nels/runtime_discover_ms/1.0e6, CLManager.preferred_wg_size/runtime_discover_ms/1.0e6);
-	printf("compute metrics: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-	       runtime_metrics_ms, nels/runtime_metrics_ms/1.0e6, CLManager.preferred_wg_size/runtime_metrics_ms/1.0e6);
-	printf("sort tasks: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-	       runtime_sorts_ms, nels/runtime_sorts_ms/1.0e6, CLManager.preferred_wg_size/runtime_sorts_ms/1.0e6);
+	if (DEBUG_METRICS) {
+		//TODO: check the math as algorithms changed
+		printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+			   runtime_discover_ms, nels/runtime_discover_ms/1.0e6, OCLManager::preferred_wg_size/runtime_discover_ms/1.0e6);
+		printf("compute metrics: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+			   runtime_metrics_ms, nels/runtime_metrics_ms/1.0e6, OCLManager::preferred_wg_size/runtime_metrics_ms/1.0e6);
+		printf("sort tasks: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+			   runtime_sorts_ms, nels/runtime_sorts_ms/1.0e6, OCLManager::preferred_wg_size/runtime_sorts_ms/1.0e6);
+		printMemoryUsage();
+	}
 
 	std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
 	std::chrono::duration<double> elapsed_seconds = end_time-start_time;
@@ -160,7 +168,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	FILE *fp;
 	fp = fopen("results/execution_results.csv", "a");
 	if (fp == NULL) {
-		printf("Error opening file!\n");
+		printf("Error opening result file!\n");
 		exit(1);
 	}
 	if(is_file_empty(fp))
@@ -176,28 +184,14 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		runtime_sorts_ms,
 		(isVector4Version ? "vec4" : "standard"),
 		m_platform_name,
-		CLManager.preferred_wg_size,
+		OCLManager::preferred_wg_size,
 		gpu_temperature,
 		cpu_temperature,
 		m_device_name
 	);
 
-	printMemoryUsage();
-
 	fflush(fp);
 	fclose(fp);
-}
-
-void printMemoryUsage() {
-	//virtual memory used by program
-	PROCESS_MEMORY_COUNTERS_EX pmc;
-	GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
-	SIZE_T virtualMemUsedByMe = pmc.PrivateUsage; //in bytes
-
-	//ram used by program
-	SIZE_T physMemUsedByMe = pmc.WorkingSetSize; //in bytes
-
-	printf("Memory usage: %dMB, %dMB \n", virtualMemUsedByMe / 1000 / 1000, physMemUsedByMe / 1000 / 1000);
 }
 
 void verify() {

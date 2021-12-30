@@ -3,32 +3,29 @@
 
 class OCLManager {
 private:
-	cl_int err;
-	static OCLManager *instance;
-public:
-	//TODO: make kernels private
-	cl_kernel entry_discover_k,
+	static cl_int err;
+	static cl_program prog;
+	static cl_program prog2;
+	static cl_kernel entry_discover_k,
 		compute_metrics_k,
 		m_MergesortGlobalBigKernel,
 		m_MergesortGlobalSmallKernel,
 		m_MergesortStartKernel;
-
-	cl_context ctx;
-	cl_command_queue queue;
-	size_t preferred_wg_size;
+public:
+	static cl_context ctx;
+	static cl_command_queue queue;
+	static size_t preferred_wg_size;
 
 	
-	static OCLManager Init(const char* progName, const char* kernelNameEntryDiscover, const char* kernelNameComputeMetrics);
+	static void Init(const char* progName, const char* kernelNameEntryDiscover, const char* kernelNameComputeMetrics);
+	static void Reset();
 	static void Release();
-	~OCLManager();
 
-	static OCLManager *GetInstance();
+	static cl_kernel GetEntryDiscoverKernel();
+	static cl_kernel GetComputeMetricsKernel();
+	static cl_kernel GetSortKernel(bool smallKernel = false);
 
-	cl_kernel GetEntryDiscoverKernel();
-	cl_kernel GetComputeMetricsKernel();
-	cl_kernel GetSortKernel(bool smallKernel = false);
-
-	void ReleaseEntryDiscoverKernel();
-	void ReleaseComputeMetricsKernel();
-	void ReleaseSortKernel();
+	static void ReleaseEntryDiscoverKernel();
+	static void ReleaseComputeMetricsKernel();
+	static void ReleaseSortKernel();
 };

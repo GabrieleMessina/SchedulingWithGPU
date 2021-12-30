@@ -1,49 +1,60 @@
+#include "app_globals.h"
 #include "ocl_manager.h"
 #include "ocl_boiler.h"
+#include "CL/cl.h"
 #include "utils.h"
 
-OCLManager *OCLManager::instance = NULL;
 
-OCLManager OCLManager::Init(const char* progName, const char* kernelNameEntryDiscover, const char* kernelNameComputeMetrics) {
-	OCLManager *instance = new OCLManager();
+cl_int OCLManager::err;
+cl_program OCLManager::prog;
+cl_program OCLManager::prog2;
+
+cl_kernel	OCLManager::entry_discover_k,
+			OCLManager::compute_metrics_k,
+			OCLManager::m_MergesortGlobalBigKernel,
+			OCLManager::m_MergesortGlobalSmallKernel,
+			OCLManager::m_MergesortStartKernel;
+
+cl_context OCLManager::ctx;
+cl_command_queue OCLManager::queue;
+size_t OCLManager::preferred_wg_size;
+
+void OCLManager::Init(const char* progName, const char* kernelNameEntryDiscover, const char* kernelNameComputeMetrics) {
 	cl_platform_id p = select_platform();
 	cl_device_id d = select_device(p);
-	instance->ctx = create_context(p, d);
-	instance->queue = create_queue(instance->ctx, d);
-	cl_program prog = create_program(progName, instance->ctx, d);
-	cl_program prog2 = create_program("./kernels/sort.ocl", instance->ctx, d);
+	ctx = create_context(p, d);
+	queue = create_queue(ctx, d);
+	prog = create_program(progName, ctx, d);
+	prog2 = create_program("./kernels/sort.ocl", ctx, d);
 
-	instance->entry_discover_k = clCreateKernel(prog, kernelNameEntryDiscover, &instance->err);
-	ocl_check(instance->err, "create kernel %s", kernelNameEntryDiscover);
-	instance->compute_metrics_k = clCreateKernel(prog, kernelNameComputeMetrics, &instance->err);
-	ocl_check(instance->err, "create kernel %s", kernelNameComputeMetrics);
+	entry_discover_k = clCreateKernel(prog, kernelNameEntryDiscover, &err);
+	ocl_check(err, "create kernel %s", kernelNameEntryDiscover);
+	compute_metrics_k = clCreateKernel(prog, kernelNameComputeMetrics, &err);
+	ocl_check(err, "create kernel %s", kernelNameComputeMetrics);
 
-	instance->preferred_wg_size = get_preferred_work_group_size_multiple(instance->compute_metrics_k, instance->queue);
+	preferred_wg_size = get_preferred_work_group_size_multiple(compute_metrics_k, queue);
 
-	instance->m_MergesortStartKernel = clCreateKernel(prog2, "Sort_MergesortStart", &instance->err);
-	ocl_check(instance->err, "create kernel %s", "Sort_MergesortStart");
-	instance->m_MergesortGlobalSmallKernel = clCreateKernel(prog2, "Sort_MergesortGlobalSmall", &instance->err);
-	ocl_check(instance->err, "create kernel %s", "Sort_MergesortGlobalSmall");
-	instance->m_MergesortGlobalBigKernel = clCreateKernel(prog2, "Sort_MergesortGlobalBig", &instance->err);
-	ocl_check(instance->err, "create kernel %s", "Sort_MergesortGlobalBig");
-
-	OCLManager::instance = instance;
-	return *instance;
-}
-
-OCLManager::~OCLManager() {
-	/*ReleaseEntryDiscoverKernel();
-	ReleaseComputeMetricsKernel();
-	ReleaseSortKernel();*/
+	m_MergesortStartKernel = clCreateKernel(prog2, "Sort_MergesortStart", &err);
+	ocl_check(err, "create kernel %s", "Sort_MergesortStart");
+	m_MergesortGlobalSmallKernel = clCreateKernel(prog2, "Sort_MergesortGlobalSmall", &err);
+	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalSmall");
+	m_MergesortGlobalBigKernel = clCreateKernel(prog2, "Sort_MergesortGlobalBig", &err);
+	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalBig");
+	//return *instance;
 }
 
 void OCLManager::Release() {
-	delete instance;
+	clFinish(queue);
+	clReleaseProgram(prog);
+	clReleaseProgram(prog2);
+	clReleaseContext(ctx);
+	ReleaseEntryDiscoverKernel();
+	ReleaseComputeMetricsKernel();
+	ReleaseSortKernel();
 }
 
-OCLManager *OCLManager::GetInstance() {
-	if (instance != NULL) return instance;
-	error("Attemp to access uninitialized OCLManager");
+void OCLManager::Reset() {
+	clFinish(queue);
 }
 
 

@@ -1,5 +1,7 @@
 #include "utils.h"
 #include <math.h>
+#include "windows.h"
+#include "psapi.h"
 
 void error(char const* str) {
 	fprintf(stderr, "%s\n", str);
@@ -115,4 +117,17 @@ std::string exec(const char* cmd) {
 	}
 	_pclose(pipe);
 	return result;
+}
+
+
+void printMemoryUsage() {
+	//virtual memory used by program
+	PROCESS_MEMORY_COUNTERS_EX pmc;
+	GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+	SIZE_T virtualMemUsedByMe = pmc.PrivateUsage; //in bytes
+
+	//ram used by program
+	SIZE_T physMemUsedByMe = pmc.WorkingSetSize; //in bytes
+
+	printf("Memory usage: %dMB, %dMB \n", virtualMemUsedByMe / 1000 / 1000, physMemUsedByMe / 1000 / 1000);
 }

@@ -9,9 +9,9 @@ Graph<T>::Graph(int len) {
 	n = m = 0;
 	this->len = len;
 	adj_len = len * len;
-	nodes = new T[len];
+	nodes = DBG_NEW T[len];
 	for (int i = 0; i < len; i++) nodes[i] = 0;
-	adj = new bool[adj_len];
+	adj = DBG_NEW bool[adj_len];
 	printf("len is %d and mat is %d\n", len, adj_len);
 #pragma unroll
 	for (int i = 0; i < adj_len; i++) {
@@ -108,7 +108,7 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	int n_nodes = 0;
 	data_set >> n_nodes;
 
-	Graph<int>* DAG = new Graph<int>(n_nodes);
+	Graph<int>* DAG = DBG_NEW Graph<int>(n_nodes);
 	if (!DAG) {
 		data_set.close();
 		fprintf(stderr, "%s\n", "failed to allocate graph");

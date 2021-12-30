@@ -291,7 +291,7 @@ kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queu
 			int child = j;
 			int adiacent = edges[matrix_to_array_indexes(node_index, child, n_nodes)];
 			if(adiacent > 0){ //TODO: prendi a quattro a quattro.
-				printf("%d parent di %d\n", node_index, child);
+				//printf("%d parent di %d\n", node_index, child);
 				int globalIndexStart = (int)(floor(j/4.0));
 				//printf("%d parent di %d -> %d\n", node_index, child, globalIndexStart);	
 				volatile global int *four_next_nodes = &(next_queue_[globalIndexStart]);

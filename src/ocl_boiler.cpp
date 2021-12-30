@@ -7,6 +7,7 @@
 #include <CL/cl.h>
 #endif
 
+#include "app_globals.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,7 +71,8 @@ cl_platform_id select_platform() {
 	err = clGetPlatformIDs(0, NULL, &nplats);
 	ocl_check(err, "counting platforms");
 
-	printf("number of platforms: %u\n", nplats);
+	if (DEBUG_OCL_INIT)
+		printf("number of platforms: %u\n", nplats);
 
 	plats = (cl_platform_id*)malloc(nplats * sizeof(*plats));
 
@@ -95,8 +97,10 @@ cl_platform_id select_platform() {
 		platform_name, NULL);
 	ocl_check(err, "getting platform name");
 
-	printf("selected platform %d: %s\n", platform_number, platform_name);
+	if (DEBUG_OCL_INIT)
+		printf("selected platform %d: %s\n", platform_number, platform_name);
 
+	free(plats);
 	return choice;
 }
 
@@ -119,7 +123,8 @@ cl_device_id select_device(cl_platform_id p) {
 	err = clGetDeviceIDs(p, CL_DEVICE_TYPE_ALL, 0, NULL, &ndevs);
 	ocl_check(err, "counting devices");
 
-	printf("number of devices: %u\n", ndevs);
+	if (DEBUG_OCL_INIT)
+		printf("number of devices: %u\n", ndevs);
 
 	devs = (cl_device_id*)malloc(ndevs * sizeof(*devs));
 
@@ -139,6 +144,7 @@ cl_device_id select_device(cl_platform_id p) {
 
 	printf("selected device %d: %s\n", device_number, device_name);
 
+	free(devs);
 	return choice;
 }
 
@@ -184,7 +190,10 @@ cl_program create_program(const char* const fname, cl_context ctx,
 
 	snprintf(src_buf, BUFSIZE, "// %s#include \"%s\"\n",
 		ctime(&now), fname);
-	printf("compiling:\n%s", src_buf);
+	
+	if (DEBUG_OCL_INIT)
+		printf("compiling:\n%s", src_buf);
+	
 	prg = clCreateProgramWithSource(ctx, 1, &buf_ptr, NULL, &err);
 	ocl_check(err, "create program");
 
@@ -208,9 +217,12 @@ cl_program create_program(const char* const fname, cl_context ctx,
 	else {
 		log_buf[logsize] = '\0';
 	}
-	printf("=== BUILD LOG ===\n%s\n=========\n", log_buf);
+
+	if (DEBUG_OCL_INIT)
+		printf("=== BUILD LOG ===\n%s\n=========\n", log_buf);
 	ocl_check(err, "build program");
 
+	if(log_buf != NULL)free(log_buf);
 	return prg;
 }
 

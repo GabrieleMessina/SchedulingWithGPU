@@ -7,7 +7,7 @@ class OCLBufferManager {
 
 private:
 	static OCLBufferManager *instance;
-	OCLManager CLManager;
+	static OCLManager CLManager;
 	cl_int err;
 
 	int n_nodes;

@@ -1,5 +1,6 @@
 #pragma once
 #include "CL/cl.h"
+#include "app_globals.h"
 #include <iostream>
 
 using namespace std;
@@ -25,7 +26,7 @@ bool operator<=(const cl_int2& l, const cl_int2& r);
 bool operator>=(const cl_int2& l, const cl_int2& r);
 
 std::string exec(const char* cmd);
-
+void printMemoryUsage();
 
 //Template function cannot be implemented in .cpp file.
 template<class T>
@@ -69,39 +70,39 @@ void print(T* v, int row_len, int col_len, const char *separator) {
 }
 
 
-template<typename T> T* matrix_to_array(T** mat, int row_len, int col_len) {
-	T* v = new T[row_len * col_len];
-	int t = 0;
-	for (int i = 0; i < row_len; i++)
-	{
-		for (int j = 0; j < col_len; j++)
-		{
-			v[t++] = mat[i][j];
-		}
-	}
-	return (T*)&v[0];
-}
+//template<typename T> T* matrix_to_array(T** mat, int row_len, int col_len) {
+//	T* v = DBG_NEW T[row_len * col_len];
+//	int t = 0;
+//	for (int i = 0; i < row_len; i++)
+//	{
+//		for (int j = 0; j < col_len; j++)
+//		{
+//			v[t++] = mat[i][j];
+//		}
+//	}
+//	return (T*)&v[0];
+//}
 
+//
+//template<typename T> void matrix_to_array(T** mat, int row_len, int col_len, T* outArray) {
+//	int t = 0;
+//	for (int i = 0; i < row_len; i++)
+//	{
+//		for (int j = 0; j < col_len; j++)
+//		{
+//			outArray[t++] = mat[i][j];
+//		}
+//	}
+//}
 
-template<typename T> void matrix_to_array(T** mat, int row_len, int col_len, T* outArray) {
-	int t = 0;
-	for (int i = 0; i < row_len; i++)
-	{
-		for (int j = 0; j < col_len; j++)
-		{
-			outArray[t++] = mat[i][j];
-		}
-	}
-}
-
-template<typename T>
-int howManyGreater(T* v, int len, T default_v) {
-	int elements = 0;
-	for (int i = 0; i < len; i++)
-	{
-		if (v[i] > default_v)
-			elements++;
-	}
-	//std::cout<<"in coda ci sono: "<<elements<<" elementi\n";
-	return elements;
-}
+//template<typename T>
+//int howManyGreater(T* v, int len, T default_v) {
+//	int elements = 0;
+//	for (int i = 0; i < len; i++)
+//	{
+//		if (v[i] > default_v)
+//			elements++;
+//	}
+//	//std::cout<<"in coda ci sono: "<<elements<<" elementi\n";
+//	return elements;
+//}
