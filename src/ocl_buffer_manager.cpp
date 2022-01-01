@@ -12,7 +12,7 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, bool vectorized) {
 	instance->n_nodes = nNodes;
 	instance->edges_memsize = nNodes * nNodes * sizeof(bool);
 	instance->entrypoints_memsize = nNodes * sizeof(int);
-	instance->n_entrypoints_memsize = sizeof(int*);
+	instance->n_entrypoints_memsize = sizeof(int);
 	instance->nodes_memsize = nNodes * sizeof(int);
 	instance->queue_memsize = (vectorized) ? nNodes * sizeof(cl_int4) : nNodes * sizeof(int);
 	instance->next_queue_memsize = instance->queue_memsize;

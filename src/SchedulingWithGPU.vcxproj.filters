@@ -18,7 +18,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="graph_init.cpp">
+    <ClCompile Include="app.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="entry_discover.cpp">
@@ -79,7 +79,10 @@
     <None Include="kernels\sort.ocl">
       <Filter>Kernel Files</Filter>
     </None>
-    <None Include="kernels\graph_init.ocl">
+    <None Include="kernels\compute_metrics.ocl">
+      <Filter>Kernel Files</Filter>
+    </None>
+    <None Include="kernels\entry_discover.ocl">
       <Filter>Kernel Files</Filter>
     </None>
   </ItemGroup>

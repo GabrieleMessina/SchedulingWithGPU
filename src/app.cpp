@@ -63,8 +63,8 @@ int main(int argc, char *argv[]) {
 	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "s") == 0);
 	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);
 
-	if(isVector4Version) OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics_4");
-	else OCLManager::Init("./kernels/graph_init.ocl","entry_discover", "compute_metrics");
+	if(isVector4Version) OCLManager::InitVectorized(OCLManager::VectorizedVersion::Latest); //TODO: make the user choose the version
+	else OCLManager::Init(OCLManager::Version::Latest);
 
 	for (int i = 0; i < repeatNTimes; i++)
 	{

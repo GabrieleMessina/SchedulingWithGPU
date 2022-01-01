@@ -4,20 +4,25 @@
 class OCLManager {
 private:
 	static cl_int err;
-	static cl_program prog;
-	static cl_program prog2;
+	static cl_program entry_discover_prog;
+	static cl_program compute_metrics_prog;
+	static cl_program sort_prog;
 	static cl_kernel entry_discover_k,
 		compute_metrics_k,
 		m_MergesortGlobalBigKernel,
 		m_MergesortGlobalSmallKernel,
 		m_MergesortStartKernel;
+	static void InitCommon(const char* entryDiscoverKernelName, const char* computeMetricsKernelName, const char* sortKernelName);
 public:
+	enum class Version { Latest, v1, v2, v3};
+	static enum class VectorizedVersion { Latest, v1, v2, v3};
 	static cl_context ctx;
 	static cl_command_queue queue;
 	static size_t preferred_wg_size;
 
 	
-	static void Init(const char* progName, const char* kernelNameEntryDiscover, const char* kernelNameComputeMetrics);
+	static void Init(Version version = Version::Latest);
+	static void InitVectorized(VectorizedVersion version = VectorizedVersion::Latest);
 	static void Reset();
 	static void Release();
 

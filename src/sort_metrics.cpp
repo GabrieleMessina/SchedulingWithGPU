@@ -46,6 +46,11 @@ tuple<cl_event*, cl_int2*> SortMetrics::MergeSort(cl_int2* metrics, int n_nodes)
 		//print(ordered_metrics, metrics_len, "\n"); //per vedere anche i dati aggiunti per padding
 		cout << "\n";
 	}
+	else { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		print(ordered_metrics, min(metrics_len, 5), "\n", true);
+		cout << "[...]" << endl << endl;
+		print(ordered_metrics, metrics_len, "\n", true, metrics_len - 5);
+	}
 	cout << endl;
 
 	BufferManager.ReleaseMetrics();

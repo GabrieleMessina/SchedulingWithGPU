@@ -56,7 +56,7 @@
     <ClCompile Include="ocl_boiler.cpp" />
     <ClCompile Include="ocl_buffer_manager.cpp" />
     <ClCompile Include="entry_discover.cpp" />
-    <ClCompile Include="graph_init.cpp" />
+    <ClCompile Include="app.cpp" />
     <ClCompile Include="ocl_manager.cpp" />
     <ClCompile Include="sort_metrics.cpp" />
     <ClCompile Include="utils.cpp" />
@@ -73,7 +73,8 @@
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="kernels\graph_init.ocl" />
+    <None Include="kernels\compute_metrics.ocl" />
+    <None Include="kernels\entry_discover.ocl" />
     <None Include="kernels\sort.ocl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

@@ -47,8 +47,8 @@ size_t GetMetricsArrayLenght(int n_nodes) {
 
 
 
-void print(cl_int2* v, int len, const char* separator, bool withIndexes) {
-	for (int i = 0; i < len; i++)
+void print(cl_int2* v, int len, const char* separator, bool withIndexes, int startingFrom) {
+	for (int i = startingFrom; i < len; i++)
 	{
 		if (withIndexes)
 			std::cout << i << ":";

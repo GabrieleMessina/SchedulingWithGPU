@@ -44,27 +44,6 @@ void print(int4 *v, int len, bool withIndexes){
 	printf("\n");
 }
 
-//ricerca delle leaf da cui cominciare la BFS
-kernel void entry_discover(const int n_nodes, global bool * restrict edges, volatile global int *n_entries, global int * entries)
-{
-	int i = get_global_id(0);
-	if(i >= n_nodes) return;
-
-	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
-	#pragma unroll
-	for(int j=0; j<n_nodes; j++){
-		if(edges[matrix_to_array_indexes(j,i,n_nodes)] != 0){ //per cercare le root invece delle leaf invertire i e j
-			return;
-		}
-	}
-
-	entries[i] = 1;
-
-	//int old_n_entries = atomic_inc(n_entries);  //incremento il puntatore alla lista di entries per essere sicuro che nessuno scriva in quella posizione.
-	//atomic_xchg(&entries[old_n_entries], i); //essendo sicuro che la posizione non è stata scritta inserisco il mio dato senza paura di sovrascrivere qualcosa.
-
-	return;
-}
 
 bool isEven(int a){
 	return (a%2) == 0;

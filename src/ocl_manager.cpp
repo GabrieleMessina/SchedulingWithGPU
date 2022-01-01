@@ -6,8 +6,9 @@
 
 
 cl_int OCLManager::err;
-cl_program OCLManager::prog;
-cl_program OCLManager::prog2;
+cl_program OCLManager::entry_discover_prog;
+cl_program OCLManager::compute_metrics_prog;
+cl_program OCLManager::sort_prog;
 
 cl_kernel	OCLManager::entry_discover_k,
 			OCLManager::compute_metrics_k,
@@ -19,34 +20,78 @@ cl_context OCLManager::ctx;
 cl_command_queue OCLManager::queue;
 size_t OCLManager::preferred_wg_size;
 
-void OCLManager::Init(const char* progName, const char* kernelNameEntryDiscover, const char* kernelNameComputeMetrics) {
-	cl_platform_id p = select_platform();
-	cl_device_id d = select_device(p);
-	ctx = create_context(p, d);
-	queue = create_queue(ctx, d);
-	prog = create_program(progName, ctx, d);
-	prog2 = create_program("./kernels/sort.ocl", ctx, d);
+void OCLManager::InitCommon(const char* entryDiscoverKernelName, const char* computeMetricsKernelName, const char* sortKernelName) {
+	cl_platform_id p = select_platform(); //49MB
+	cl_device_id d = select_device(p); //0MB
+	ctx = create_context(p, d); //103MB
+	queue = create_queue(ctx, d); //0MB
+	entry_discover_prog = create_program("./kernels/entry_discover.ocl", ctx, d); //165MB
+	compute_metrics_prog = create_program("./kernels/compute_metrics.ocl", ctx, d);
+	sort_prog = create_program("./kernels/sort.ocl", ctx, d);
 
-	entry_discover_k = clCreateKernel(prog, kernelNameEntryDiscover, &err);
-	ocl_check(err, "create kernel %s", kernelNameEntryDiscover);
-	compute_metrics_k = clCreateKernel(prog, kernelNameComputeMetrics, &err);
-	ocl_check(err, "create kernel %s", kernelNameComputeMetrics);
+	entry_discover_k = clCreateKernel(entry_discover_prog, entryDiscoverKernelName, &err);
+	ocl_check(err, "create kernel %s", entryDiscoverKernelName);
+	compute_metrics_k = clCreateKernel(compute_metrics_prog, computeMetricsKernelName, &err);
+	ocl_check(err, "create kernel %s", computeMetricsKernelName);
 
 	preferred_wg_size = get_preferred_work_group_size_multiple(compute_metrics_k, queue);
 
-	m_MergesortStartKernel = clCreateKernel(prog2, "Sort_MergesortStart", &err);
+	m_MergesortStartKernel = clCreateKernel(sort_prog, "Sort_MergesortStart", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortStart");
-	m_MergesortGlobalSmallKernel = clCreateKernel(prog2, "Sort_MergesortGlobalSmall", &err);
+	m_MergesortGlobalSmallKernel = clCreateKernel(sort_prog, "Sort_MergesortGlobalSmall", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalSmall");
-	m_MergesortGlobalBigKernel = clCreateKernel(prog2, "Sort_MergesortGlobalBig", &err);
+	m_MergesortGlobalBigKernel = clCreateKernel(sort_prog, "Sort_MergesortGlobalBig", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalBig");
-	//return *instance;
+}
+
+void OCLManager::Init(Version version) {
+	switch (version)
+	{
+	case OCLManager::Version::Latest:
+		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
+		break;
+	case OCLManager::Version::v1:
+		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
+		break;
+	case OCLManager::Version::v2:
+		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
+		break;
+	case OCLManager::Version::v3:
+		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
+		break;
+	default:
+		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
+		break;
+	}
+}
+
+
+void OCLManager::InitVectorized(VectorizedVersion version) {
+	switch (version)
+	{
+	case OCLManager::VectorizedVersion::Latest:
+		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+		break;
+	case OCLManager::VectorizedVersion::v1:
+		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+		break;
+	case OCLManager::VectorizedVersion::v2:
+		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+		break;
+	case OCLManager::VectorizedVersion::v3:
+		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+		break;
+	default:
+		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+		break;
+	}
 }
 
 void OCLManager::Release() {
 	clFinish(queue);
-	clReleaseProgram(prog);
-	clReleaseProgram(prog2);
+	clReleaseProgram(entry_discover_prog);
+	clReleaseProgram(compute_metrics_prog);
+	clReleaseProgram(sort_prog);
 	clReleaseContext(ctx);
 	ReleaseEntryDiscoverKernel();
 	ReleaseComputeMetricsKernel();
@@ -54,7 +99,8 @@ void OCLManager::Release() {
 }
 
 void OCLManager::Reset() {
-	clFinish(queue);
+	err = clFinish(queue);
+	ocl_check(err, "clFinish error.");
 }
 
 

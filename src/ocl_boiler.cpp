@@ -68,7 +68,7 @@ cl_platform_id select_platform() {
 	cl_int err;
 	cl_platform_id* plats;
 
-	err = clGetPlatformIDs(0, NULL, &nplats);
+	err = clGetPlatformIDs(0, NULL, &nplats); //46MB
 	ocl_check(err, "counting platforms");
 
 	if (DEBUG_OCL_INIT)
@@ -156,7 +156,7 @@ cl_context create_context(cl_platform_id p, cl_device_id d) {
 		CL_CONTEXT_PLATFORM, (cl_context_properties)p, 0
 	};
 
-	cl_context ctx = clCreateContext(ctx_prop, 1, &d,
+	cl_context ctx = clCreateContext(ctx_prop, 1, &d, //83MB
 		NULL, NULL, &err);
 	ocl_check(err, "create context");
 
@@ -197,7 +197,7 @@ cl_program create_program(const char* const fname, cl_context ctx,
 	prg = clCreateProgramWithSource(ctx, 1, &buf_ptr, NULL, &err);
 	ocl_check(err, "create program");
 
-	err = clBuildProgram(prg, 1, &dev, "-I.", NULL, NULL);
+	err = clBuildProgram(prg, 1, &dev, "-I.", NULL, NULL); //165MB
 	errlog = clGetProgramBuildInfo(prg, dev, CL_PROGRAM_BUILD_LOG,
 		0, NULL, &logsize);
 	ocl_check(errlog, "get program build log size");

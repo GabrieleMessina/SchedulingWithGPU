@@ -16,7 +16,7 @@ bool isEmpty(cl_int4* v, int len, cl_int4 default_v = cl_int4{ 0,0,0,0 });
 bool is_file_empty(FILE* fp);
 
 //Specialization of print template function for this types that are not standard. //TODO: to make it cleaner, override cout << operand for this types
-void print(cl_int2* v, int len, const char* separator = " ", bool withIndexes = false);
+void print(cl_int2* v, int len, const char* separator = " ", bool withIndexes = false, int startingFrom = 0);
 void print(cl_int4* v, int len, const char* separator = " ", bool withIndexes = false);
 
 //utils for cl types
