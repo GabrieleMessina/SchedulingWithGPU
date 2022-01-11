@@ -77,7 +77,7 @@ Graph<T>* Graph<T>::insertEdgeByIndex(int indexOfa, int indexOfb, int weight) {
 			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", indexOfa, indexOfb);
 		}
 		else if (typeid(string) == typeid(indexOfa)) {
-			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%s,%s)\n", indexOfa, indexOfb);
+			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", indexOfa, indexOfb);
 		}
 	}
 	return this;

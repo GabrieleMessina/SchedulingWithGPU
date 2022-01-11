@@ -87,6 +87,8 @@
 			"jcssp",
 			"workitem"
 		],
-		"terminal.integrated.cwd": ".\\src\\"
+		"terminal.integrated.cwd": ".\\src\\",
+		"csv-preview.lineNumbers": "ordinal",
+		"csv-preview.separator": ";"
 	}
 }

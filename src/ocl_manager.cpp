@@ -20,6 +20,9 @@ cl_context OCLManager::ctx;
 cl_command_queue OCLManager::queue;
 size_t OCLManager::preferred_wg_size;
 
+ComputeMetricsVersion OCLManager::compute_metrics_version_chosen;
+VectorizedComputeMetricsVersion OCLManager::compute_metrics_vetorized_version_chosen;
+
 void OCLManager::InitCommon(const char* entryDiscoverKernelName, const char* computeMetricsKernelName, const char* sortKernelName) {
 	cl_platform_id p = select_platform(); //49MB
 	cl_device_id d = select_device(p); //0MB
@@ -44,45 +47,40 @@ void OCLManager::InitCommon(const char* entryDiscoverKernelName, const char* com
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalBig");
 }
 
-void OCLManager::Init(Version version) {
-	switch (version)
+void OCLManager::Init(ComputeMetricsVersion compute_metrics_version) {
+	compute_metrics_version_chosen = compute_metrics_version;
+	switch (compute_metrics_version_chosen)
 	{
-	case OCLManager::Version::Latest:
-		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
+	case ComputeMetricsVersion::Latest:
+		InitCommon("entry_discover", "compute_metrics_second", "sort_kernel");
 		break;
-	case OCLManager::Version::v1:
-		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
+	case ComputeMetricsVersion::v1:
+		InitCommon("entry_discover", "compute_metrics_second", "sort_kernel");
 		break;
-	case OCLManager::Version::v2:
-		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
-		break;
-	case OCLManager::Version::v3:
-		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
-		break;
+	case ComputeMetricsVersion::Working:
 	default:
-		InitCommon("entry_discover", "compute_metrics", "sort_kernel");
+		InitCommon("entry_discover", "compute_metrics_second", "sort_kernel");
 		break;
 	}
 }
 
 
-void OCLManager::InitVectorized(VectorizedVersion version) {
-	switch (version)
+void OCLManager::InitVectorized(VectorizedComputeMetricsVersion compute_metrics_version) {
+	compute_metrics_vetorized_version_chosen = compute_metrics_version;
+	switch (compute_metrics_vetorized_version_chosen)
 	{
-	case OCLManager::VectorizedVersion::Latest:
-		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+	case VectorizedComputeMetricsVersion::Latest:
+		InitCommon("entry_discover", "compute_metrics_eighth", "sort_kernel");
 		break;
-	case OCLManager::VectorizedVersion::v1:
-		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+	case VectorizedComputeMetricsVersion::v1:
+		InitCommon("entry_discover", "compute_metrics_fifth", "sort_kernel");
 		break;
-	case OCLManager::VectorizedVersion::v2:
-		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+	case VectorizedComputeMetricsVersion::v2:
+		InitCommon("entry_discover", "compute_metrics_eighth", "sort_kernel");
 		break;
-	case OCLManager::VectorizedVersion::v3:
-		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
-		break;
+	case VectorizedComputeMetricsVersion::Working:
 	default:
-		InitCommon("entry_discover", "compute_metrics_4", "sort_kernel");
+		InitCommon("entry_discover", "compute_metrics_fifth", "sort_kernel");
 		break;
 	}
 }

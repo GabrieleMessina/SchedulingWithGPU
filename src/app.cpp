@@ -1,7 +1,9 @@
-#define _CRTDBG_MAP_ALLOC
-#include <cstdlib>
-#include <crtdbg.h>
 #include "app_globals.h"
+#if DEBUG_MEMORY_LEAK
+	#define _CRTDBG_MAP_ALLOC
+	#include <crtdbg.h>
+#endif // DEBUG_MEMORY_LEAK
+#include <cstdlib>
 #include "utils.h"
 #include <stdio.h>
 #include <math.h>
@@ -39,7 +41,7 @@ string dataSetName;
 string userResponseToVectorizeQuestion;
 
 int main(int argc, char *argv[]) {
-
+start:
 	if (argc <= 1) {
 		//usage("syntax: graph_init datasetName [vector4 version (false)] [how many times? (1)]");
 		cout << "Nome del dataset: ";
@@ -63,8 +65,8 @@ int main(int argc, char *argv[]) {
 	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "s") == 0);
 	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);
 
-	if(isVector4Version) OCLManager::InitVectorized(OCLManager::VectorizedVersion::Latest); //TODO: make the user choose the version
-	else OCLManager::Init(OCLManager::Version::Latest);
+	if(isVector4Version) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::Latest); //TODO: make the user choose the version
+	else OCLManager::Init(ComputeMetricsVersion::Latest);
 
 	for (int i = 0; i < repeatNTimes; i++)
 	{
@@ -98,7 +100,7 @@ int main(int argc, char *argv[]) {
 
 		//METRICHE
 		measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, DAG->len);
-		//VERIFICA DELLA CORRETTEZZA
+		////VERIFICA DELLA CORRETTEZZA
 		verify();
 
 		//PULIZIA FINALE
@@ -119,8 +121,19 @@ int main(int argc, char *argv[]) {
 	cout << "-----------------END---------------------" << endl;
 	cout << "-----------------------------------------" << endl << endl;
 
+#if DEBUG_MEMORY_LEAK
 	_CrtDumpMemoryLeaks();
+#endif // DEBUG_MEMORY_LEAK
+
 	system("PAUSE");
+
+#if WINDOWS
+	exec("cls");
+#else
+	exec("clear");
+#endif
+
+	goto start;
 }
 
 void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_evt, cl_event *sort_task_evts, int nels) {
@@ -152,6 +165,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	int device_id = 0;
 	char *m_device_name = getSelectedDeviceInfo(device_id);
 
+#if WINDOWS
 	int gpu_temperature = -1;
 	string gpu_temperature_string = exec(".\\utils\\get_current_gpu_temperature.cmd");
 	if(gpu_temperature_string.length() != 0) {
@@ -164,6 +178,8 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	if(cpu_temperature_string.length() != 0) {
 		cpu_temperature = atoi(cpu_temperature_string.c_str());
 	}
+#endif // WINDOWS
+
 	//stampo i file in un .csv per poter analizzare i dati successivamente.
 	FILE *fp;
 	fp = fopen("results/execution_results.csv", "a");

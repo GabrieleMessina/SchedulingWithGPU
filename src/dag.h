@@ -9,7 +9,7 @@ public:
 	//lunghezza approssimata ad un numero comodo, superficie della matrice, numero reale di nodi(minore di len che è approssimato) ,numero di archi
 	int len, adj_len, n, m;
 	T* nodes;
-	bool* adj; //TODO: adj potrebbe già essere un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
+	bool* adj; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 
 	Graph(int len = 100);
 	~Graph() {

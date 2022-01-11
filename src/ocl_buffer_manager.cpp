@@ -14,12 +14,13 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, bool vectorized) {
 	instance->entrypoints_memsize = nNodes * sizeof(int);
 	instance->n_entrypoints_memsize = sizeof(int);
 	instance->nodes_memsize = nNodes * sizeof(int);
-	instance->queue_memsize = (vectorized) ? nNodes * sizeof(cl_int4) : nNodes * sizeof(int);
+	instance->queue_memsize = (vectorized) ? ceil(nNodes / 4.0) * sizeof(cl_int4) : nNodes * sizeof(int);
 	instance->next_queue_memsize = instance->queue_memsize;
 	instance->edges_memsize = nNodes * nNodes * sizeof(bool);
 	const int metrics_len = GetMetricsArrayLenght(nNodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	instance->metrics_memsize = metrics_len * sizeof(cl_int2);
 	instance->ordered_metrics_memsize = instance->metrics_memsize;
+	//instance->local_queue_memsize = (vectorized) ? CLManager.preferred_wg_size * sizeof(cl_int4) : nNodes * sizeof(int); //TODO: min(preferred e n_nodes/4);
 
 	instance->InitGraphEdges();
 	instance->InitNEntrypoints();
@@ -29,6 +30,8 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, bool vectorized) {
 	instance->InitMetrics();
 	instance->InitOrderedMetrics();
 	instance->InitNodes();
+	/*instance->InitLocalQueue();
+	instance->InitLocalQueueTemp();*/
 
 	OCLBufferManager::instance = instance;
 	return *instance;
@@ -97,6 +100,14 @@ void OCLBufferManager::InitNodes() {
 	nodes = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, nodes_memsize, NULL, &err);
 	ocl_check(err, "create buffer nodes");
 }
+//void OCLBufferManager::InitLocalQueue() {
+//	local_queue = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, local_queue_memsize, NULL, &err);
+//	ocl_check(err, "create local buffer queue");
+//}
+//void OCLBufferManager::InitLocalQueueTemp() {
+//	local_queue_temp = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, local_queue_memsize, NULL, &err);
+//	ocl_check(err, "create local buffer queue temp");
+//}
 
 /*Getter*/
 cl_mem OCLBufferManager::GetGraphEdges() {
@@ -123,6 +134,12 @@ cl_mem OCLBufferManager::GetOrderedMetrics() {
 cl_mem OCLBufferManager::GetNodes() {
 	return nodes;
 }
+//cl_mem OCLBufferManager::GetLocalQueue() {
+//	return local_queue;
+//}
+//cl_mem OCLBufferManager::GetLocalQueueTemp() {
+//	return local_queue_temp;
+//}
 
 
 
@@ -145,7 +162,13 @@ void OCLBufferManager::SetEntrypoints(const void* entries) {
 		0, NULL, &write_entries_evt);
 	ocl_check(err, "write entries into entrypoints");
 }
-void OCLBufferManager::SetQueue(const void* queue) {
+void OCLBufferManager::SetQueue(const cl_int4* queue) {
+	err = clEnqueueWriteBuffer(OCLManager::queue, GetQueue(), CL_TRUE,
+		0, queue_memsize, queue,
+		0, NULL, &write_queue_evt);
+	ocl_check(err, "write into queue");
+}
+void OCLBufferManager::SetQueue(const int* queue) {
 	err = clEnqueueWriteBuffer(OCLManager::queue, GetQueue(), CL_TRUE,
 		0, queue_memsize, queue,
 		0, NULL, &write_queue_evt);
@@ -175,6 +198,18 @@ void OCLBufferManager::SetNodes(const void* nodes) {
 		0, NULL, &write_nodes_evt);
 	ocl_check(err, "write into nodes");
 }
+//void OCLBufferManager::SetLocalQueue(const void* local_queue) {
+//	err = clEnqueueWriteBuffer(OCLManager::queue, GetLocalQueue(), CL_TRUE,
+//		0, local_queue_memsize, local_queue,
+//		0, NULL, &write_local_queue_evt);
+//	ocl_check(err, "write into queue");
+//}
+//void OCLBufferManager::SetLocalQueueTemp(const void* local_queue) {
+//	err = clEnqueueWriteBuffer(OCLManager::queue, GetLocalQueueTemp(), CL_TRUE,
+//		0, local_queue_memsize, local_queue,
+//		0, NULL, &write_local_queue_temp_evt);
+//	ocl_check(err, "write into queue");
+//}
 
 
 /*Result*/
@@ -252,3 +287,9 @@ void OCLBufferManager::ReleaseOrderedMetrics() {
 void OCLBufferManager::ReleaseNodes() {
 	clReleaseMemObject(GetNodes());
 }
+//void OCLBufferManager::ReleaseLocalQueue() {
+//	clReleaseMemObject(GetLocalQueue());
+//}
+//void OCLBufferManager::ReleaseLocalQueueTemp() {
+//	clReleaseMemObject(GetLocalQueueTemp());
+//}

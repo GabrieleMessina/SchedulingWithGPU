@@ -30,8 +30,8 @@ private:
 	cl_mem queue;
 	size_t queue_memsize;
 	cl_event read_queue_evt;
-	cl_event write_queue_evt;
-	
+	cl_event write_queue_evt;	
+
 	cl_mem next_queue;
 	size_t next_queue_memsize;
 	cl_event read_next_queue_evt;
@@ -52,6 +52,14 @@ private:
 	cl_event read_nodes_evt;
 	cl_event write_nodes_evt;
 	
+	/*cl_mem local_queue;
+	size_t local_queue_memsize;
+	cl_event write_local_queue_evt;
+
+	cl_mem local_queue_temp;
+	size_t local_queue_temp_memsize;
+	cl_event write_local_queue_temp_evt;*/
+
 public:
 	static OCLBufferManager Init(int nNodes, bool vectorized = false);
 	static void Release();
@@ -70,6 +78,8 @@ public:
 	void InitOrderedMetrics();
 	void InitMetrics();
 	void InitNodes();
+	/*void InitLocalQueue();
+	void InitLocalQueueTemp();*/
 
 	cl_mem GetGraphEdges();
 	cl_mem GetNEntrypoints();
@@ -79,15 +89,20 @@ public:
 	cl_mem GetOrderedMetrics();
 	cl_mem GetMetrics();
 	cl_mem GetNodes();
+	/*cl_mem GetLocalQueue();
+	cl_mem GetLocalQueueTemp();*/
 
 	void SetGraphEdges(const void* adj);
 	void SetNEntrypoints(const void* nEntrypoints);
 	void SetEntrypoints(const void* entrypoints);
-	void SetQueue(const void* queue);
+	void SetQueue(const int* queue);
+	void SetQueue(const cl_int4* queue);
 	void SetNextQueue(const void* nextQueue);
 	void SetMetrics(const void* metrics);
 	void SetOrderedMetrics(const void* metrics);
 	void SetNodes(const void* nodes);
+	/*void SetLocalQueue(const void* queue);
+	void SetLocalQueueTemp(const void* queue);*/
 	/*void SetGraphEdges(bool *adj);
 	void SetNEntrypoints(int *nEntrypoints);
 	void SetEntrypoints(int *entrypoints);
@@ -122,4 +137,6 @@ public:
 	void ReleaseMetrics();
 	void ReleaseOrderedMetrics();
 	void ReleaseNodes();
+	/*void ReleaseLocalQueue();
+	void ReleaseLocalQueueTemp();*/
 };

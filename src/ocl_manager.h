@@ -1,6 +1,9 @@
 #pragma once
 #include "CL/cl.h"
 
+enum class ComputeMetricsVersion { Latest, Working, v1 };
+enum class VectorizedComputeMetricsVersion { Latest, Working, v1, v2 };
+
 class OCLManager {
 private:
 	static cl_int err;
@@ -14,15 +17,16 @@ private:
 		m_MergesortStartKernel;
 	static void InitCommon(const char* entryDiscoverKernelName, const char* computeMetricsKernelName, const char* sortKernelName);
 public:
-	enum class Version { Latest, v1, v2, v3};
-	static enum class VectorizedVersion { Latest, v1, v2, v3};
+	static ComputeMetricsVersion compute_metrics_version_chosen;
+	static VectorizedComputeMetricsVersion compute_metrics_vetorized_version_chosen;
+	
 	static cl_context ctx;
 	static cl_command_queue queue;
 	static size_t preferred_wg_size;
 
 	
-	static void Init(Version version = Version::Latest);
-	static void InitVectorized(VectorizedVersion version = VectorizedVersion::Latest);
+	static void Init(ComputeMetricsVersion compute_metrics_version = ComputeMetricsVersion::Latest);
+	static void InitVectorized(VectorizedComputeMetricsVersion compute_metrics_version = VectorizedComputeMetricsVersion::Latest);
 	static void Reset();
 	static void Release();
 

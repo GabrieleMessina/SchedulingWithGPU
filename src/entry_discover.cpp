@@ -18,7 +18,7 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
 	//PASSARE I DATI ALLA GPU
-	BufferManager.SetGraphEdges(DAG->adj); //TODO: why here? maybe is better to to this on the main before calling entry discover. It's actually right to allocate memory just when needed but i feel like this shoudn't be here.
+	BufferManager.SetGraphEdges(DAG->adj);
 	BufferManager.SetNEntrypoints(n_entrypoints);
 	BufferManager.SetEntrypoints(entrypoints);
 

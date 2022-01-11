@@ -64,7 +64,7 @@ char* getSelectedPlatformInfo(int& platform_number_out) {
 // Return the ID of the platform specified in the OCL_PLATFORM
 // environment variable (or the first one if none specified)
 cl_platform_id select_platform() {
-	cl_uint nplats;
+	cl_uint nplats = 0;
 	cl_int err;
 	cl_platform_id* plats;
 
@@ -74,7 +74,7 @@ cl_platform_id select_platform() {
 	if (DEBUG_OCL_INIT)
 		printf("number of platforms: %u\n", nplats);
 
-	plats = (cl_platform_id*)malloc(nplats * sizeof(*plats));
+	plats = DBG_NEW cl_platform_id[nplats];//(cl_platform_id*)malloc(nplats * sizeof(*plats));
 
 	err = clGetPlatformIDs(nplats, plats, NULL);
 	ocl_check(err, "getting platform IDs");
@@ -100,7 +100,7 @@ cl_platform_id select_platform() {
 	if (DEBUG_OCL_INIT)
 		printf("selected platform %d: %s\n", platform_number, platform_name);
 
-	free(plats);
+	delete[] plats;
 	return choice;
 }
 
@@ -181,7 +181,7 @@ cl_program create_program(const char* const fname, cl_context ctx,
 	cl_program prg;
 
 	char src_buf[BUFSIZE + 1];
-	char* log_buf = NULL;
+	char* log_buf;
 	size_t logsize;
 	const char* buf_ptr = src_buf;
 	time_t now = time(NULL);
@@ -201,7 +201,7 @@ cl_program create_program(const char* const fname, cl_context ctx,
 	errlog = clGetProgramBuildInfo(prg, dev, CL_PROGRAM_BUILD_LOG,
 		0, NULL, &logsize);
 	ocl_check(errlog, "get program build log size");
-	log_buf = (char*)malloc(logsize);
+	log_buf = new char[logsize];//(char*)malloc(logsize);
 	errlog = clGetProgramBuildInfo(prg, dev, CL_PROGRAM_BUILD_LOG,
 		logsize, log_buf, NULL);
 	ocl_check(errlog, "get program build log");
@@ -211,8 +211,8 @@ cl_program create_program(const char* const fname, cl_context ctx,
 		logsize--;
 	}
 	if (logsize > 0) {
-		log_buf[logsize] = '\n';
-		log_buf[logsize + 1] = '\0';
+		log_buf[logsize-1] = '\n';
+		log_buf[logsize] = '\0';
 	}
 	else {
 		log_buf[logsize] = '\0';
@@ -222,7 +222,8 @@ cl_program create_program(const char* const fname, cl_context ctx,
 		printf("=== BUILD LOG ===\n%s\n=========\n", log_buf);
 	ocl_check(err, "build program");
 
-	if(log_buf != NULL)free(log_buf);
+	//if(log_buf != NULL)free(log_buf);
+	delete[] log_buf;
 	return prg;
 }
 

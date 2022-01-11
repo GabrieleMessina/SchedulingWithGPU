@@ -1,7 +1,23 @@
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 
+#ifndef NULL
+	#define NULL 0
+#endif
+
 int matrix_to_array_indexes(int i, int j, int row_len){
 	return i * row_len + j;
+}
+
+bool areEquals(local const int4 *a, local const int4*b, int len){
+	bool equal = true;
+	#pragma unroll
+	for(int i=0; i<len; i++){
+		if(any(a[i] != b[i])){
+			equal = false;
+			break;
+		}
+	}
+	return equal;
 }
 
 int compare (int2 V1, int2 V2){
@@ -15,7 +31,7 @@ int gt (int2 V1, int2 V2){
 	return compare(V1, V2) > 0;
 }
 
-bool isEmpty(int4 *v, int len, int4 default_v, int starting_from){
+bool isEmpty(local const int4 *v, int len, int4 default_v, int starting_from){
 	#pragma unroll
 	for (int i = starting_from; i < len; i++)
 	{
@@ -26,14 +42,31 @@ bool isEmpty(int4 *v, int len, int4 default_v, int starting_from){
 	return true;
 }
 
-inline void swap(int4 *a, int4 *b) {
+bool isEmptyGlobal(global const int4 *v, int len, int4 default_v, int starting_from){
+	#pragma unroll
+	for (int i = starting_from; i < len; i++)
+	{
+		if(v[i].x != default_v.x || v[i].y != default_v.y || v[i].z != default_v.z || v[i].w != default_v.w){
+			return false;
+		}
+	}
+	return true;
+}
+
+// inline void swap(int4 *a, int4 *b) {
+// 	int4 tmp;
+// 	tmp = *b;
+// 	*b = *a;
+// 	*a = tmp;
+// }
+inline void swap(local int4 *a, local int4 *b) {
 	int4 tmp;
 	tmp = *b;
 	*b = *a;
 	*a = tmp;
 }
 
-void print(int4 *v, int len, bool withIndexes){
+void print(global int4 *v, int len, bool withIndexes){
 	for (int i = 0; i < len; i++)
 	{
 		if(withIndexes)
@@ -54,18 +87,139 @@ bool firstOfFour(int a){
 }
 kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/);
 
-kernel void compute_metrics_eighth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_item_eighth(global int * restrict nodes, global int4 *queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
+	int work_item = get_global_id(0);
 	
+	if(work_item >= ceil(n_nodes / 4.0)){
+		return;
+	} 
+	int indexes_to_analyze[4] = {1, 1, 1, 1};
+
+	for(int i=0; i<4; i++){
+		int node_index = work_item * 4 + i;
+		int node;
+		volatile global int *nodes = &(queue_[work_item]);//TODO: funziona solo se potenza del due, per n_nodes diversi da problemi.
+
+		node = nodes[i];
+		if(node != 0)indexes_to_analyze[i] = 0; //Non è ancora da analizzare, qualche parent non ha finito l'esecuzione (>0). O è già stato analizzato (-1).
+		else {
+			// printf("analizzo: %d\n", node_index);
+			metriche[node_index].y = metriche[node_index].y - node;
+			atomic_dec(&(nodes[i])); //lo porto a -1 così non ciclo all'infinito.
+		}
+
+		// if(metriche[node_index].y > 0)indexes_to_analyze[i] = 0; //non ancora tutti i parent sono stati analizzati.
+		// else metriche[node_index] = (int2)(nodes[node_index],0);
+	}
+
+	if(!indexes_to_analyze[0] && !indexes_to_analyze[1] && !indexes_to_analyze[2] && !indexes_to_analyze[3]) return;
+
+	int2 metrics_with_this_parent;
+	#pragma unroll
+	for(int i=0; i<4; i++){
+		if(!indexes_to_analyze[i]) continue;
+		#pragma unroll
+		for(int j = 0; j<n_nodes; j++){
+			int parent = j;
+			int node_index = work_item * 4 + i;
+			int edge_weight = edges[matrix_to_array_indexes(parent, node_index, n_nodes)]; //controllo tutti i parent di current_node
+			if(edge_weight > 0){
+				int weight_with_this_parent = edge_weight + metriche[parent].x + nodes[node_index];
+				int level_with_this_parent = metriche[parent].y+1;
+				metrics_with_this_parent = (int2)(weight_with_this_parent, level_with_this_parent);
+				if(gt(metrics_with_this_parent, metriche[node_index]))//prendo il maggiore peso peggiore che il nodo ottiene con i suoi parent.
+					metriche[node_index] = metrics_with_this_parent;
+			}
+
+			int child = j;
+			int adiacent = edges[matrix_to_array_indexes(node_index, child, n_nodes)];
+			if(adiacent > 0){ //TODO: prendi a quattro a quattro.
+				// printf("%d parent di %d\n", node_index, child);
+				int globalIndexStart = (int)(floor(j/4.0));
+				// printf("%d parent di %d -> %d\n", node_index, child, globalIndexStart);	
+				volatile global int *four_next_nodes = &(queue_[globalIndexStart]);
+				// printf("before ");
+				// print(&queue_[globalIndexStart], 1, false);
+				atomic_dec(&(four_next_nodes[j-globalIndexStart*4]));
+				// printf("after ");
+				// print(&queue_[globalIndexStart], 1, false);
+			}
+		}
+	}
 }
+
+kernel void compute_metrics_eighth(global int * restrict nodes, global int4 *queue_, local int4 *local_queue, local int4 *local_queue_temp, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+{	
+	local bool something_changed;
+	int work_item = get_global_id(0);
+	int work_item_local_index = get_local_id(0);
+	int work_group_size = get_local_size(0);
+	int work_group = get_group_id(0);
+	//64 / 4 = 16 -> 16 elementi da gestire in totale, quindi diviso 32 work item e 1 workgroup.
+	//128 / 4 = 32 -> 32 elementi da gestire in totale, quindi diviso 32 work item e 1 workgroup.
+	//256 / 4 = 64 -> 64 elementi da gestire in totale, quindi diviso 32 work item e 2 workgroup.
+	int global_queue_size = (int)ceil(n_nodes / 4.0);
+ 	int local_queue_size = min(work_group_size, global_queue_size); //non è la lunghezza dalla coda globale ma la lunghezza di cui si deve occupare questo work group.
+	
+	bool work_item_outside_range = work_item >= global_queue_size || work_item_local_index >= local_queue_size; 
+	
+	// printf("queue_size: %d\n", queue_size);
+	//note: every work item must call this, read documentation for further details.
+	// work_group_barrier(CLK_GLOBAL_MEM_FENCE);
+	event_t e[2];
+	e[0] = async_work_group_copy(local_queue, queue_ + work_group * local_queue_size, local_queue_size, NULL);
+	e[1] = async_work_group_copy(local_queue_temp, queue_ + work_group * local_queue_size, local_queue_size, e[0]);
+	wait_group_events(1, e);
+	// work_group_barrier(CLK_LOCAL_MEM_FENCE);
+
+	// if(work_item_local_index == 0) printf("priemo %d, %d, %d, %d\n", local_queue, queue_[0].y, work_group * local_queue_size, local_queue_size);
+
+	#pragma unroll
+	do{
+		// if(work_item_local_index == 0)printf("ciclo\n");
+		// per ogni work item se il suo count è zero, allora: 
+		// 1.calcolare la sua metrica
+		// 2.decrementare il valore dei suoi child in coda globale e locale se in range.
+		// 2.alt oppure invece di decrementare sia la global che la local, si può ricopiare la global in local ad ogni ciclo, 
+		// 		in questo modo riusciamo anche a ricevere entuali aggiornamenti da altri work group.
+		
+		//Problema: è possbile che ci sia una dipendenza da un work group non ancora partito, quindi non devo controllare
+		//			che la coda sia vuota, ma che non ci siano stati cambiamenti dall'ultimo ciclo.
+		//			Inoltre devo stare attento che se analizzo un task perchè ha valore zero, non devo ricontrollarlo al prossimo ciclo,
+		//			quindi devo usare un -1 per indicare i task con analisi completata.
+
+		if(!work_item_outside_range)
+			compute_metrics_item_eighth(nodes, queue_, n_nodes, edges, metriche);
+
+		// work_group_barrier(CLK_GLOBAL_MEM_FENCE);
+		async_work_group_copy(local_queue, queue_ + work_group * local_queue_size, local_queue_size, NULL);
+		// work_group_barrier(CLK_LOCAL_MEM_FENCE);
+
+		if(work_item_local_index == 0){
+			something_changed = !areEquals(local_queue, local_queue_temp, local_queue_size);
+			// print(local_queue_temp, local_queue_size, false);
+			// printf("\n");
+			// print(local_queue, local_queue_size, false);
+		}
+		// work_group_barrier(CLK_GLOBAL_MEM_FENCE);
+		// work_group_barrier(CLK_LOCAL_MEM_FENCE);
+		async_work_group_copy(local_queue_temp, queue_ + work_group * local_queue_size, local_queue_size, NULL);
+		e[0] = async_work_group_copy(local_queue, queue_ + work_group * local_queue_size, local_queue_size, NULL);
+		e[1] = async_work_group_copy(local_queue_temp, queue_ + work_group * local_queue_size, local_queue_size, e[0]);
+		wait_group_events(1, e);
+	}while(something_changed);
+}
+
 /**
 * Gestisco i singoli work group per evitare i problemi di dead lock della variante precedente.
+* In questo caso la concorrenza è un problema perché è possibile che due work group scrivano contemporaneamente nella stessa cella in global memory.
 */
 kernel void compute_metrics_seventh(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
 	local bool is_empty;
-	local int4 *local_queue; //TODO: dimensione dinamica basata su work_group_size
-	local int4 *local_next_queue; //TODO: dimensione dinamica basata su work_group_size
+	local int4 *local_queue;
+	local int4 *local_next_queue;
 	int work_item = get_global_id(0);
 	int work_item_local_index = get_local_id(0);
 	int work_group_size = get_local_size(0);
@@ -74,6 +228,8 @@ kernel void compute_metrics_seventh(global int * restrict nodes, global int4 *qu
 	int local_queue_size = (int)ceil(global_queue_size / (float)work_group_size); //non è la lunghezza dalla coda globale ma la lunghezza di cui si deve occupare questo work group.
 	// printf("queue_size: %d\n", queue_size);
 
+	//note: every work item must call this, read documentation for further details.
+	//TODO: le variabili locali vanno allocate prima di richiamare la funzione.
 	async_work_group_copy(local_queue, queue_ + work_group * local_queue_size, local_queue_size, NULL);
 	async_work_group_copy(local_next_queue, next_queue_ + work_group * local_queue_size, local_queue_size, NULL);
 
@@ -84,10 +240,11 @@ kernel void compute_metrics_seventh(global int * restrict nodes, global int4 *qu
 	#pragma unroll
 	do{
 		compute_metrics_item(nodes, queue_, next_queue_, n_nodes, edges, metriche);
+		//TODO: invertire per eseguire swap?
 		async_work_group_copy(local_queue, queue_ + work_group * local_queue_size, local_queue_size, NULL);
 		async_work_group_copy(local_next_queue, next_queue_ + work_group * local_queue_size, local_queue_size, NULL);
 		barrier(CLK_GLOBAL_MEM_FENCE); //forse inutile perché la copia è già una barriera.
-		if(work_item == 0){//solo un WI si occupa di invertire le due code.
+		if(work_item == 0){//solo un WI si occupa di invertire le due code. //TODO: lo facciamo direttamente durante la copia??
 			//print(queue_, queue_size, true);
 			swap(local_queue, local_next_queue);
 			for (int i = 0; i < global_queue_size; i++) next_queue_[i] = (int4){0,0,0,0};
@@ -174,9 +331,9 @@ kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queu
 * Risultato: il codice non funzione perché ci sono workitem che non vengono istanziati e che quindi non calcolano mai il valore della metrica per il loro task,
 * questo perché i WI stanno in attesa continua che la coda sia vuota e non ritornano mai.
 */
-global bool flipFlop = false;
 kernel void compute_metrics_sixth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
+	local bool flipFlop; //era global, ho dovuto cambiarlo per le piattaforme intel a cui non piaceva, comunque non funzionanva già da prima perchè cercava di sincronizzare worgroup diversi.
 	int work_item = get_global_id(0);
 	int work_item_local_index = get_local_id(0);
 	int work_group_size = get_local_size(0);
@@ -204,8 +361,8 @@ kernel void compute_metrics_sixth(global int * restrict nodes, global int4 *queu
 		}
 		barrier(CLK_GLOBAL_MEM_FENCE);
 	}while(
-		(flipFlop && !isEmpty(next_queue_, local_queue_size, (int4){0,0,0,0}, 0)) ||
-		(!flipFlop && !isEmpty(queue_, local_queue_size, (int4){0,0,0,0}, 0))
+		(flipFlop && !isEmptyGlobal(next_queue_, local_queue_size, (int4){0,0,0,0}, 0)) ||
+		(!flipFlop && !isEmptyGlobal(queue_, local_queue_size, (int4){0,0,0,0}, 0))
 	);
 }
 
