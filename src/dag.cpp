@@ -1,8 +1,5 @@
 #include "dag.h"
-#include "app_globals.h"
-#include <string>
-#include <fstream>
-#include <sstream>
+#include "utils.h"
 
 template<class T>
 Graph<T>::Graph(int len) {
@@ -11,12 +8,19 @@ Graph<T>::Graph(int len) {
 	adj_len = len * len;
 	nodes = DBG_NEW T[len];
 	for (int i = 0; i < len; i++) nodes[i] = 0;
-	adj = DBG_NEW bool[adj_len];
-	printf("len is %d and mat is %d\n", len, adj_len);
-#pragma unroll
+
+#if VECTOR_ADJ
+	adj.reserve(adj_len);
+	adj.resize(adj_len);
+#else
+	adj = DBG_NEW edge_t[adj_len];
+	#pragma unroll
 	for (int i = 0; i < adj_len; i++) {
 		adj[i] = 0;
 	}
+#endif
+
+	printf("len is %d and mat is %d\n", len, adj_len);
 }
 
 template<class T>
@@ -47,20 +51,17 @@ Graph<T>* Graph<T>::insertEdge(T a, T b, int weight) {
 	//TODO: verifica che non crei cicli!
 	int i = indexOfNode(a);
 	int j = indexOfNode(b);
-	if (i != -1 && j != -1) {
-		adj[matrix_to_array_indexes(i, j, len)] = weight;
-		//adj[j][i] = weight; //se non orientato
-		m++;
-	}
-	else {
-		if (typeid(int) == typeid(a)) {
-			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", a, b);
-		}
-		else if (typeid(string) == typeid(a)) {
-			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%s,%s)\n", a, b);
-		}
-	}
-	return this;
+	
+	return insertEdgeByIndex(a, b, weight);
+}
+
+template<>
+edge_t* Graph<int>::GetEdgesArray(){
+#if VECTOR_ADJ
+	return adj.data();
+#else
+	return adj;
+#endif
 }
 
 template<class T>
@@ -68,8 +69,11 @@ Graph<T>* Graph<T>::insertEdgeByIndex(int indexOfa, int indexOfb, int weight) {
 	int i = indexOfa;
 	int j = indexOfb;
 	if (i > -1 && j > -1 && i < len && j < len) {
+#if VECTOR_ADJ
+		adj.insert(adj.begin() + matrix_to_array_indexes(i, j, len), weight);
+#else
 		adj[matrix_to_array_indexes(i, j, len)] = weight;
-		//adj[j][i] = weight; //se non orientato
+#endif
 		m++;
 	}
 	else {
@@ -88,11 +92,17 @@ bool Graph<T>::hasEdge(T a, T b) {
 	int i = indexOfNode(a);
 	int j = indexOfNode(b);
 	if (i != -1 && j != -1) {
+#if VECTOR_ADJ
+		return adj.at(matrix_to_array_indexes(i, j, len)) != 0;
+#else
 		return adj[matrix_to_array_indexes(i, j, len)] != 0;
+#endif
+		
 	}
 	return false;
 }
 
+template <>
 Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	ifstream data_set;
 	stringstream ss;

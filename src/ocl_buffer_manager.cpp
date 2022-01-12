@@ -10,13 +10,12 @@ OCLManager OCLBufferManager::CLManager;
 OCLBufferManager OCLBufferManager::Init(int nNodes, bool vectorized) {
 	OCLBufferManager* instance = DBG_NEW OCLBufferManager();
 	instance->n_nodes = nNodes;
-	instance->edges_memsize = nNodes * nNodes * sizeof(bool);
+	instance->edges_memsize = nNodes * nNodes * sizeof(edge_t);
 	instance->entrypoints_memsize = nNodes * sizeof(int);
 	instance->n_entrypoints_memsize = sizeof(int);
 	instance->nodes_memsize = nNodes * sizeof(int);
 	instance->queue_memsize = (vectorized) ? ceil(nNodes / 4.0) * sizeof(cl_int4) : nNodes * sizeof(int);
 	instance->next_queue_memsize = instance->queue_memsize;
-	instance->edges_memsize = nNodes * nNodes * sizeof(bool);
 	const int metrics_len = GetMetricsArrayLenght(nNodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	instance->metrics_memsize = metrics_len * sizeof(cl_int2);
 	instance->ordered_metrics_memsize = instance->metrics_memsize;

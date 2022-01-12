@@ -1,4 +1,3 @@
-
 #pragma warning(disable:4996)
 
 #ifdef __APPLE__

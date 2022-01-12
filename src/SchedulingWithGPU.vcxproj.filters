@@ -85,5 +85,13 @@
     <None Include="kernels\entry_discover.ocl">
       <Filter>Kernel Files</Filter>
     </None>
+    <None Include="results\execution_results.csv">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="utils\config.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>

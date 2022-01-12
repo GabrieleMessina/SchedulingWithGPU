@@ -76,6 +76,10 @@
     <None Include="kernels\compute_metrics.ocl" />
     <None Include="kernels\entry_discover.ocl" />
     <None Include="kernels\sort.ocl" />
+    <None Include="results\execution_results.csv" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="utils\config.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

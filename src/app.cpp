@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <cstring>
 #include <sstream>
 #include <chrono>
 #include <ctime>
@@ -114,7 +115,7 @@ start:
 
 		OCLBufferManager::Release();
 		OCLManager::Reset();
-		cout << "-----------------END LOOP---------------------" << endl;
+		cout << "-----------------END LOOP " << i+1 << "/" << repeatNTimes << "---------------------" << endl;
 	}
 
 	cout << "-----------------------------------------" << endl;
@@ -165,15 +166,15 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	int device_id = 0;
 	char *m_device_name = getSelectedDeviceInfo(device_id);
 
-#if WINDOWS
 	int gpu_temperature = -1;
+	int cpu_temperature = -1;
+#if WINDOWS
 	string gpu_temperature_string = exec(".\\utils\\get_current_gpu_temperature.cmd");
 	if(gpu_temperature_string.length() != 0) {
 		size_t start_sub = gpu_temperature_string.find(':')+1, end_sub = gpu_temperature_string.find_last_of('C')-1;
 		gpu_temperature_string = gpu_temperature_string.substr(start_sub, end_sub-start_sub);
 		gpu_temperature = atoi(gpu_temperature_string.c_str());
 	}
-	int cpu_temperature = -1;
 	string cpu_temperature_string = exec(".\\utils\\get_current_cpu_temperature.cmd");
 	if(cpu_temperature_string.length() != 0) {
 		cpu_temperature = atoi(cpu_temperature_string.c_str());

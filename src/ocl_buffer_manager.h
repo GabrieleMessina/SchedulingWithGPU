@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "ocl_boiler.h"
 #include "ocl_manager.h"
+#include <cmath>
 
 class OCLBufferManager {
 

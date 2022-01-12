@@ -18,7 +18,7 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
 	//PASSARE I DATI ALLA GPU
-	BufferManager.SetGraphEdges(DAG->adj);
+	BufferManager.SetGraphEdges(DAG->GetEdgesArray());
 	BufferManager.SetNEntrypoints(n_entrypoints);
 	BufferManager.SetEntrypoints(entrypoints);
 
@@ -36,7 +36,7 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 	cout << endl;
 
 	//PULIZIA FINALE
-	//BufferManager.ReleaseGraphEdges(); //compute metrics is usign it
+	//BufferManager.ReleaseGraphEdges(); //compute metrics is using it
 	BufferManager.ReleaseEntrypoints(); //TODO: i can map queue buffer on entrypoints buffer because they are the same thing but for now i'm letting this way
 	BufferManager.ReleaseNEntrypoints();
 	delete n_entrypoints;

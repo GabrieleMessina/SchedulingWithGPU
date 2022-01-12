@@ -68,3 +68,4 @@ Module.symvers
 Mkfile.old
 dkms.conf
 src/execution_results.csv
+/src/app2.cpp

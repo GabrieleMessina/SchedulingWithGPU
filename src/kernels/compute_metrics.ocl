@@ -1,8 +1,5 @@
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
-
-#ifndef NULL
-	#define NULL 0
-#endif
+#include "../app_globals.h"
 
 int matrix_to_array_indexes(int i, int j, int row_len){
 	return i * row_len + j;
@@ -85,9 +82,9 @@ bool isEven(int a){
 bool firstOfFour(int a){
 	return (a%4) == 0;
 }
-kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/);
+kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/);
 
-kernel void compute_metrics_item_eighth(global int * restrict nodes, global int4 *queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_item_eighth(global int * restrict nodes, global int4 *queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
 	int work_item = get_global_id(0);
 	
@@ -149,7 +146,7 @@ kernel void compute_metrics_item_eighth(global int * restrict nodes, global int4
 	}
 }
 
-kernel void compute_metrics_eighth(global int * restrict nodes, global int4 *queue_, local int4 *local_queue, local int4 *local_queue_temp, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_eighth(global int * restrict nodes, global int4 *queue_, local int4 *local_queue, local int4 *local_queue_temp, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
 	local bool something_changed;
 	int work_item = get_global_id(0);
@@ -165,7 +162,7 @@ kernel void compute_metrics_eighth(global int * restrict nodes, global int4 *que
 	bool work_item_outside_range = work_item >= global_queue_size || work_item_local_index >= local_queue_size; 
 	
 	// printf("queue_size: %d\n", queue_size);
-	//note: every work item must call this, read documentation for further details.
+	// note: every work item must call this, read documentation for further details.
 	// work_group_barrier(CLK_GLOBAL_MEM_FENCE);
 	event_t e[2];
 	e[0] = async_work_group_copy(local_queue, queue_ + work_group * local_queue_size, local_queue_size, NULL);
@@ -215,7 +212,7 @@ kernel void compute_metrics_eighth(global int * restrict nodes, global int4 *que
 * Gestisco i singoli work group per evitare i problemi di dead lock della variante precedente.
 * In questo caso la concorrenza è un problema perché è possibile che due work group scrivano contemporaneamente nella stessa cella in global memory.
 */
-kernel void compute_metrics_seventh(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_seventh(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
 	local bool is_empty;
 	local int4 *local_queue;
@@ -260,7 +257,7 @@ kernel void compute_metrics_seventh(global int * restrict nodes, global int4 *qu
 * ho reso la coda un array di int4 in modo che l'accesso multiplo sia più efficiente.
 * Risultato: si nota effettivamente un netto miglioramente, credo tuttavia di poter rifinire ancora. //NON È VERO
 */
-kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
 	int work_item = get_global_id(0);
 	
@@ -324,14 +321,14 @@ kernel void compute_metrics_item(global int * restrict nodes, global int4 *queue
 	}
 }
 
-kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/);
+kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/);
 
 /**
 * Questa volta tutta la logica è implementata su GPU evitando l'overhead del passaggio di dati da host a device e viceversa.
 * Risultato: il codice non funzione perché ci sono workitem che non vengono istanziati e che quindi non calcolano mai il valore della metrica per il loro task,
 * questo perché i WI stanno in attesa continua che la coda sia vuota e non ritornano mai.
 */
-kernel void compute_metrics_sixth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_sixth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
 	local bool flipFlop; //era global, ho dovuto cambiarlo per le piattaforme intel a cui non piaceva, comunque non funzionanva già da prima perchè cercava di sincronizzare worgroup diversi.
 	int work_item = get_global_id(0);
@@ -373,7 +370,7 @@ kernel void compute_metrics_sixth(global int * restrict nodes, global int4 *queu
 * ho reso la coda un array di int4 in modo che l'accesso multiplo sia più efficiente.
 * Risultato: si nota effettivamente un netto miglioramente, credo tuttavia di poter rifinire ancora.
 */
-kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {	
 	int work_item = get_global_id(0);
 	
@@ -451,7 +448,7 @@ kernel void compute_metrics_fifth(global int * restrict nodes, global int4 *queu
 /**
 * Come il terzo algoritmo anche in questo caso in cui leggo 4 interi per volta invece che 1 non migliora per nulla le prestazioni e, anzi, si nota un peggioramente rispetto anche al terzo algoritmo.
 */
-kernel void compute_metrics_fourth(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_fourth(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	// const int number_of_item_per_workitem = 2;
 	int work_item = get_global_id(0);
@@ -551,7 +548,7 @@ kernel void compute_metrics_fourth(global int * restrict nodes, global int *queu
 * Risultato: gli accessi in memoria sono gli stessi, inoltre faccio partire meno WI e ognuno di essi deve aspettare di avere accesso a più locazioni di memoria, che evidentemente non vengono fornite con un unico stream.
 * Ne segue che le tempistiche si allungano rispetto al secondo algoritmo.
 */
-kernel void compute_metrics_third(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_third(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	// const int number_of_item_per_workitem = 2;
 	int work_item = get_global_id(0);
@@ -631,7 +628,7 @@ kernel void compute_metrics_third(global int * restrict nodes, global int *queue
 /**
 * Il problema con questa implementazione è che la GPU viene usata per 16 secondi per 8192 task, ma nel task manager sembra morta, ne deduco che venga utilizzato al minimo delle sue opportunità
 */
-kernel void compute_metrics_second(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_second(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	int i = get_global_id(0);
 	int current_node_index = i;
@@ -683,7 +680,7 @@ kernel void compute_metrics_second(global int * restrict nodes, global int *queu
  * Il problema di questa implementazione è che ogni nodo viene aggiunto alla coda molte volte e quindi questo algoritmo viene ripetuto molte volte per ogni nodo.
  * Questo impiegava circa due secondi per 2048 elementi, l'implementazione successiva mezzo secondo. NON È VERO.
  */
-kernel void compute_metrics_first(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_first(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global edge_t* restrict edges, global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	//TODO: queue count non più necessario, ma forse nex_queue_count necessario per capire se ho finito di calcolare tutte le metriche o se devo ciclare ancora.
 
@@ -739,7 +736,7 @@ kernel void compute_metrics_first(global int * restrict nodes, global int *queue
 }
 
 
-kernel void compute_metrics(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics(global int * restrict nodes, global int *queue_, global int *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	//compute_metrics_fourth(nodes, queue_, next_queue_, n_nodes, edges, metriche);
 	//compute_metrics_third(nodes, queue_, next_queue_, n_nodes, edges, metriche);
@@ -747,7 +744,7 @@ kernel void compute_metrics(global int * restrict nodes, global int *queue_, glo
 	//compute_metrics_first(nodes, queue_, next_queue_, n_nodes, edges, metriche);
 }
 
-kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global bool * restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
+kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, global int4 *next_queue_, const int n_nodes, global edge_t* restrict edges, volatile global int2 *metriche /*<RANK,LIVELLO>*/)
 {
 	
 	//compute_metrics_seventh(nodes, queue_, next_queue_, n_nodes, edges, metriche);

@@ -1,7 +1,9 @@
 #include "utils.h"
 #include <math.h>
+#if WINDOWS
 #include "windows.h"
 #include "psapi.h"
+#endif
 
 void error(char const* str) {
 	fprintf(stderr, "%s\n", str);
@@ -72,14 +74,14 @@ void print(cl_int4* v, int len, const char* separator, bool withIndexes) {
 /// <summary>
 /// TODO: Print only if debug enabled and add to the .h file
 /// </summary>
-int printd(char const* const _Format, ...) {
-	int _Result;
-	va_list _ArgList;
-	__crt_va_start(_ArgList, _Format);
-	_Result = _vfprintf_l(stdout, _Format, NULL, _ArgList);
-	__crt_va_end(_ArgList);
-	return _Result;
-}
+//int printd(char const* const _Format, ...) {
+//	int _Result;
+//	va_list _ArgList;
+//	__crt_va_start(_ArgList, _Format);
+//	_Result = _vfprintf_l(stdout, _Format, NULL, _ArgList);
+//	__crt_va_end(_ArgList);
+//	return _Result;
+//}
 
 
 //Una l è minore di r se hanno lo stesso livello, e l ha peso maggiore o se l ha livello minore di r.
@@ -100,11 +102,22 @@ bool operator>=(const cl_int2& l, const cl_int2& r) {
 }
 
 
+#if WINDOWS
+#define PIPEOPEN _popen
+#else
+#define PIPEOPEN popen
+#endif // WINDOWS
+
+#if WINDOWS
+#define PIPECLOSE _pclose
+#else
+#define PIPECLOSE pclose
+#endif // WINDOWS
 
 std::string exec(const char* cmd) {
 	char buffer[128];
 	std::string result = "";
-	FILE* pipe = _popen(cmd, "r");
+	FILE* pipe = PIPEOPEN(cmd, "r");
 	if (!pipe) throw std::runtime_error("popen() failed!");
 	try {
 		while (fgets(buffer, sizeof buffer, pipe) != NULL) {
@@ -112,15 +125,16 @@ std::string exec(const char* cmd) {
 		}
 	}
 	catch (...) {
-		_pclose(pipe);
+		PIPECLOSE(pipe);
 		throw;
 	}
-	_pclose(pipe);
+	PIPECLOSE(pipe);
 	return result;
 }
 
 
 void printMemoryUsage() {
+#if WINDOWS
 	//virtual memory used by program
 	PROCESS_MEMORY_COUNTERS_EX pmc;
 	GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
@@ -130,4 +144,5 @@ void printMemoryUsage() {
 	SIZE_T physMemUsedByMe = pmc.WorkingSetSize; //in bytes
 
 	printf("Memory usage: %dMB, %dMB \n", virtualMemUsedByMe / 1000 / 1000, physMemUsedByMe / 1000 / 1000);
+#endif
 }

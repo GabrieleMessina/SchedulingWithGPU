@@ -1,6 +1,6 @@
 #pragma once
-#include "CL/cl.h"
 #include "app_globals.h"
+#include "CL/cl.h"
 #include <iostream>
 
 using namespace std;
