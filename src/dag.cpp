@@ -69,11 +69,18 @@ Graph<T>* Graph<T>::insertEdgeByIndex(int indexOfa, int indexOfb, int weight) {
 	int i = indexOfa;
 	int j = indexOfb;
 	if (i > -1 && j > -1 && i < len && j < len) {
-#if VECTOR_ADJ
-		adj.insert(adj.begin() + matrix_to_array_indexes(i, j, len), weight);
+		int matrixToArrayIndex;
+#if TRANSPOSED_ADJ
+		matrixToArrayIndex = matrix_to_array_indexes(j, i, len);
 #else
-		adj[matrix_to_array_indexes(i, j, len)] = weight;
-#endif
+		matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
+#endif // TRANSPOSED_ADJ
+
+#if VECTOR_ADJ
+		adj.insert(adj.begin() + matrixToArrayIndex, weight);
+#else
+		adj[matrixToArrayIndex] = weight;
+#endif //VECTOR_ADJ
 		m++;
 	}
 	else {
@@ -92,10 +99,16 @@ bool Graph<T>::hasEdge(T a, T b) {
 	int i = indexOfNode(a);
 	int j = indexOfNode(b);
 	if (i != -1 && j != -1) {
-#if VECTOR_ADJ
-		return adj.at(matrix_to_array_indexes(i, j, len)) != 0;
+		int matrixToArrayIndex;
+#if TRANSPOSED_ADJ
+		matrixToArrayIndex = matrix_to_array_indexes(j, i, len);
 #else
-		return adj[matrix_to_array_indexes(i, j, len)] != 0;
+		matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
+#endif // TRANSPOSED_ADJ
+#if VECTOR_ADJ
+		return adj.at(matrixToArrayIndex) != 0;
+#else
+		return adj[matrixToArrayIndex] != 0;
 #endif
 		
 	}

@@ -88,6 +88,7 @@ start:
 		std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
 
 
+
 		cl_event *compute_metrics_evt;
 		if(isVector4Version)
 			std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
@@ -154,6 +155,8 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	}
 
 	std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
+	/*typedef std::chrono::milliseconds ms;
+	ms elapsed_ms_cpu = std::chrono::duration_cast<ms>(end_time - start_time);*/
 	std::chrono::duration<double> elapsed_seconds = end_time-start_time;
 	tm *end_date_time_info = localtime(&end_time_t);
 	char end_date_time[80];
@@ -195,7 +198,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		end_date_time, 
 		nels,
 		elapsed_seconds.count(),
-		total_elapsed_time_GPU / 1000,
+		total_elapsed_time_GPU,
 		runtime_discover_ms,
 		runtime_metrics_ms,
 		runtime_sorts_ms,

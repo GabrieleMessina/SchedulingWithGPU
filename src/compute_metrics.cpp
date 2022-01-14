@@ -43,12 +43,19 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
 
 	cl_int2 *metrics = DBG_NEW cl_int2[metrics_len];
+	int matrixToArrayIndex;
+	int parent_of_node;
 	for (int i = 0; i < metrics_len; i++) {
 		metrics[i].x = 0;
 		metrics[i].y = 0;
 		if (i > n_nodes) continue;
 		for (int j = 0; j < n_nodes; j++) {
-			int parent_of_node = DAG->adj[matrix_to_array_indexes(j, i, n_nodes)];
+#if TRANSPOSED_ADJ
+			matrixToArrayIndex = matrix_to_array_indexes(i, j, n_nodes);
+#else
+			matrixToArrayIndex = matrix_to_array_indexes(j, i, n_nodes);
+#endif // TRANSPOSED_ADJ
+			parent_of_node = DAG->adj[matrixToArrayIndex];
 			if (parent_of_node > 0) metrics[i].y++;
 		}
 	}
@@ -139,12 +146,18 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<i
 	}
 
 	cl_int2* metrics = DBG_NEW cl_int2[metrics_len];
+	int matrixToArrayIndex;
 	for (int i = 0; i < metrics_len; i++) {
 		metrics[i].x = 0;
 		metrics[i].y = 0;
 		if (i > n_nodes) continue;
 		for (int j = 0; j < n_nodes; j++) {
-			int parent_of_node = DAG->adj[matrix_to_array_indexes(j, i, n_nodes)];
+#if TRANSPOSED_ADJ
+			matrixToArrayIndex = matrix_to_array_indexes(i, j, n_nodes);
+#else
+			matrixToArrayIndex = matrix_to_array_indexes(j, i, n_nodes);
+#endif // TRANSPOSED_ADJ
+			int parent_of_node = DAG->adj[matrixToArrayIndex];
 			if (parent_of_node > 0) metrics[i].y++;
 		}
 	}
@@ -233,12 +246,19 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 		for (int k = 0; k < n_nodes; k++)
 		{
 			int j = i * 4;
-			//il valore iniziale in coda per ogni task è dato dal nuemro di parent da cui dipende e che deve aspettare prima di poter essere eseguito
+			//il valore iniziale in coda per ogni task è dato dal numero di parent da cui dipende e che deve aspettare prima di poter essere eseguito
 			//TODO: a questo punto la ricerca degli entry point è inutile perchè sto già mettendoli a zero in queue.
+#if TRANSPOSED_ADJ
+			queue[i].x += (j < n_nodes&& DAG->adj[matrix_to_array_indexes(j++, k, n_nodes)] > 0) ? 1 : 0;
+			queue[i].y += (j < n_nodes&& DAG->adj[matrix_to_array_indexes(j++, k, n_nodes)] > 0) ? 1 : 0;
+			queue[i].z += (j < n_nodes&& DAG->adj[matrix_to_array_indexes(j++, k, n_nodes)] > 0) ? 1 : 0;
+			queue[i].w += (j < n_nodes&& DAG->adj[matrix_to_array_indexes(j,   k, n_nodes)] > 0) ? 1 : 0;
+#else
 			queue[i].x += (j < n_nodes && DAG->adj[matrix_to_array_indexes(k, j++, n_nodes)] > 0) ? 1 : 0;
 			queue[i].y += (j < n_nodes && DAG->adj[matrix_to_array_indexes(k, j++, n_nodes)] > 0) ? 1 : 0;
 			queue[i].z += (j < n_nodes && DAG->adj[matrix_to_array_indexes(k, j++, n_nodes)] > 0) ? 1 : 0;
 			queue[i].w += (j < n_nodes && DAG->adj[matrix_to_array_indexes(k, j,   n_nodes)] > 0) ? 1 : 0;
+#endif // TRANSPOSED_ADJ
 		}
 	}
 
@@ -297,6 +317,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 
 
 cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip) {
+	//TODO: queste variabili potrebbero essere statiche
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
 	int arg_index = 0;

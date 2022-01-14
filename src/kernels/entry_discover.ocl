@@ -13,7 +13,13 @@ kernel void entry_discover(const int n_nodes, global edge_t* restrict edges, vol
 	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
 #pragma unroll
 	for (int j = 0; j < n_nodes; j++) {
-		if (edges[matrix_to_array_indexes(j, i, n_nodes)] != 0) { //per cercare le root invece delle leaf invertire i e j
+		int matrixToArrayIndex;
+#if TRANSPOSED_ADJ
+		matrixToArrayIndex = matrix_to_array_indexes(i, j, n_nodes);
+#else
+		matrixToArrayIndex = matrix_to_array_indexes(j, i, n_nodes);
+#endif // TRANSPOSED_ADJ
+		if (edges[matrixToArrayIndex] != 0) { //per cercare le root invece delle leaf invertire i e j
 			return;
 		}
 	}

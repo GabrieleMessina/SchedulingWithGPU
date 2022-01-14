@@ -9,8 +9,6 @@
 #include <iostream>
 #include <vector>
 
-#define VECTOR_ADJ false
-
 template<typename  T> 
 class Graph {
 public:
@@ -26,7 +24,11 @@ public:
 	Graph(int len = 100);
 	~Graph() {
 		delete[] nodes;
-		//delete[] adj; //not needed if adj is a std::vector
+#if VECTOR_ADJ
+		//not needed if adj is a std::vector
+#else
+		delete[] adj; 
+#endif
 	}
 
 	int insertNode(T key);
@@ -45,10 +47,16 @@ public:
 
 	void Print(){
 		cout << "(index, value) -> [(edges_index, weight)]" << endl;
+		int matrixToArrayIndex;
 		for (int i = 0; i < len; i++) {
 			cout << "(" << i << ", " << nodes[i] << ")" << " -> | ";
 			for (int j = 0; j < len; j++) {
-				if (adj[matrix_to_array_indexes(i, j, len)] != 0) cout << "(" << j << ", " << adj[matrix_to_array_indexes(i, j, len)] << ") | ";
+#if TRANSPOSED_ADJ
+				matrixToArrayIndex = matrix_to_array_indexes(j, i, len);
+#else
+				matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
+#endif // TRANSPOSED_ADJ
+				if (adj[matrixToArrayIndex] != 0) cout << "(" << j << ", " << adj[matrixToArrayIndex] << ") | ";
 			}
 			cout << endl;
 		}
