@@ -37,15 +37,16 @@ public:
 		int i = indexOfa;
 		int j = 0;
 		if (i != -1 && j != -1) {
+			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				int matrixToArrayIndex = matrix_to_array_indexes(j++, i, Graph<T>::len);
+				matrixToArrayIndex = matrix_to_array_indexes(j++, i, Graph<T>::len);
 #else
-				int matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::len);
+				matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::len);
 #endif
-			} while (matrix_to_array_indexes < adj_len && adj[matrixToArrayIndex] != indexOfb)
+			} while (matrixToArrayIndex < Graph<T>::adj_len && adj[matrixToArrayIndex] != indexOfb);
 
-			return matrix_to_array_indexes < adj_len; //se maggiore allora abbiamo percorso tutta la matrice senza trovare nulla
+			return matrixToArrayIndex < Graph<T>::adj_len; //se maggiore allora abbiamo percorso tutta la matrice senza trovare nulla
 		}
 		return false;
 	}
@@ -56,13 +57,14 @@ public:
 		int i = indexOfa;
 		int j = 0;
 		if (i > -1 && j > -1 && i < Graph<T>::len && j < Graph<T>::len) {
+			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				int matrixToArrayIndex = matrix_to_array_indexes(j++, i, Graph<T>::len);
+				matrixToArrayIndex = matrix_to_array_indexes(j++, i, Graph<T>::len);
 #else
-				int matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::len);
+				matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::len);
 #endif
-			} while (matrix_to_array_indexes < adj_len && adj[matrixToArrayIndex] > emptyAdjCell)
+			} while (matrixToArrayIndex < Graph<T>::adj_len && adj[matrixToArrayIndex] > emptyAdjCell);
 
 			adj[matrixToArrayIndex] = indexOfb;
 			Graph<T>::m++;
