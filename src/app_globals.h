@@ -18,7 +18,8 @@
 /*DAG*/
 #define edge_t int
 #define VECTOR_ADJ false
-#define TRANSPOSED_ADJ true
+#define TRANSPOSED_ADJ false
+#define RECTANGULAR_ADJ true
 /*DAG*/
 
 /*utils*/

@@ -7,10 +7,10 @@
 OCLBufferManager *OCLBufferManager::instance = NULL;
 OCLManager OCLBufferManager::CLManager;
 
-OCLBufferManager OCLBufferManager::Init(int nNodes, bool vectorized) {
+OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, bool vectorized) {
 	OCLBufferManager* instance = DBG_NEW OCLBufferManager();
 	instance->n_nodes = nNodes;
-	instance->edges_memsize = nNodes * nNodes * sizeof(edge_t);
+	instance->edges_memsize = adjSize * sizeof(edge_t);
 	instance->entrypoints_memsize = nNodes * sizeof(int);
 	instance->n_entrypoints_memsize = sizeof(int);
 	instance->nodes_memsize = nNodes * sizeof(int);

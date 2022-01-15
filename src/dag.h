@@ -8,46 +8,49 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 template<typename  T> 
 class Graph {
 public:
-	//lunghezza approssimata ad un numero comodo, superficie della matrice, numero reale di nodi(minore di len che è approssimato) ,numero di archi
-	int len, adj_len, n, m;
+	//lunghezza approssimata ad un numero comodo
+	int len;
+	//superficie della matrice
+	int adj_len;
+	//numero max di edge per ogni nodo
+	int max_edges_for_node;
+	//numero reale di nodi(minore di len che è approssimato) 
+	int n;
+	//numero di archi
+	int m;
 	T* nodes;
-#if VECTOR_ADJ
-	vector<edge_t> adj; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
-#else
-	edge_t* adj; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
-#endif
 
 	Graph(int len = 100);
-	~Graph() {
-		delete[] nodes;
-#if VECTOR_ADJ
-		//not needed if adj is a std::vector
-#else
-		delete[] adj; 
-#endif
-	}
+	virtual ~Graph();
 
-	int insertNode(T key);
+	virtual int insertNode(T key);
 
-	int insertUniqueValueNode(T key);
+	virtual int insertUniqueValueNode(T key);
 
-	int indexOfNode(T key);
-
-	Graph<T>* insertEdge(T a, T b, int weight = 1);
+	virtual int indexOfNode(T key);
 	
-	Graph<T>* insertEdgeByIndex(int indexOfa, int indexOfb, int weight = 1);
+	virtual void initAdjacencyMatrix();
 
-	edge_t* GetEdgesArray();
+	virtual Graph<T>* insertEdge(T a, T b, int weight = 1);
+	
+	virtual Graph<T>* insertEdgeByIndex(int indexOfa, int indexOfb, int weight = 1);
 
-	bool hasEdge(T a, T b);
+	virtual edge_t* GetEdgesArray();
 
+	virtual bool hasEdge(T a, T b);
+	
+	virtual bool hasEdgeByIndex(int indexOfa, int indexOfb);
+
+	//TODO: rendere virtuali? o riescono a chiamare fun più ad alto livello?
 	void Print(){
 		cout << "(index, value) -> [(edges_index, weight)]" << endl;
 		int matrixToArrayIndex;
+		edge_t* edges = GetEdgesArray();
 		for (int i = 0; i < len; i++) {
 			cout << "(" << i << ", " << nodes[i] << ")" << " -> | ";
 			for (int j = 0; j < len; j++) {
@@ -56,7 +59,7 @@ public:
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
 #endif // TRANSPOSED_ADJ
-				if (adj[matrixToArrayIndex] != 0) cout << "(" << j << ", " << adj[matrixToArrayIndex] << ") | ";
+				if (edges[matrixToArrayIndex] != 0) cout << "(" << j << ", " << edges[matrixToArrayIndex] << ") | ";
 			}
 			cout << endl;
 		}

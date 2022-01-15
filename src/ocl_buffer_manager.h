@@ -62,7 +62,7 @@ private:
 	cl_event write_local_queue_temp_evt;*/
 
 public:
-	static OCLBufferManager Init(int nNodes, bool vectorized = false);
+	static OCLBufferManager Init(int nNodes, int adjSize, bool vectorized = false);
 	static void Release();
 	~OCLBufferManager();
 

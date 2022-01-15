@@ -45,6 +45,12 @@
     <ClCompile Include="sort_metrics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dag_rectangular.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dag_vector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dag.h">

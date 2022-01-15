@@ -50,12 +50,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 		metrics[i].y = 0;
 		if (i > n_nodes) continue;
 		for (int j = 0; j < n_nodes; j++) {
-#if TRANSPOSED_ADJ
-			matrixToArrayIndex = matrix_to_array_indexes(i, j, n_nodes);
-#else
-			matrixToArrayIndex = matrix_to_array_indexes(j, i, n_nodes);
-#endif // TRANSPOSED_ADJ
-			parent_of_node = DAG->adj[matrixToArrayIndex];
+			parent_of_node = DAG->hasEdgeByIndex(j, i);
 			if (parent_of_node > 0) metrics[i].y++;
 		}
 	}
@@ -152,12 +147,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<i
 		metrics[i].y = 0;
 		if (i > n_nodes) continue;
 		for (int j = 0; j < n_nodes; j++) {
-#if TRANSPOSED_ADJ
-			matrixToArrayIndex = matrix_to_array_indexes(i, j, n_nodes);
-#else
-			matrixToArrayIndex = matrix_to_array_indexes(j, i, n_nodes);
-#endif // TRANSPOSED_ADJ
-			int parent_of_node = DAG->adj[matrixToArrayIndex];
+			int parent_of_node = DAG->hasEdgeByIndex(i, j);
 			if (parent_of_node > 0) metrics[i].y++;
 		}
 	}
@@ -248,17 +238,10 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 			int j = i * 4;
 			//il valore iniziale in coda per ogni task è dato dal numero di parent da cui dipende e che deve aspettare prima di poter essere eseguito
 			//TODO: a questo punto la ricerca degli entry point è inutile perchè sto già mettendoli a zero in queue.
-#if TRANSPOSED_ADJ
-			queue[i].x += (j < n_nodes&& DAG->adj[matrix_to_array_indexes(j++, k, n_nodes)] > 0) ? 1 : 0;
-			queue[i].y += (j < n_nodes&& DAG->adj[matrix_to_array_indexes(j++, k, n_nodes)] > 0) ? 1 : 0;
-			queue[i].z += (j < n_nodes&& DAG->adj[matrix_to_array_indexes(j++, k, n_nodes)] > 0) ? 1 : 0;
-			queue[i].w += (j < n_nodes&& DAG->adj[matrix_to_array_indexes(j,   k, n_nodes)] > 0) ? 1 : 0;
-#else
-			queue[i].x += (j < n_nodes && DAG->adj[matrix_to_array_indexes(k, j++, n_nodes)] > 0) ? 1 : 0;
-			queue[i].y += (j < n_nodes && DAG->adj[matrix_to_array_indexes(k, j++, n_nodes)] > 0) ? 1 : 0;
-			queue[i].z += (j < n_nodes && DAG->adj[matrix_to_array_indexes(k, j++, n_nodes)] > 0) ? 1 : 0;
-			queue[i].w += (j < n_nodes && DAG->adj[matrix_to_array_indexes(k, j,   n_nodes)] > 0) ? 1 : 0;
-#endif // TRANSPOSED_ADJ
+			queue[i].x += (j < n_nodes && DAG->hasEdgeByIndex(k, j++) > 0) ? 1 : 0;
+			queue[i].y += (j < n_nodes && DAG->hasEdgeByIndex(k, j++) > 0) ? 1 : 0;
+			queue[i].z += (j < n_nodes && DAG->hasEdgeByIndex(k, j++) > 0) ? 1 : 0;
+			queue[i].w += (j < n_nodes && DAG->hasEdgeByIndex(k, j)   > 0) ? 1 : 0;
 		}
 	}
 

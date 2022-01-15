@@ -1,26 +1,24 @@
 #include "dag.h"
 #include "utils.h"
+#include "dag_vector.cpp"
+#include "dag_rectangular.cpp"
+
+edge_t* adj = NULL; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 
 template<class T>
 Graph<T>::Graph(int len) {
-	n = m = 0;
+	max_edges_for_node = n = m = 0;
 	this->len = len;
 	adj_len = len * len;
 	nodes = DBG_NEW T[len];
 	for (int i = 0; i < len; i++) nodes[i] = 0;
+	adj = NULL;
+}
 
-#if VECTOR_ADJ
-	adj.reserve(adj_len);
-	adj.resize(adj_len);
-#else
-	adj = DBG_NEW edge_t[adj_len];
-	#pragma unroll
-	for (int i = 0; i < adj_len; i++) {
-		adj[i] = 0;
-	}
-#endif
-
-	printf("len is %d and mat is %d\n", len, adj_len);
+template<class T>
+Graph<T>::~Graph() {
+	delete[] nodes;
+	if(adj != NULL) delete[] adj; 
 }
 
 template<class T>
@@ -47,25 +45,39 @@ int Graph<T>::indexOfNode(T key) {
 }
 
 template<class T>
+void Graph<T>::initAdjacencyMatrix() {
+	adj_len = len * len;
+	adj = DBG_NEW edge_t[adj_len];
+#pragma unroll
+	for (int i = 0; i < adj_len; i++) {
+		adj[i] = 0;
+	}
+	printf("Graph<T>: len is %d and mat is %d\n", len, adj_len);
+}
+
+template<class T>
 Graph<T>* Graph<T>::insertEdge(T a, T b, int weight) {
 	//TODO: verifica che non crei cicli!
 	int i = indexOfNode(a);
 	int j = indexOfNode(b);
+
+	if (i > -1 && j > -1 && i < len && j < len) {
+		if (typeid(int) == typeid(a)) {
+			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", a, b);
+		}
+		else if (typeid(string) == typeid(b)) {
+			printf("impossibile aggiungere l'edge perche' uno dei valori non esiste in insertEdge(%d,%d)\n", a, b);
+		}
+		return this;
+	}
 	
 	return insertEdgeByIndex(a, b, weight);
 }
 
-template<>
-edge_t* Graph<int>::GetEdgesArray(){
-#if VECTOR_ADJ
-	return adj.data();
-#else
-	return adj;
-#endif
-}
-
 template<class T>
 Graph<T>* Graph<T>::insertEdgeByIndex(int indexOfa, int indexOfb, int weight) {
+	if (adj == NULL) initAdjacencyMatrix();
+
 	int i = indexOfa;
 	int j = indexOfb;
 	if (i > -1 && j > -1 && i < len && j < len) {
@@ -76,44 +88,44 @@ Graph<T>* Graph<T>::insertEdgeByIndex(int indexOfa, int indexOfb, int weight) {
 		matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
 #endif // TRANSPOSED_ADJ
 
-#if VECTOR_ADJ
-		adj.insert(adj.begin() + matrixToArrayIndex, weight);
-#else
 		adj[matrixToArrayIndex] = weight;
-#endif //VECTOR_ADJ
 		m++;
 	}
 	else {
-		if (typeid(int) == typeid(indexOfa)) {
-			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", indexOfa, indexOfb);
-		}
-		else if (typeid(string) == typeid(indexOfa)) {
-			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", indexOfa, indexOfb);
-		}
+		printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", indexOfa, indexOfb);
 	}
 	return this;
 }
 
 template<class T>
-bool Graph<T>::hasEdge(T a, T b) {
+edge_t* Graph<T>::GetEdgesArray(){
+	return adj;
+}
+
+template<class T>
+bool Graph<T>::hasEdge(T a, T b){
 	int i = indexOfNode(a);
 	int j = indexOfNode(b);
+	return hasEdgeByIndex(i, j);
+}
+
+template<class T>
+bool Graph<T>::hasEdgeByIndex(int indexOfa, int indexOfb){
+	int i = indexOfa;
+	int j = indexOfb;
 	if (i != -1 && j != -1) {
-		int matrixToArrayIndex;
 #if TRANSPOSED_ADJ
-		matrixToArrayIndex = matrix_to_array_indexes(j, i, len);
+		int matrixToArrayIndex = matrix_to_array_indexes(j, i, len);
 #else
-		matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
-#endif // TRANSPOSED_ADJ
-#if VECTOR_ADJ
-		return adj.at(matrixToArrayIndex) != 0;
-#else
-		return adj[matrixToArrayIndex] != 0;
+		int matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
 #endif
-		
+
+		return adj[matrixToArrayIndex] != 0;
 	}
 	return false;
 }
+
+
 
 template <>
 Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
@@ -131,7 +143,14 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	int n_nodes = 0;
 	data_set >> n_nodes;
 
+#if VECTOR_ADJ
+	Graph<int>* DAG = DBG_NEW GraphVector<int>(n_nodes);
+#elif RECTANGULAR_ADJ
+	Graph<int>* DAG = DBG_NEW GraphRectangular<int>(n_nodes);
+#else
 	Graph<int>* DAG = DBG_NEW Graph<int>(n_nodes);
+#endif
+
 	if (!DAG) {
 		data_set.close();
 		fprintf(stderr, "%s\n", "failed to allocate graph");
@@ -139,9 +158,11 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	}
 
 	//leggo tutti gli id in prima posizione in modo da creare la dag senza adj per il momento.
+	DAG->max_edges_for_node = 0;
 	int value, n_successor, successor_index, data_transfer;
 	while (data_set >> value >> n_successor) {
 		int current_node_index = DAG->insertNode(value);
+		DAG->max_edges_for_node = max(DAG->max_edges_for_node, n_successor);
 		for (int i = 0; i < n_successor; i++)
 		{
 			data_set >> successor_index >> data_transfer;

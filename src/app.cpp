@@ -81,7 +81,7 @@ start:
 		DAG = Graph<int>::initDagWithDataSet(dataSetName.c_str());
 		int n_nodes = DAG->len;
 
-		OCLBufferManager::Init(n_nodes, isVector4Version);
+		OCLBufferManager::Init(n_nodes, DAG->adj_len, isVector4Version);
 
 
 		cl_event entry_discover_evt;
@@ -101,7 +101,7 @@ start:
 		end_time = std::chrono::system_clock::now();
 
 		//METRICHE
-		measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, DAG->len);
+		measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, n_nodes);
 		////VERIFICA DELLA CORRETTEZZA
 		verify();
 

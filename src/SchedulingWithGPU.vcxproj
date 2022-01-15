@@ -53,6 +53,8 @@
   <ItemGroup>
     <ClCompile Include="compute_metrics.cpp" />
     <ClCompile Include="dag.cpp" />
+    <ClCompile Include="dag_rectangular.cpp" />
+    <ClCompile Include="dag_vector.cpp" />
     <ClCompile Include="ocl_boiler.cpp" />
     <ClCompile Include="ocl_buffer_manager.cpp" />
     <ClCompile Include="entry_discover.cpp" />
