@@ -143,21 +143,8 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	double runtime_metrics_ms = total_runtime_ms(compute_metrics_evt[0], compute_metrics_evt[1]);
 	double runtime_sorts_ms =  total_runtime_ms(sort_task_evts[0], sort_task_evts[1]);
 
-	if (DEBUG_METRICS) {
-		//TODO: check the math as algorithms changed
-		printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-			   runtime_discover_ms, nels/runtime_discover_ms/1.0e6, OCLManager::preferred_wg_size/runtime_discover_ms/1.0e6);
-		printf("compute metrics: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-			   runtime_metrics_ms, nels/runtime_metrics_ms/1.0e6, OCLManager::preferred_wg_size/runtime_metrics_ms/1.0e6);
-		printf("sort tasks: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
-			   runtime_sorts_ms, nels/runtime_sorts_ms/1.0e6, OCLManager::preferred_wg_size/runtime_sorts_ms/1.0e6);
-		printMemoryUsage();
-	}
-
 	std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
-	/*typedef std::chrono::milliseconds ms;
-	ms elapsed_ms_cpu = std::chrono::duration_cast<ms>(end_time - start_time);*/
-	std::chrono::duration<double> elapsed_seconds = end_time-start_time;
+	std::chrono::duration<double, std::milli> elapsed_seconds = end_time-start_time;
 	tm *end_date_time_info = localtime(&end_time_t);
 	char end_date_time[80];
 	strftime(end_date_time, 80, "%d/%m/%y %H.%M.%S", end_date_time_info);
@@ -209,6 +196,36 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		cpu_temperature,
 		m_device_name
 	);
+
+	if (DEBUG_METRICS) {
+		printf("%s; %d; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
+			end_date_time,
+			nels,
+			elapsed_seconds.count(),
+			total_elapsed_time_GPU,
+			runtime_discover_ms,
+			runtime_metrics_ms,
+			runtime_sorts_ms,
+			(isVector4Version ? "vec4" : "standard"),
+			m_platform_name,
+			OCLManager::preferred_wg_size,
+			gpu_temperature,
+			cpu_temperature,
+			m_device_name
+		);
+		printMemoryUsage();
+	}
+
+	//if (DEBUG_METRICS) {
+	//	//TODO: check the math as algorithms changed
+	//	printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+	//		runtime_discover_ms, nels / runtime_discover_ms / 1.0e6, OCLManager::preferred_wg_size / runtime_discover_ms / 1.0e6);
+	//	printf("compute metrics: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+	//		runtime_metrics_ms, nels / runtime_metrics_ms / 1.0e6, OCLManager::preferred_wg_size / runtime_metrics_ms / 1.0e6);
+	//	printf("sort tasks: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
+	//		runtime_sorts_ms, nels / runtime_sorts_ms / 1.0e6, OCLManager::preferred_wg_size / runtime_sorts_ms / 1.0e6);
+	//	printMemoryUsage();
+	//}
 
 	fflush(fp);
 	fclose(fp);
