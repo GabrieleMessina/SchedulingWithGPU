@@ -1,8 +1,8 @@
 #pragma once
 #include "CL/cl.h"
 
-enum class ComputeMetricsVersion { Latest, Working, v1, v2 };
-enum class VectorizedComputeMetricsVersion { Latest, Working, v1, v2 };
+enum class ComputeMetricsVersion { Latest, Working, v1, Rectangular };
+enum class VectorizedComputeMetricsVersion { Latest, Working, v1, v2, Rectangular };
 
 class OCLManager {
 private:

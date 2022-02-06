@@ -66,8 +66,8 @@ start:
 	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "s") == 0);
 	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);
 
-	if(isVector4Version) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::v2); //TODO: make the user choose the version
-	else OCLManager::Init(ComputeMetricsVersion::v2);
+	if(isVector4Version) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::Rectangular); //TODO: make the user choose the version
+	else OCLManager::Init(ComputeMetricsVersion::Rectangular);
 
 	for (int i = 0; i < repeatNTimes; i++)
 	{

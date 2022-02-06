@@ -52,8 +52,8 @@ void OCLManager::Init(ComputeMetricsVersion compute_metrics_version) {
 	switch (compute_metrics_version_chosen)
 	{
 	case ComputeMetricsVersion::Latest:
-		compute_metrics_version_chosen = ComputeMetricsVersion::v2;
-	case ComputeMetricsVersion::v2:
+		compute_metrics_version_chosen = ComputeMetricsVersion::Rectangular;
+	case ComputeMetricsVersion::Rectangular:
 		InitCommon("entry_discover", "compute_metrics_standard_with_rectangular_matrix", "sort_kernel");
 		break;
 	case ComputeMetricsVersion::v1:
@@ -70,7 +70,10 @@ void OCLManager::InitVectorized(VectorizedComputeMetricsVersion compute_metrics_
 	switch (compute_metrics_vetorized_version_chosen)
 	{
 	case VectorizedComputeMetricsVersion::Latest:
-		compute_metrics_vetorized_version_chosen = VectorizedComputeMetricsVersion::v2;
+		compute_metrics_vetorized_version_chosen = VectorizedComputeMetricsVersion::Rectangular;
+	case VectorizedComputeMetricsVersion::Rectangular:
+		InitCommon("entry_discover", "compute_metrics_vectorized_rectangular", "sort_kernel");
+		break;
 	case VectorizedComputeMetricsVersion::v2:
 		InitCommon("entry_discover", "compute_metrics_eighth", "sort_kernel");
 		break;
