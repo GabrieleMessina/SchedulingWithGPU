@@ -17,6 +17,10 @@ private:
 	size_t edges_memsize;
 	cl_event read_edges_evt;
 	cl_event write_edges_evt;
+
+	cl_mem graph_reverse_edges;
+	cl_event read_edges_reverse_evt;
+	cl_event write_edges_reverse_evt;
 	
 	cl_mem n_entrypoints;
 	size_t n_entrypoints_memsize;
@@ -72,6 +76,7 @@ public:
 	void SwapMetrics();
 
 	void InitGraphEdges();
+	void InitGraphReverseEdges();
 	void InitNEntrypoints();
 	void InitEntrypoints();
 	void InitQueue();
@@ -83,6 +88,7 @@ public:
 	void InitLocalQueueTemp();*/
 
 	cl_mem GetGraphEdges();
+	cl_mem GetGraphReverseEdges();
 	cl_mem GetNEntrypoints();
 	cl_mem GetEntrypoints();
 	cl_mem GetQueue();
@@ -94,6 +100,7 @@ public:
 	cl_mem GetLocalQueueTemp();*/
 
 	void SetGraphEdges(const void* adj);
+	void SetGraphReverseEdges(const void* adj);
 	void SetNEntrypoints(const void* nEntrypoints);
 	void SetEntrypoints(const void* entrypoints);
 	void SetQueue(const int* queue);
@@ -114,6 +121,7 @@ public:
 	void SetNodes(int *nodes);*/
 
 	void GetGraphEdgesResult(void* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
+	void GetGraphEdgesReverseResult(void* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetNEntrypointsResult(void* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetEntrypointsResult(void* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetQueueResult(void* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
@@ -131,6 +139,7 @@ public:
 	void GetNodesResult(int* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);*/
 
 	void ReleaseGraphEdges();
+	void ReleaseGraphReverseEdges();
 	void ReleaseNEntrypoints();
 	void ReleaseEntrypoints();
 	void ReleaseQueue();

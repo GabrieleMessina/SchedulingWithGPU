@@ -10,8 +10,10 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints
 	switch (version)
 	{
 		case ComputeMetricsVersion::Latest:
+		case ComputeMetricsVersion::v2:
+			if (!RECTANGULAR_ADJ) error("set RECTANGULAR_ADJ to true in app_globals to proceed.");
+			else return compute_metrics_rectangular(DAG, entrypoints);
 		case ComputeMetricsVersion::v1:
-			return compute_metrics(DAG, entrypoints);
 		case ComputeMetricsVersion::Working:
 		default:
 			return compute_metrics(DAG, entrypoints);
@@ -55,6 +57,10 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 		}
 	}
 
+	/*cout << "metrics init\n";
+	print(metrics, metrics_len, "\n", true);
+	cout << "\n";*/
+
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
 	BufferManager.SetNodes(DAG->nodes);
@@ -70,7 +76,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	bool moreToProcess = true;
 	do {
 		//scambio le due code e reinizializzo la next_queue in modo da poter essere riutilizzata.
-		compute_metrics_evt_end = run_compute_metrics_kernel(n_nodes, flip);
+		compute_metrics_evt_end = run_compute_metrics_kernel(n_nodes, flip, DAG);
 		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
 		
 		if(flip)
@@ -112,6 +118,99 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
 	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseMetrics(); //sort kernel is using it
+
+	delete[] queue;
+	delete[] next_queue;
+
+	cl_event* compute_metrics_evt = DBG_NEW cl_event[2];
+	compute_metrics_evt[0] = compute_metrics_evt_start;
+	compute_metrics_evt[1] = compute_metrics_evt_end;
+	return make_tuple(compute_metrics_evt, metrics);
+}
+
+tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int>* DAG, int *entrypoints) {
+	int const n_nodes = DAG->len;
+	int* queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) queue[i] = entrypoints[i]; //alias for clarity
+	int *next_queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
+	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
+	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
+
+	cl_int2 *metrics = DBG_NEW cl_int2[metrics_len];
+	int matrixToArrayIndex;
+	int parent_of_node;
+	for (int i = 0; i < metrics_len; i++) {
+		metrics[i].x = 0;
+		metrics[i].y = 0;
+		if (i > n_nodes) continue;
+		for (int j = 0; j < n_nodes; j++) {
+			parent_of_node = DAG->hasEdgeByIndex(j, i);
+			if (parent_of_node > 0) metrics[i].y++;
+		}
+	}
+
+	/*cout << "metrics init\n";
+	print(metrics, metrics_len, "\n", true);
+	cout << "\n";*/
+
+	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
+
+	BufferManager.SetNodes(DAG->nodes);
+	BufferManager.SetQueue(queue);
+	BufferManager.SetNextQueue(next_queue);
+	BufferManager.SetMetrics(metrics);
+
+	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
+	cl_event compute_metrics_evt_start = cl_event(), compute_metrics_evt_end = cl_event();
+
+	int count = 0;
+	bool flip = false;
+	bool moreToProcess = true;
+	do {
+		//scambio le due code e reinizializzo la next_queue in modo da poter essere riutilizzata.
+		compute_metrics_evt_end = run_compute_metrics_kernel(n_nodes, flip, DAG);
+		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
+		
+		if(flip)
+			BufferManager.GetQueueResult(next_queue, &compute_metrics_evt_end, 1);
+		else
+			BufferManager.GetNextQueueResult(next_queue, &compute_metrics_evt_end, 1);
+
+		moreToProcess = !isEmpty(next_queue, n_nodes, 0);
+
+		/*cout << "next queue\n";
+		print(next_queue, DAG->len, "\n", true);
+		cout << "\n";*/
+
+		for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
+		
+		//passo il next_array reinizializzato alla GPU.
+		if (!flip)
+			BufferManager.SetQueue(next_queue);
+		else
+			BufferManager.SetNextQueue(next_queue);
+
+		flip = !flip;
+		count++;
+	} while (moreToProcess);
+	
+	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
+	
+	cout << "count:" << count << endl;
+	printf("metrics computed\n");
+	if (DEBUG_COMPUTE_METRICS) {
+		cout<<"metrics: "<<metrics_len<<endl;
+		print(metrics, DAG->len, "\n", true);
+		cout<<"\n";
+	}
+	cout << endl;
+
+	//PULIZIA FINALE
+	BufferManager.ReleaseNodes();
+	BufferManager.ReleaseQueue();
+	BufferManager.ReleaseNextQueue();
+	BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -299,7 +398,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 }
 
 
-cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip) {
+cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip, Graph<edge_t>* DAG) {
 	//TODO: queste variabili potrebbero essere statiche
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
@@ -311,9 +410,12 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip) {
 	cl_mem queue_GPU = (flip) ? BufferManager.GetNextQueue() : BufferManager.GetQueue();
 	cl_mem next_queue_GPU = (flip) ? BufferManager.GetQueue() : BufferManager.GetNextQueue();
 	cl_mem graph_edges_GPU = BufferManager.GetGraphEdges();
+	cl_mem graph_edges_reverse_GPU = BufferManager.GetGraphReverseEdges();
 	cl_mem metrics_GPU = BufferManager.GetMetrics();
 
 	cl_int err;
+	ComputeMetricsVersion version = OCLManager::compute_metrics_version_chosen;
+	
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_nodes_GPU), &graph_nodes_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(queue_GPU), &queue_GPU);
@@ -324,8 +426,18 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip) {
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_GPU), &graph_edges_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+	if (version == ComputeMetricsVersion::v2 && DAG != NULL) {
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_reverse_GPU), &graph_edges_reverse_GPU);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+	}
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(metrics_GPU), &metrics_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+
+	if (version == ComputeMetricsVersion::v2 && DAG != NULL) {
+		int max_adj_dept = DAG->max_edges_for_node;
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_dept), &max_adj_dept);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+	}
 
 	cl_event compute_metrics_evt;
 	err = clEnqueueNDRangeKernel(OCLManager::queue,

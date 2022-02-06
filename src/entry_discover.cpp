@@ -19,6 +19,7 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 
 	//PASSARE I DATI ALLA GPU
 	BufferManager.SetGraphEdges(DAG->GetEdgesArray());
+	BufferManager.SetGraphReverseEdges(DAG->GetEdgesReverseArray());
 	BufferManager.SetNEntrypoints(n_entrypoints);
 	BufferManager.SetEntrypoints(entrypoints);
 

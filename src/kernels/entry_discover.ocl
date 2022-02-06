@@ -8,18 +8,37 @@ int matrix_to_array_indexes(int i, int j, int row_len) {
 kernel void entry_discover(const int n_nodes, global edge_t* restrict edges, volatile global int* n_entries, global int* entries)
 {
 	int i = get_global_id(0);
+	int current_node_index = i;
 	if (i >= n_nodes) return;
-
 	//printf("input params for %d -> n_nodes: %d, nodes: %d, edges: %d, n_entries: %d, entries: %d.\n", i, n_nodes, nodes, edges, *n_entries, entries);
+
+	int matrixToArrayIndex;
+
+	//Nel caso di matrice rettangolare mi basta controllare se nella colonna della adj il primo posto è occupato per capire se ha figli e quindi non è una leaf
+#if RECTANGULAR_ADJ
+	#if TRANSPOSED_ADJ
+		matrixToArrayIndex = matrix_to_array_indexes(i, 0, n_nodes);
+	#else
+		matrixToArrayIndex = matrix_to_array_indexes(0, i, n_nodes);
+	#endif // TRANSPOSED_ADJ
+		if (edges[matrixToArrayIndex] > -1) { //per cercare le root invece delle leaf invertire i e j
+			return;
+		}else{
+			entries[i] = 1;
+			return;
+		}
+#endif
+
+
+	//Nel caso di adj classica invece devo controllare tutti gli altri nodi per sapere se qualcuno ha un edge con il nodo i.
 #pragma unroll
 	for (int j = 0; j < n_nodes; j++) {
-		int matrixToArrayIndex;
 #if TRANSPOSED_ADJ
 		matrixToArrayIndex = matrix_to_array_indexes(i, j, n_nodes);
 #else
 		matrixToArrayIndex = matrix_to_array_indexes(j, i, n_nodes);
 #endif // TRANSPOSED_ADJ
-		if (edges[matrixToArrayIndex] != 0) { //per cercare le root invece delle leaf invertire i e j
+		if (edges[matrixToArrayIndex] > 0) { //per cercare le root invece delle leaf invertire i e j
 			return;
 		}
 	}
@@ -27,7 +46,7 @@ kernel void entry_discover(const int n_nodes, global edge_t* restrict edges, vol
 	entries[i] = 1;
 
 	//int old_n_entries = atomic_inc(n_entries);  //incremento il puntatore alla lista di entries per essere sicuro che nessuno scriva in quella posizione.
-	//atomic_xchg(&entries[old_n_entries], i); //essendo sicuro che la posizione non � stata scritta inserisco il mio dato senza paura di sovrascrivere qualcosa.
+	//atomic_xchg(&entries[old_n_entries], i); //essendo sicuro che la posizione non � stata scritta inserisco il mio dato senza paura di sovrascrivere qualcosa.
 
 	return;
 }

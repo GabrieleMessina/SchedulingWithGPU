@@ -103,6 +103,11 @@ edge_t* Graph<T>::GetEdgesArray(){
 }
 
 template<class T>
+edge_t* Graph<T>::GetEdgesReverseArray(){
+	return adj;
+}
+
+template<class T>
 bool Graph<T>::hasEdge(T a, T b){
 	int i = indexOfNode(a);
 	int j = indexOfNode(b);
@@ -158,7 +163,7 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	}
 
 	//leggo tutti gli id in prima posizione in modo da creare la dag senza adj per il momento.
-	DAG->max_edges_for_node = 0;
+	DAG->max_edges_for_node = 0; //TODO: va bene per il numero massimo di figli che è fisso, ma non è fisso il numero di padri.
 	int value, n_successor, successor_index, data_transfer;
 	while (data_set >> value >> n_successor) {
 		int current_node_index = DAG->insertNode(value);

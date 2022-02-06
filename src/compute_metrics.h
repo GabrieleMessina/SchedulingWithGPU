@@ -7,9 +7,10 @@
 
 class ComputeMetrics {
 private:
-	static cl_event run_compute_metrics_kernel(int n_nodes, bool flip);
+	static cl_event run_compute_metrics_kernel(int n_nodes, bool flip, Graph<edge_t>* DAG = NULL);
 	static cl_event run_compute_metrics_kernel_v2(int n_nodes);
 	static tuple<cl_event*, cl_int2*> compute_metrics(Graph<int>* DAG, int* entrypoints);
+	static tuple<cl_event*, cl_int2*> compute_metrics_rectangular(Graph<int>* DAG, int* entrypoints);
 	static tuple<cl_event*, cl_int2*> compute_metrics_vectorized_v2(Graph<int>* DAG, int* entrypoints);
 	static tuple<cl_event*, cl_int2*> compute_metrics_vectorized_v1(Graph<int>* DAG, int* entrypoints);
 public:
