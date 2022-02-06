@@ -88,7 +88,6 @@ start:
 		std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
 
 
-
 		cl_event *compute_metrics_evt;
 		if(isVector4Version)
 			std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
@@ -141,7 +140,9 @@ start:
 void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_evt, cl_event *sort_task_evts, int nels) {
 	double runtime_discover_ms = runtime_ms(entry_discover_evt);
 	double runtime_metrics_ms = total_runtime_ms(compute_metrics_evt[0], compute_metrics_evt[1]);
+	double gap_discover_metrics = total_runtime_ms(entry_discover_evt, compute_metrics_evt[0]);
 	double runtime_sorts_ms =  total_runtime_ms(sort_task_evts[0], sort_task_evts[1]);
+	double gap_metrics_sort = total_runtime_ms(compute_metrics_evt[1], sort_task_evts[0]);
 
 	std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
 	std::chrono::duration<double, std::milli> elapsed_seconds = end_time-start_time;
@@ -198,7 +199,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 	);
 
 	if (DEBUG_METRICS) {
-		printf("%s; %d; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
+		printf("%s; %d; %E; %E; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
 			end_date_time,
 			nels,
 			elapsed_seconds.count(),
@@ -206,6 +207,8 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 			runtime_discover_ms,
 			runtime_metrics_ms,
 			runtime_sorts_ms,
+			gap_discover_metrics,
+			gap_metrics_sort,
 			(isVector4Version ? "vec4" : "standard"),
 			m_platform_name,
 			OCLManager::preferred_wg_size,

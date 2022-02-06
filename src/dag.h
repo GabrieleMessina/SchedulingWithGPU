@@ -47,6 +47,10 @@ public:
 	virtual bool hasEdge(T a, T b);
 	
 	virtual bool hasEdgeByIndex(int indexOfa, int indexOfb);
+	
+	virtual int numberOfParentOfNode(int indexOfNode);
+	
+	virtual int numberOfChildOfNode(int indexOfNode);
 
 	void PrintReverse() {
 		cout << "adj dei figli per nodo: \n" << endl;

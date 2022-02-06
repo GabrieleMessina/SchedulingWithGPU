@@ -409,21 +409,11 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 	cl_int4* queue = DBG_NEW cl_int4[queue_len];
 
 	for (int i = 0; i < queue_len; i++) {
-		queue[i].x = 0;
-		queue[i].y = 0;
-		queue[i].z = 0;
-		queue[i].w = 0;
-
-		for (int k = 0; k < n_nodes; k++)
-		{
-			int j = i * 4;
-			//il valore iniziale in coda per ogni task è dato dal numero di parent da cui dipende e che deve aspettare prima di poter essere eseguito
-			//TODO: a questo punto la ricerca degli entry point è inutile perchè sto già mettendoli a zero in queue.
-			queue[i].x += (j < n_nodes&& DAG->hasEdgeByIndex(k, j++) > 0) ? 1 : 0;
-			queue[i].y += (j < n_nodes&& DAG->hasEdgeByIndex(k, j++) > 0) ? 1 : 0;
-			queue[i].z += (j < n_nodes&& DAG->hasEdgeByIndex(k, j++) > 0) ? 1 : 0;
-			queue[i].w += (j < n_nodes&& DAG->hasEdgeByIndex(k, j)   > 0) ? 1 : 0;
-		}
+		int j = i * 4;
+		queue[i].x = DAG->numberOfParentOfNode(j++);
+		queue[i].y = DAG->numberOfParentOfNode(j++);
+		queue[i].z = DAG->numberOfParentOfNode(j++);
+		queue[i].w = DAG->numberOfParentOfNode(j);
 	}
 
 	/*cout << "queue init\n";

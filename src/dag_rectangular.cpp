@@ -118,4 +118,29 @@ public:
 	edge_t* GetEdgesReverseArray() override {
 		return adj_reverse;
 	}
+
+	int numberOfParentOfNode(int indexOfNode) override {
+		if (indexOfNode < -1 && indexOfNode >= Graph<T>::len) return 0;
+		int parentCount = -1;
+		int matrixToArrayIndex;
+		int parent;
+		do {
+			matrixToArrayIndex = matrix_to_array_indexes(++parentCount, indexOfNode, Graph<T>::len);
+			if (matrixToArrayIndex >= Graph<T>::adj_len) return parentCount;
+			parent = adj[matrixToArrayIndex];
+		} while (parent > -1 && parentCount < Graph<T>::max_edges_for_node);
+		return parentCount;
+	}
+	int numberOfChildOfNode(int indexOfNode) override {
+		if (indexOfNode < -1 && indexOfNode >= Graph<T>::len) return 0;
+		int childCount = -1;
+		int matrixToArrayIndex;
+		int child;
+		do {
+			matrixToArrayIndex = matrix_to_array_indexes(++childCount, indexOfNode, Graph<T>::len);
+			if (matrixToArrayIndex >= Graph<T>::adj_len) return childCount;
+			child = adj_reverse[matrixToArrayIndex];
+		} while (child > -1 && childCount < Graph<T>::max_edges_for_node);
+		return childCount;
+	}
 };

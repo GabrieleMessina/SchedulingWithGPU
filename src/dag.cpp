@@ -104,7 +104,8 @@ edge_t* Graph<T>::GetEdgesArray(){
 
 template<class T>
 edge_t* Graph<T>::GetEdgesReverseArray(){
-	return adj;
+	error("Not implemented Exception");
+	return NULL;
 }
 
 template<class T>
@@ -112,6 +113,17 @@ bool Graph<T>::hasEdge(T a, T b){
 	int i = indexOfNode(a);
 	int j = indexOfNode(b);
 	return hasEdgeByIndex(i, j);
+}
+
+template<class T>
+int Graph<T>::numberOfParentOfNode(int indexOfNode){
+	error("Not implemented Exception");
+	return 0;
+}
+template<class T>
+int Graph<T>::numberOfChildOfNode(int indexOfNode) {
+	error("Not implemented Exception");
+	return 0;
 }
 
 template<class T>
