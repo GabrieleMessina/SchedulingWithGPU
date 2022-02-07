@@ -6,7 +6,6 @@
 #include <string>
 #include <sstream>
 #include "dag.h"
-#include "utils/print_stuff.h"
 #include <random>
 
 #include <random>
@@ -41,6 +40,7 @@ int main(int argc, char const *argv[])
 
     int random_counter = 0;
     srand(time(NULL));
+    //srand(1);
     string file_name = argv[2];
     int n_task = stoi(argv[1]);
     stringstream ss;
@@ -69,7 +69,7 @@ int main(int argc, char const *argv[])
         }
         int task_weight = (rand() % MAX_TASK_WEIGHT) + 1;
         file << task_weight << space << n_child << space;
-        for (int j = 0; j < n_task; j++){ child_occupied[j] = (j<=i) ? 1 : 0;} //inizializzo i posti occupati mettendo quelli precedenti al parent e il parent stesso come già occupati in modo che l'algoritmo non li scelga.
+        for (int j = i; j < n_task; j++){ child_occupied[j] = (j<=i) ? 1 : 0;} //inizializzo i posti occupati mettendo quelli precedenti al parent e il parent stesso come già occupati in modo che l'algoritmo non li scelga.
         
         int child_index;
         int link_weight;
@@ -81,7 +81,9 @@ int main(int argc, char const *argv[])
                 srand(i+j+random_counter++);
                 child_index = i + (rand() % max_child_possible); //mi assicura che l'indice del child sia maggiore di quello del padre ma comunque minore del numero di task
             } 
-            while (child_occupied[child_index] == 1);
+            while (child_index <= i || child_occupied[child_index] == 1);
+            //while(child_occupied[child_index] == 1);
+            //while (child_index <= i);
             
             link_weight = (rand() % MAX_TASK_WEIGHT) + 1;
             file << child_index << space << link_weight << space;
