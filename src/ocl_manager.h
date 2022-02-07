@@ -2,7 +2,7 @@
 #include "CL/cl.h"
 
 enum class ComputeMetricsVersion { Latest, Working, v1, Rectangular };
-enum class VectorizedComputeMetricsVersion { Latest, Working, v1, v2, Rectangular };
+enum class VectorizedComputeMetricsVersion { Latest, Working, v1, v2, Rectangular, RectangularV2};
 
 class OCLManager {
 private:

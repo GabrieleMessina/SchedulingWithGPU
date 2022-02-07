@@ -867,12 +867,12 @@ kernel void compute_metrics_standard_with_rectangular_matrix(global int* restric
 
 
 
-void compute_metrics_vectorized_rectangular_item(global int* restrict nodes, global int4* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept)
+bool compute_metrics_vectorized_rectangular_item(global int* restrict nodes, global int4* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept)
 {
 	int work_item = get_global_id(0);
-
+	int something_changed = false;
 	if (work_item >= ceil(n_nodes / 4.0)) {
-		return;
+		return something_changed;
 	}
 	int indexes_to_analyze[4] = { 1, 1, 1, 1 };
 
@@ -893,7 +893,7 @@ void compute_metrics_vectorized_rectangular_item(global int* restrict nodes, glo
 		// else metriche[node_index] = (int2)(nodes[node_index],0);
 	}
 
-	if (!indexes_to_analyze[0] && !indexes_to_analyze[1] && !indexes_to_analyze[2] && !indexes_to_analyze[3]) return;
+	if (!indexes_to_analyze[0] && !indexes_to_analyze[1] && !indexes_to_analyze[2] && !indexes_to_analyze[3]) return something_changed;
 
 	int2 metrics_with_this_parent;
 	int matrixToArrayIndex;
@@ -930,11 +930,14 @@ void compute_metrics_vectorized_rectangular_item(global int* restrict nodes, glo
 				// printf("before ");
 				// print(&queue_[globalIndexStart], 1, false);
 				atomic_dec(&(four_next_nodes[childIndex - globalIndexStart * 4]));
+				something_changed = true;
 				// printf("after ");
 				// print(&queue_[globalIndexStart], 1, false);
 			}
 		}
 	}
+
+	return something_changed;
 }
 
 kernel void compute_metrics_vectorized_rectangular(global int* restrict nodes, global int4* queue_, local int4* local_queue, local int4* local_queue_temp, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept)
@@ -999,4 +1002,33 @@ kernel void compute_metrics_vectorized_rectangular(global int* restrict nodes, g
 		e[1] = async_work_group_copy(local_queue_temp, queue_ + work_group * local_queue_size, local_queue_size, e[0]);
 		wait_group_events(1, e);
 	} while (something_changed);
+}
+
+/*optimized version of compute_metrics_vectorized_rectangular */
+kernel void compute_metrics_vectorized_rectangular_v2(global int* restrict nodes, global int4* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept)
+{
+	local int something_changed;
+	int something_changed_for_me;
+	int work_item = get_global_id(0);
+	int work_item_local_index = get_local_id(0);
+	int work_group_size = get_local_size(0);
+	int work_group = get_group_id(0);
+	int global_queue_size = (int)ceil(n_nodes / 4.0);
+	int local_queue_size = min(work_group_size, global_queue_size); //non è la lunghezza dalla coda globale ma la lunghezza di cui si deve occupare questo work group.
+
+	bool work_item_outside_range = work_item >= global_queue_size || work_item_local_index >= local_queue_size;
+
+#pragma unroll
+	do {
+		if (work_item_local_index == 0)
+			something_changed = 0;
+
+		if (!work_item_outside_range)
+			something_changed_for_me = compute_metrics_vectorized_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, metriche, max_adj_dept);
+		
+		if(something_changed_for_me && something_changed==0)
+			atomic_inc(&something_changed);
+
+		work_group_barrier(CLK_LOCAL_MEM_FENCE);
+	} while (something_changed > 0);
 }

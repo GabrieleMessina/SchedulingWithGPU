@@ -24,6 +24,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* e
 	switch (version)
 	{
 		case VectorizedComputeMetricsVersion::Latest:
+		case VectorizedComputeMetricsVersion::RectangularV2:
 		case VectorizedComputeMetricsVersion::Rectangular:
 			if (!RECTANGULAR_ADJ) error("set RECTANGULAR_ADJ to true in app_globals to proceed.");
 			return compute_metrics_vectorized_rectangular(DAG, entrypoints);
@@ -545,15 +546,17 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(queue_GPU), &queue_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
-	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, local_queue_memsize, NULL);
-	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
-	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, local_queue_memsize, NULL);
-	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+	if (version != VectorizedComputeMetricsVersion::RectangularV2) {
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, local_queue_memsize, NULL);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, local_queue_memsize, NULL);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+	}
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(n_nodes), &n_nodes);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_GPU), &graph_edges_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
-	if (version == VectorizedComputeMetricsVersion::Rectangular && DAG != NULL) {
+	if (version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 && DAG != NULL) {
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_reverse_GPU), &graph_edges_reverse_GPU);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
@@ -561,7 +564,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(metrics_GPU), &metrics_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 
-	if (version == VectorizedComputeMetricsVersion::Rectangular && DAG != NULL) {
+	if (version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 && DAG != NULL) {
 		int max_adj_dept = DAG->max_edges_for_node;
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_dept), &max_adj_dept);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
