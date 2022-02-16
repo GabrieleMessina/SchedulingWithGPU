@@ -22,7 +22,7 @@ kernel void entry_discover_rectangular(const int n_nodes, global edge_t* restric
 \end{lstlisting}
 
 \subsection{Fase 2 - Calcolo delle metriche}
-La differenza rispetto alla prima implementazione risiede solo nel diverso accesso alla matrice di adiacenza.
+Per quanto riguarda il calcolo delle metriche, la differenza rispetto alla prima implementazione risiede solo nel diverso accesso alla matrice di adiacenza.
 
 \begin{lstlisting}[language=C++, caption={Compute metrics kernel II},captionpos=b]
 kernel void compute_metrics_rectangular(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche, const int max_adj_dept)
@@ -53,21 +53,21 @@ kernel void compute_metrics_rectangular(global int* restrict nodes, global int* 
 
 Anche in questo caso il kernel deve essere eseguito dall'host più volte fin quando non si produrrà una \textit{next\_queue} identica alla precedente in cui quindi non ci sono stati cambiamenti.
 
-\subsection{Fase 3 - ordinamento dei task}
-In questa fase non è stato modificato nulla in quanto si lavora su un array di metriche che non ha alcuno correlazione alla matrice di adiacenza e che quindi non è influenzata dalle modifiche a quest'ultima,
+\subsection{Fase 3 - Ordinamento dei task}
+In questa fase non è stato modificato nulla in quanto il kernel lavora su un array di metriche che non ha alcuna correlazione con la matrice di adiacenza e che quindi non è influenzato dalle modifiche a quest'ultima,
 
 \subsection{Considerazioni}
-La complessità di questa seconda implementazione è $O(n)$ per la ricerca degli entrypoint, $O(n \cdot max\_adj\_dept)$ per il calcolo delle metriche e $O(n\ log\ n)$.
+La complessità di questa implementazione è $O(n)$ per la ricerca degli entrypoint, $O(n \cdot max\_adj\_dept)$ per il calcolo delle metriche e $O(n\ log\ n)$.
 In definitiva, l'algoritmo ha complessità $O(n \cdot max\_adj\_dept)$, dove $n$ è il numero di nodi e $max\_adj\_dept$ è il numero massimo di figli che un nodo può avere.
 
 \subsection{Variazioni}
-Anche in questo caso si è provato a vettorizzare il kernel per abbassare i tempi di runtime che, comunque, rispetto alla prima implementazione sono già più bassi di diversi ordini di grandezza.
+Anche in questo caso si è provato a vettorizzare il kernel per abbassare i tempi di runtime che, comunque, rispetto alla prima implementazione sono già più bassi di qualche ordine di grandezza.
 
 Sarebbe stato inutile inoltre verificare eventuali variazioni con la matrice trasposta, in quanto già nell'implementazione base sfruttiamo due matrici di adiacenza, una che tiene traccia dei figli di ogni nodo ed una speculare che tiene traccia dei genitori.
 
-Riportiamo di seguito i tempi di runtime dei kernel con la nuova implementazione e successivamente il confronto tra il \textit{compute\_metrics} più basso della prima implementazione e quello della seconda implementazione compresa la sua variante vettorizzata.
+Riportiamo di seguito i tempi di runtime dei kernel con la nuova implementazione e, successivamente, il confronto tra il \textit{compute\_metrics} più basso della versione \textit{Standard} e quello della versione corrente compresa la sua variante vettorizzata.
 
-Anche in questo caso per i testi si è usato un dataset di 4096 task in esecuzione su una GPU NVIDIA GTX 1650 per 20 esecuzioni di cui successivamente è stata calcolata la media dei tempi di runtime.
+Anche in questo caso per i test si è usato un dataset di 4096 task in esecuzione su una GPU NVIDIA GTX 1650 per 15 esecuzioni di cui successivamente è stata calcolata la media dei tempi di runtime.
 
 \begin{figure}[H]
 \begin{subfigure}{0.5\textwidth}
@@ -90,21 +90,21 @@ width=7.5cm,
 ]
 \addplot+[every node near coord/.append style={yshift=10pt, xshift=30pt}] coordinates { %entries discover
 (Rectangular, 0.04)
-(Vec4 rectangular, 0.04)
+(Vec4 rectangular, 0.03)
 };
 \addplot+[every node near coord/.append style={xshift=0pt, anchor=west}] coordinates { %compute metrics
 (Rectangular, 299.91)
-(Vec4 rectangular, 31.99)
+(Vec4 rectangular, 24.78)
 };
 \addplot+[every node near coord/.append style={yshift=-10pt, xshift=0pt}] coordinates { %mergesort
 (Rectangular, 1.91)
-(Vec4 rectangular, 1.98)
+(Vec4 rectangular, 1.80)
 };
 \legend{entry\_discover, compute\_metrics, merge\_sort}
 \end{axis}
 \end{tikzpicture}
 \end{subfigure}
-\caption{Tempi di runtime della seconda implementazione}
+\caption{Tempi di runtime della versione \textit{Rectangular}}
 
 \begin{subfigure}{0.5\textwidth}
 \begin{tikzpicture}
@@ -128,15 +128,15 @@ width=7.5cm,
 \addplot+[every node near coord/.append style={xshift=0pt, anchor=west}] coordinates { %compute metrics
 (Standard transpose, 2850.95)
 (Rectangular, 299.91)
-(Vec4 rectangular, 31.99)
+(Vec4 rectangular, 24.78)
 };
 \legend{compute\_metrics}
 \end{axis}
 \end{tikzpicture}
 \end{subfigure}
-\caption{Tempi di runtime della prima e della seconda implementazione a confronto} \label{fig:M1}
+\caption{Tempi di runtime della \textit{Standard} e della \textit{Rectangular} a confronto} \label{fig:M1}
 \end{figure}
 
-Come si può vedere quindi, i tempi sono notevolmente migliorati semplicemente cambiando la modalità di memorizzazione e accesso ai dati. 
-
+Come si può vedere quindi, i tempi sono notevolmente migliorati semplicemente cambiando la modalità di memorizzazione e accesso ai dati.
+Inoltre, visto l'ulteriore miglioramento ottenuto grazie alla versione vettorizzata del kernel si è implementato anche un kernel vettorizzato che sfruttasse una coda di \lstinline{int8} invece del precedente \lstinline{int4}, tuttavia in questo caso non si sono notati miglioramenti degni di nota.
 \end{document}

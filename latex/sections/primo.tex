@@ -61,7 +61,7 @@ kernel void compute_metrics(global int * restrict nodes, global int *queue_, glo
 
 Questo kernel tuttavia deve essere eseguito dall'host più di una volta, in particolare verrà invocato fin quando la \textit{next\_queue} risultante non sarà identica a quella del ciclo precedente, cosa che indicherà che il kernel non ha fatto cambiamenti nell'ultimo ciclo e ha quindi terminato.
 
-\subsection{Fase 3 - ordinamento dei task}
+\subsection{Fase 3 - Ordinamento dei task}
 Una volta calcolate le metriche di tutti i task, l'insieme dei task viene ordinato nel seguente modo:
 \begin{enumerate}
     \item Si ordinano in base al livello in modo crescente
@@ -103,7 +103,7 @@ Per provare ad abbassare i tempi di runtime troppo alti dei kernel con questa im
     \item Come ultimo tentativo si è deciso di vettorizzare l'algoritmo nella speranza che facendo fare più lavoro ai singoli work item i tempi di runtime diminuissero, nella realtà però si è ottenuto il risultato opposto.
 \end{itemize}    
 Riportiamo di seguito i risultati dei test eseguiti con l'algoritmo originale e 
-le sue variazioni su un dataset di 4096 task su GPU NVIDIA GTX 1650.
+le sue variazioni su un dataset di 4096 task su GPU NVIDIA GTX 1650 per 15 esecuzioni di cui successivamente è stata calcolata la media dei tempi di runtime.
 
 \begin{figure}[H]
 \begin{tikzpicture}
