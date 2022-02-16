@@ -1,0 +1,23 @@
+\documentclass[../relazione.tex]{subfiles}
+\graphicspath{{\subfix{../images/}}}
+
+\begin{document}
+\begin{itemize}
+    \item Checkbox examples
+    \begin{todolist}
+    \item[\done] done.
+    \item to do.
+    \item[\wontfix] won't do.
+    \end{todolist}
+\end{itemize}
+\hline
+\section{TODOs}
+\begin{todolist}
+    \item[\done] Aggiungere che il kernel compute metrics viene effettivamente richiamato dall'host più volte fin quando non smette di cambiare la queue cosa abbastanza inefficiente.
+    \item[\wontfix] Aggiungere la terza implementazione in cui i task vengono ordinati in base al livello prima di eseguire il kernel compute metrics in modo che si possa far partire il kernel una sola volta eliminando il ciclo nell'host.(non si può fare, vedi terzo.tex)
+    \item inserire i risultati anche dei test eseguiti su GPU integrata e CPU.
+    \item parlare delle versioni zero con kernel non funzionante.
+    \item implementazione kernel vec8?
+\end{todolist}
+
+\end{document}

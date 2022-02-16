@@ -1,0 +1,13 @@
+\documentclass[../relazione.tex]{subfiles}
+\graphicspath{{\subfix{../images/}}}
+
+\begin{document}
+\section{Idea generale}
+Si è cercato di implementare un algoritmo di scheduling che venisse eseguito su GPU in modo da sfruttarne le capacità di parallelizzazione.
+
+Per cominciare, dopo aver letto varia letteratura in merito si è deciso di prendere come articolo di riferimento \textit{Low complexity performance effective task scheduling algorithm for heterogeneous computing environments}\cite{ilavarasan2007low} che utilizza un \gls{dag} per mantenere le informazioni sulle dipendenze fra i task e la mole di dati comunicati da un task ad un altro.
+
+Tuttavia, visto che il nostro intento non è trovare un algoritmo ottimale, ma verificare la fattibilità dello scheduling tramite GPU, si è deciso di semplificare le specifiche dell'algoritmo \textit{\gls{pets}} teorizzato nell'articolo\cite{ilavarasan2007low}.
+
+In particolare trascureremo la quantità di dati trasferiti da un task ad un altro e assumeremo che il canale di trasmissione abbia banda infinita, e che i processori abbiano tutti la stessa potenza di calcolo.
+\end{document}

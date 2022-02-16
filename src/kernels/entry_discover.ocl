@@ -17,7 +17,7 @@ kernel void entry_discover(const int n_nodes, global edge_t* restrict edges, vol
 	//Nel caso di matrice rettangolare mi basta controllare se nella colonna della adj il primo posto è occupato per capire se ha figli e quindi non è una leaf
 #if RECTANGULAR_ADJ
 	#if TRANSPOSED_ADJ
-		matrixToArrayIndex = matrix_to_array_indexes(i, 0, n_nodes);
+		matrixToArrayIndex = matrix_to_array_indexes(i, 0, 9);
 	#else
 		matrixToArrayIndex = matrix_to_array_indexes(0, i, n_nodes);
 	#endif // TRANSPOSED_ADJ

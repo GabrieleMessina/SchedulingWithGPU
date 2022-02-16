@@ -1,0 +1,99 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{biblatex}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage[italian]{babel}
+\usepackage{csquotes}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usepackage{pgfplots} 
+\usepackage{listings}
+\usepackage{enumitem, amssymb}
+\usepackage{pifont}
+\newlist{todolist}{itemize}{2}
+\setlist[todolist]{label=$\square$}
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
+\newcommand{\done}{\rlap{$\square$}{\raisebox{2pt}{\large\hspace{1pt}\cmark}}%
+\hspace{-2.5pt}}
+\newcommand{\wontfix}{\rlap{$\square$}{\large\hspace{1pt}\xmark}}
+\usepackage[acronym]{glossaries-extra}
+\pgfplotsset{compat=1.16} 
+\usetikzlibrary{datavisualization}
+\usepackage[font=small,labelfont=bf]{caption} % Required for specifying captions to tables and figures
+\usepackage{subfiles} % Best loaded last in the preamble
+\hypersetup{colorlinks=true,
+ filecolor=black,
+ linkcolor=black,
+ urlcolor=blue,
+ pdfpagemode=FullScreen}
+
+\definecolor{color1}{HTML}{4B30FF}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=Java,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}
+
+\lstset { %
+    language=C++,
+    backgroundcolor=\color{black!5}, % set backgroundcolor
+    basicstyle=\footnotesize,% basic font setting
+}
+
+\title{Scheduling dei processi su sistemi distribuiti tramite GPU}
+\author{Gabriele Messina (X81000831)}
+\date{14/09/2021}
+
+\addbibresource{refs.bib}
+
+\setabbreviationstyle[acronym]{long-short}
+\newacronym{dag}{DAG}{Direct Acyclic Graph}
+\newacronym{pets}{PETS}{Performance Effective Task Scheduling}
+\makeglossaries
+
+\begin{document}
+    % \subfile{sections/todo}
+    % \maketitle
+    \subfile{sections/titolo}
+    \tableofcontents
+    \newpage
+
+    \subfile{sections/intro}
+    
+    \subfile{sections/zero}
+
+    \subfile{sections/primo}
+    
+    \subfile{sections/secondo}
+    
+    \subfile{sections/results}
+    
+    \subfile{sections/outro}
+
+    \newpage
+
+    \printglossary[type=\acronymtype]
+    
+    \printbibliography[heading=bibintoc]
+\end{document}

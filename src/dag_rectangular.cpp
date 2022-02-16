@@ -44,7 +44,7 @@ public:
 			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				matrixToArrayIndex = matrix_to_array_indexes(j, i++, Graph<T>::len);
+				matrixToArrayIndex = matrix_to_array_indexes(j, i++, Graph<T>::max_edges_for_node);
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(i++, j, Graph<T>::len);
 #endif
@@ -67,7 +67,7 @@ public:
 			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::len);
+				matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::max_edges_for_node);
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(j++, i, Graph<T>::len);
 #endif
@@ -93,14 +93,14 @@ public:
 			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				matrixToArrayIndex = matrix_to_array_indexes(j, i++, Graph<T>::len);
+				matrixToArrayIndex = matrix_to_array_indexes(j, i++, Graph<T>::max_edges_for_node);
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(i++, j, Graph<T>::len);
 #endif
 			} while (matrixToArrayIndex < Graph<T>::adj_len && adj[matrixToArrayIndex] > emptyAdjCell);
 
 			if (matrixToArrayIndex >= Graph<T>::adj_len) {
-				printf("ERROR: si è cercato di inserire un edge oltre il limite di profondità di una DAG con matrice adj rettangolare.");
+				printf("ERROR: si è cercato di inserire un edge oltre il limite di profondità di una DAG con matrice adj rettangolare.\n");
 			}
 			else adj[matrixToArrayIndex] = indexOfa;
 			Graph<T>::m++;

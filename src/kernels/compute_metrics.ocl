@@ -844,7 +844,7 @@ kernel void compute_metrics_standard_with_rectangular_matrix(global int* restric
 		/* Calcolo la metrica del nodo a partire dai parent. */
 		int parentAdjIndex = j;
 #if TRANSPOSED_ADJ
-		matrixToArrayIndex = matrix_to_array_indexes(i, parentAdjIndex, n_nodes);
+		matrixToArrayIndex = matrix_to_array_indexes(i, parentAdjIndex, max_adj_dept);
 #else
 		matrixToArrayIndex = matrix_to_array_indexes(parentAdjIndex, i, n_nodes);
 #endif // TRANSPOSED_ADJ
@@ -906,7 +906,7 @@ bool compute_metrics_vectorized_rectangular_item(global int* restrict nodes, glo
 			int node_index = work_item * 4 + i;
 
 #if TRANSPOSED_ADJ
-			matrixToArrayIndex = matrix_to_array_indexes(node_index, parent, n_nodes);
+			matrixToArrayIndex = matrix_to_array_indexes(node_index, parent, max_adj_dept);
 #else
 			matrixToArrayIndex = matrix_to_array_indexes(parent, node_index, n_nodes);
 #endif // TRANSPOSED_ADJ

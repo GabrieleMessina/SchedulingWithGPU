@@ -1,0 +1,57 @@
+\documentclass[../relazione.tex]{subfiles}
+\graphicspath{{\subfix{../images/}}}
+\begin{document}
+\section{Primi test fallimentari}
+
+Avendo quindi deciso d'implementare l'algoritmo \gls{pets}\cite{ilavarasan2007low} si è cercato di suddividerlo in 3 fasi distinte in modo da semplificare lo sviluppo del codice. 
+Le 3 fasi sono:
+\begin{enumerate}
+    \item Ricerca degli entrypoint
+    \item Calcolo delle metriche
+    \item Ordinamento dei task
+\end{enumerate}
+Per tutte le fasi sono stati implementati dei kernel OpenCL in modo da poter essere eseguiti su GPU, kernel denominati come segue:
+\begin{enumerate}
+    \item \textit{entry\_discover}
+    \item \textit{compute\_metrics}
+    \item \textit{merge\_sort}
+\end{enumerate}
+
+I dettagli dei vari kernel verranno mostrati più avanti nella relazione, lo scopo di questa 
+sezione è invece, quello di dar credito a tentativi di implementazione che, seppur fallimentari, hanno comunque aggiunto tasselli importanti per quello che poi sarebbe stato il risultato finale.
+
+In particolare, mentre l'implementazione del primo e del terzo kernel è stata semplice e senza problemi degni di nota, l'implementazione del secondo kernel ha richiesto più tempo e attenzione, per questo si è deciso di descrivere i dettagli dei vari tentativi di seguito.
+
+\subsection{Tentativi di implementazione del secondo kernel}
+% Primi tentativi
+
+Si è cominciato creando un kernel che, a partire dagli entrypoint trovati durante la fase 1, dopo averne calcolato la metrica, ne aggiungesse in coda i figli.
+Dopodiché l'Host riprendendo il controllo dell'esecuzione avrebbe controllato la presenza di eventuali cambiamenti nella coda rispetto all'esecuzione precedente, in caso affermativo il kernel sarebbe stato eseguito nuovamente con la nuova coda al posto degli entrypoint, altrimenti l'esecuzione sarebbe terminata e si sarebbe passati alla fase successiva.
+
+Tuttavia, così facendo, ogni nodo che avesse avuto più di un genitore, avrebbe calcolato la propria metrica e avrebbe aggiunto i propri figli alla coda più e più volte cosa che di conseguenza avrebbe scatenato l'esecuzione del kernel molte più volte del necessario.
+
+Nel secondo tentativo, questo problema è stato risolto mantenendo in un array temporaneo il numero di genitori di ogni nodo, in modo da calcolare la metrica di un nodo solo dopo che quest'ultimo fosse stato messo in coda un numero di volte pari al numero dei propri genitori, cioè solo quando tutti i genitori lo avevano aggiunto alla coda. Questa implementazione è quella che verrà presentato nella prossima sezione con il nome di \textit{standard} e, se pur funzionante, non è soddisfacente in termini di prestazioni forse a causa dei continui trasferimenti di dati tra Host e Device per verificare quando terminare l'esecuzione ciclica del kernel. Si è provato quindi ad ottimizzare in vari modi l'algoritmo partendo da questa base funzionante.
+
+Per prima cosa si è provato a prelevare e analizzare più task dalla coda cercando di far svolgere più lavoro ai singoli workitem, tuttavia nessun miglioramento è stato notato, allora si è provato a modificare la coda in modo da farla diventare una coda di \textit{int4} invece della precedente coda di \textit{int}. Anche in questo caso non si è notato nessun miglioramento delle prestazioni e, cercando di mitigare il problema del continuo passaggio di dati tra Device e Host, si è cercato di implementare una versione vettorizzata che fosse in grado di ciclare autonomamente, cioè senza trasferimenti di dati con l'Host, fin quando tutte le metriche non fossero state calcolate.
+
+% Deadlock
+
+Il primo test di un kernel indipendente dall'Host non ha avuto successo in quanto si veniva a creare una mutua attesa tra i workitem che aspettavano i risultati provenienti workgroup diversi dal proprio e, viceversa, i workitem non ancora partiti aspettavano che i workgroup in esecuzione terminassero il loro lavoro per liberare il pool di workitem che è possibile eseguire contemporaneamente sulla GPU.
+
+% Vec4
+
+Il secondo tentativo, presentato nella prossima sezione con il nome \textit{vec4}, è stato più fortunato e, anche se non si è riusciti nell'intento di rimuovere completamente la dipendenza dall'Host, si sono almeno evitati i problemi di concorrenza e i relativi deadlock. 
+
+% TODO: RIVEDI
+Infatti ogni workgroup può adesso sincronizzare i propri workitem terminando l'esecuzione quando non si riscontrano cambiamenti alla coda, tuttavia non ha modo di sincronizzarsi o controllare il lavoro di altri workgroup in quanto non c'è alcuna certezza sul fatto che workgroup diversi vengano eseguiti contemporaneamente, e anzi, soprattutto per grandi quantità di dati e quindi di  workgroup si ha la certezza che la contemporaneità non ci potrà mai essere.
+
+Continua quindi, anche se in maniera minore rispetto alle implementazioni passate, ad essere necessario un controllo da parte dell'Host che rimanda in esecuzione il kernel se la coda non è ancora completamente vuota, cioè se ci sono nodi che devono ancora essere processati.
+
+Tuttavia, nonostante gran parte del lavoro venga svolto direttamente sul Device, le prestazioni sono risultate essere leggermente inferiori rispetto alla versione \textit{standard}. Questi risultati hanno demolito l'assunzione iniziale secondo la quale i tempi d'esecuzione molto lunghi del kernel \textit{standard} fossero dovuti ai continui trasferimenti dati tra Host e Device, e ci hanno portato a riflettere su eventuali ulteriori cambiamenti da poter apportare alla nostra implementazione.
+
+% L'ennesimo approccio
+
+A questo punto si è deciso di cambiare approccio, visto che né la vettorizzazione né la diminuzione dei trasferimenti di dati tra Host e Device hanno migliorato le prestazioni, abbiamo modificato la struttura responsabile del \gls{dag} passando da una matrice di adiacenza quadrata ad una rettangolare, in cui la colonna i-esima contiene le informazioni relative ai genitori del task i-esimo.
+
+I dettagli relativi a quest'ultima implementazione verranno descritti nel dettaglio nel corso della seconda sezione di questa relazione ma possiamo già anticipare che questa modifica ha comportato un miglioramento notevole delle prestazioni.
+\end{document}

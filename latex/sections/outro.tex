@@ -1,0 +1,11 @@
+\documentclass[../relazione.tex]{subfiles}
+\graphicspath{{\subfix{../images/}}}
+
+\begin{document}
+\section{Considerazioni finali}
+In definitiva eseguire algoritmi di scheduling sulla GPU sembra una strada percorribile.
+
+Anche se in questo contesto si è dato per scontato che tutti i task fossero noti all'instante 0 durante il runtime, le prestazioni che è in grado di fornire un GPU su grandi quantità di dati da processare sono di gran lunga superiori a quelle delle CPU.
+
+Certo è da considerare anche l'overhead che si avrebbe schedulando dei processi su GPU che poi andrebbero eseguiti su CPU, tuttavia nel contesto di grossi applicativi o sistemi distribuiti questa può essere una valida alternativa.
+\end{document}
