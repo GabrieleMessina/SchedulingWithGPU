@@ -15,6 +15,8 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, bool vectorized
 	instance->n_entrypoints_memsize = sizeof(int);
 	instance->nodes_memsize = nNodes * sizeof(int);
 	instance->queue_memsize = (vectorized) ? ceil(nNodes / 4.0) * sizeof(cl_int4) : nNodes * sizeof(int);
+	if(OCLManager::compute_metrics_vetorized_version_chosen == VectorizedComputeMetricsVersion::RectangularVec8)
+		instance->queue_memsize = (vectorized) ? ceil(nNodes / 8.0) * sizeof(cl_int8) : nNodes * sizeof(int);
 	instance->next_queue_memsize = instance->queue_memsize;
 	const int metrics_len = GetMetricsArrayLenght(nNodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	instance->metrics_memsize = metrics_len * sizeof(cl_int2);
@@ -173,6 +175,12 @@ void OCLBufferManager::SetEntrypoints(const void* entries) {
 		0, entrypoints_memsize, entries,
 		0, NULL, &write_entries_evt);
 	ocl_check(err, "write entries into entrypoints");
+}
+void OCLBufferManager::SetQueue(const cl_int8* queue) {
+	err = clEnqueueWriteBuffer(OCLManager::queue, GetQueue(), CL_TRUE,
+		0, queue_memsize, queue,
+		0, NULL, &write_queue_evt);
+	ocl_check(err, "write into queue");
 }
 void OCLBufferManager::SetQueue(const cl_int4* queue) {
 	err = clEnqueueWriteBuffer(OCLManager::queue, GetQueue(), CL_TRUE,

@@ -13,6 +13,7 @@ private:
 	static tuple<cl_event*, cl_int2*> compute_metrics(Graph<int>* DAG, int* entrypoints);
 	static tuple<cl_event*, cl_int2*> compute_metrics_rectangular(Graph<int>* DAG, int* entrypoints);
 	//vectorized
+	static tuple<cl_event*, cl_int2*> compute_metrics_vectorized8_rectangular(Graph<int>* DAG, int* entrypoints);
 	static tuple<cl_event*, cl_int2*> compute_metrics_vectorized_rectangular(Graph<int>* DAG, int* entrypoints);
 	static tuple<cl_event*, cl_int2*> compute_metrics_vectorized_v2(Graph<int>* DAG, int* entrypoints);
 	static tuple<cl_event*, cl_int2*> compute_metrics_vectorized_v1(Graph<int>* DAG, int* entrypoints);

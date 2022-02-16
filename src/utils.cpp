@@ -27,6 +27,15 @@ bool isEmpty(cl_int4* v, int len, cl_int4 default_v) {
 	return true;
 }
 
+bool isEmpty(cl_int8* v, int len, cl_int8 default_v) {
+	for (int i = 0; i < len; i++) {
+		if (v[i].s0 != default_v.s0 || v[i].s1 != default_v.s1 || v[i].s2 != default_v.s2 || v[i].s3 != default_v.s3
+			|| v[i].s4 != default_v.s4 || v[i].s5 != default_v.s5 || v[i].s6 != default_v.s6 || v[i].s7 != default_v.s7)
+			return false;
+	}
+	return true;
+}
+
 bool isEmpty(int* v, int len, int default_v) {
 	for (int i = 0; i < len; i++)
 	{

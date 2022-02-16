@@ -6,7 +6,7 @@
 
 /*debug*/
 #define DEBUG_MEMORY_LEAK false
-#define DEBUG_OCL_INIT true
+#define DEBUG_OCL_INIT false
 #define DEBUG_DAG_INIT false
 #define DEBUG_ENTRY_DISCOVER false
 #define DEBUG_COMPUTE_METRICS false

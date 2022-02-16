@@ -24,6 +24,9 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* e
 	switch (version)
 	{
 		case VectorizedComputeMetricsVersion::Latest:
+		case VectorizedComputeMetricsVersion::RectangularVec8:
+			if (!RECTANGULAR_ADJ) error("set RECTANGULAR_ADJ to true in app_globals to proceed.");
+			return compute_metrics_vectorized8_rectangular(DAG, entrypoints);
 		case VectorizedComputeMetricsVersion::RectangularV2:
 		case VectorizedComputeMetricsVersion::Rectangular:
 			if (!RECTANGULAR_ADJ) error("set RECTANGULAR_ADJ to true in app_globals to proceed.");
@@ -403,7 +406,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 
 tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangular(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
-	int const queue_len = ceil(n_nodes / 4.0);
+	int queue_len = ceil(n_nodes / 4.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
 
@@ -442,6 +445,80 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 		BufferManager.GetQueueResult(queue, &compute_metrics_evt_end, 1);
 
 		moreToProcess = !isEmpty(queue, queue_len, cl_int4{ -1,-1,-1,-1 });
+		count++;
+	} while (moreToProcess);
+
+	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
+	printf("metrics computed\n");
+	if (DEBUG_COMPUTE_METRICS) {
+		cout << "metrics: " << metrics_len << endl;
+		cout << "count:" << count << endl;
+		print(metrics, metrics_len, "\n", true);
+		cout << "\n";
+	}
+
+	//PULIZIA FINALE
+	BufferManager.ReleaseNodes();
+	BufferManager.ReleaseQueue();
+	BufferManager.ReleaseNextQueue();
+	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseMetrics(); //sort kernel is using it
+
+	delete[] queue;
+	//delete[] next_queue;
+
+	cl_event* compute_metrics_evt = DBG_NEW cl_event[2];
+	compute_metrics_evt[0] = compute_metrics_evt_start;
+	compute_metrics_evt[1] = compute_metrics_evt_end;
+	return make_tuple(compute_metrics_evt, metrics);
+}
+
+
+tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized8_rectangular(Graph<int>* DAG, int* entrypoints) {
+	int const n_nodes = DAG->len;
+	int queue_len = ceil(n_nodes / 8.0);
+	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
+	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
+
+	cl_int8* queue = DBG_NEW cl_int8[queue_len];
+
+	for (int i = 0; i < queue_len; i++) {
+		int j = i * 8;
+		queue[i].s0 = DAG->numberOfParentOfNode(j++);
+		queue[i].s1 = DAG->numberOfParentOfNode(j++);
+		queue[i].s2 = DAG->numberOfParentOfNode(j++);
+		queue[i].s3 = DAG->numberOfParentOfNode(j++);
+		queue[i].s4 = DAG->numberOfParentOfNode(j++);
+		queue[i].s5 = DAG->numberOfParentOfNode(j++);
+		queue[i].s6 = DAG->numberOfParentOfNode(j++);
+		queue[i].s7 = DAG->numberOfParentOfNode(j);
+	}
+
+	/*cout << "queue init\n";
+	print(queue, queue_len, "\n", true);
+	cout << "\n";*/
+
+	cl_int2* metrics = DBG_NEW cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = cl_int2{ DAG->nodes[i],0 };
+
+	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
+
+	BufferManager.SetNodes(DAG->nodes);
+	BufferManager.SetQueue(queue);
+	BufferManager.SetMetrics(metrics);
+
+	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
+	cl_event compute_metrics_evt_start = cl_event(), compute_metrics_evt_end = cl_event();
+
+	bool moreToProcess = false;
+	int count = 0;
+	do
+	{
+		compute_metrics_evt_end = run_compute_metrics_kernel_v2(n_nodes, DAG);
+		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
+
+		BufferManager.GetQueueResult(queue, &compute_metrics_evt_end, 1);
+
+		moreToProcess = !isEmpty(queue, queue_len, cl_int8{ -1,-1,-1,-1,-1,-1,-1,-1 });
 		count++;
 	} while (moreToProcess);
 
@@ -526,12 +603,17 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip, Grap
 
 cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t>* DAG) {
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
+	VectorizedComputeMetricsVersion version = OCLManager::compute_metrics_vetorized_version_chosen;
 
 	int arg_index = 0;
 	const size_t lws[] = { OCLManager::preferred_wg_size };
-	const size_t gws[] = { round_mul_up(n_nodes/4, lws[0]) };
-
+	size_t gws[] = { round_mul_up(n_nodes/4, lws[0]) };
 	int local_queue_memsize = lws[0] * sizeof(cl_int4); //TODO: min(preferred e n_nodes/4);
+
+	if (version == VectorizedComputeMetricsVersion::RectangularVec8) {
+		gws[0] = round_mul_up(n_nodes / 8, lws[0]);
+		local_queue_memsize = lws[0] * sizeof(cl_int8);
+	}
 
 	cl_mem graph_nodes_GPU = BufferManager.GetNodes();
 	cl_mem queue_GPU = BufferManager.GetQueue();
@@ -540,13 +622,12 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	cl_mem metrics_GPU = BufferManager.GetMetrics();
 
 	cl_int err;
-	VectorizedComputeMetricsVersion version = OCLManager::compute_metrics_vetorized_version_chosen;
 
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_nodes_GPU), &graph_nodes_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(queue_GPU), &queue_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
-	if (version != VectorizedComputeMetricsVersion::RectangularV2) {
+	if (version != VectorizedComputeMetricsVersion::RectangularV2 && version != VectorizedComputeMetricsVersion::RectangularVec8) {
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, local_queue_memsize, NULL);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, local_queue_memsize, NULL);
@@ -556,7 +637,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_GPU), &graph_edges_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
-	if (version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 && DAG != NULL) {
+	if ((version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 || version == VectorizedComputeMetricsVersion::RectangularVec8) && DAG != NULL) {
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_reverse_GPU), &graph_edges_reverse_GPU);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
@@ -564,7 +645,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(metrics_GPU), &metrics_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 
-	if (version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 && DAG != NULL) {
+	if ((version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 || version == VectorizedComputeMetricsVersion::RectangularVec8) && DAG != NULL) {
 		int max_adj_dept = DAG->max_edges_for_node;
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_dept), &max_adj_dept);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);

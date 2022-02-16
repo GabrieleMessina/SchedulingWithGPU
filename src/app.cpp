@@ -37,7 +37,7 @@ std::chrono::system_clock::time_point start_time;
 std::chrono::system_clock::time_point end_time;
 
 int repeatNTimes = 1;
-bool isVector4Version = false;
+bool isVectorizedVersion = false;
 string dataSetName;
 string userResponseToVectorizeQuestion;
 
@@ -62,26 +62,26 @@ start:
 			repeatNTimes = atoi(argv[3]);
 		}
 	}
-	isVector4Version = (strcmp(userResponseToVectorizeQuestion.c_str(), "true") == 0);
-	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "s") == 0);
-	isVector4Version |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);
+	isVectorizedVersion = (strcmp(userResponseToVectorizeQuestion.c_str(), "true") == 0);
+	isVectorizedVersion |= (strcmp(userResponseToVectorizeQuestion.c_str(), "s") == 0);
+	isVectorizedVersion |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);
 
-	if(isVector4Version) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::RectangularV2); //TODO: make the user choose the version
+	if(isVectorizedVersion) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::RectangularV2); //TODO: make the user choose the version
 	else OCLManager::Init(ComputeMetricsVersion::Rectangular);
+
+	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
+	DAG = Graph<int>::initDagWithDataSet(dataSetName.c_str());
+	int n_nodes = DAG->len;
 
 	for (int i = 0; i < repeatNTimes; i++)
 	{
 
 		start_time = std::chrono::system_clock::now();
-		if(isVector4Version)
-			cout<<"vector4 version"<<endl;
+		if(isVectorizedVersion)
+			cout<<"vectorized version"<<endl;
 		else cout<<"standard version"<<endl;
 
-		//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
-		DAG = Graph<int>::initDagWithDataSet(dataSetName.c_str());
-		int n_nodes = DAG->len;
-
-		OCLBufferManager::Init(n_nodes, DAG->adj_len, isVector4Version);
+		OCLBufferManager::Init(n_nodes, DAG->adj_len, isVectorizedVersion);
 
 
 		cl_event entry_discover_evt;
@@ -89,7 +89,7 @@ start:
 
 
 		cl_event *compute_metrics_evt;
-		if(isVector4Version)
+		if(isVectorizedVersion)
 			std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
 		else 
 			std::tie(compute_metrics_evt, metrics) = ComputeMetrics::Run(DAG, entrypoints);
@@ -105,7 +105,6 @@ start:
 		verify();
 
 		//PULIZIA FINALE
-		delete DAG;
 		delete[] entrypoints;
 		delete[] metrics;
 		delete[] ordered_metrics;
@@ -117,6 +116,7 @@ start:
 		OCLManager::Reset();
 		cout << "-----------------END LOOP " << i+1 << "/" << repeatNTimes << "---------------------" << endl;
 	}
+	delete DAG;
 
 	cout << "-----------------------------------------" << endl;
 	cout << "-----------------END---------------------" << endl;
@@ -190,7 +190,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		runtime_discover_ms,
 		runtime_metrics_ms,
 		runtime_sorts_ms,
-		(isVector4Version ? "vec4" : "standard"),
+		(isVectorizedVersion ? "vectorized" : "standard"),
 		m_platform_name,
 		OCLManager::preferred_wg_size,
 		gpu_temperature,
@@ -209,7 +209,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 			runtime_sorts_ms,
 			gap_discover_metrics,
 			gap_metrics_sort,
-			(isVector4Version ? "vec4" : "standard"),
+			(isVectorizedVersion ? "vectorized" : "standard"),
 			m_platform_name,
 			OCLManager::preferred_wg_size,
 			gpu_temperature,
@@ -218,7 +218,6 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		);
 		printMemoryUsage();
 	}
-
 	//if (DEBUG_METRICS) {
 	//	//TODO: check the math as algorithms changed
 	//	printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",

@@ -13,6 +13,7 @@ int matrix_to_array_indexes(int i, int j, int row_len);
 bool isEven(int a);
 bool isEmpty(int* v, int len, int default_v = 0);
 bool isEmpty(cl_int4* v, int len, cl_int4 default_v = cl_int4{ 0,0,0,0 });
+bool isEmpty(cl_int8* v, int len, cl_int8 default_v = cl_int8{ 0,0,0,0,0,0,0,0 });
 bool is_file_empty(FILE* fp);
 
 //Specialization of print template function for this types that are not standard. //TODO: to make it cleaner, override cout << operand for this types

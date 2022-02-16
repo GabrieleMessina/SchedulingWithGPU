@@ -104,6 +104,7 @@ public:
 	void SetNEntrypoints(const void* nEntrypoints);
 	void SetEntrypoints(const void* entrypoints);
 	void SetQueue(const int* queue);
+	void SetQueue(const cl_int8* queue);
 	void SetQueue(const cl_int4* queue);
 	void SetNextQueue(const void* nextQueue);
 	void SetMetrics(const void* metrics);
