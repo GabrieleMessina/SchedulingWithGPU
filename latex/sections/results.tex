@@ -106,7 +106,8 @@ In particolare le memorie dei Device su cui sono stati eseguiti i test hanno ban
 \end{enumerate}
 da cui ne deriva una ratio pari a circa $16/3$ tra Dedicata e Integrata(o CPU).
 
-I valori del test ottenuti con la versione \textit{Rectangular} vettorizzata mostrano invece una ratio di circa $20/9$, in sostanza la Dedicata performa meglio della Integrata(e della CPU) solo del doppio mentre i valori attesi vorrebbero la scheda Nvidia circa 5 volte più prestante della controparte.
+I valori del test ottenuti con la versione \textit{Rectangular} vettorizzata mostrano invece una ratio di circa $20/9$ calcolata facendo una stima dei byte letti e scritti in media dai kernel e dividendo questa cifra per il tempo di runtime.
+In sostanza la Dedicata performa meglio della Integrata(e della CPU) solo del doppio mentre i valori attesi vorrebbero la scheda Nvidia circa 5 volte più prestante della controparte.
 Inoltre effettuando una modifica al codice, sfruttando cioè la funzione \lstinline{clEnqueueMapBuffer} fornita da OpenCL invece della precedente \lstinline{clEnqueueWriteBuffer}, le prestazioni della Intel UHD incrementano ulteriormente portando la ratio a circa $3/2$, cioè l'Integrata, potendo evitare i trasferimenti di dati con l'host visto che lavorano sulla stessa memoria, diventa solo di una volta e mezza più lenta della GPU integrata che ovviamente non può beneficiare di questa modifica.
 La CPU invece sembra, stranamente, peggiorare i propri tempi di runtime in seguito a questa modifica.
 
