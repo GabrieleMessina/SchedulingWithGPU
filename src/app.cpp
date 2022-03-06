@@ -218,6 +218,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		);
 		printMemoryUsage();
 	}
+	//somma di byte letti e scritti dal kernel diviso tempo di esecuzione
 	//if (DEBUG_METRICS) {
 	//	//TODO: check the math as algorithms changed
 	//	printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",

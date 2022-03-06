@@ -19,7 +19,7 @@ bool isEven(int a) {
 	return (a % 2) == 0;
 }
 
-bool isEmpty(cl_int4* v, int len, cl_int4 default_v) {
+bool isEmpty(const cl_int4* v, int len, cl_int4 default_v) {
 	for (int i = 0; i < len; i++) {
 		if (v[i].s0 != default_v.s0 || v[i].s1 != default_v.s1 || v[i].s2 != default_v.s2 || v[i].s3 != default_v.s3)
 			return false;

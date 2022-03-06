@@ -6,7 +6,7 @@
 
 class OCLBufferManager {
 
-private:
+public:
 	static OCLBufferManager *instance;
 	static OCLManager CLManager;
 	cl_int err;
@@ -65,7 +65,6 @@ private:
 	size_t local_queue_temp_memsize;
 	cl_event write_local_queue_temp_evt;*/
 
-public:
 	static OCLBufferManager Init(int nNodes, int adjSize, bool vectorized = false);
 	static void Release();
 	~OCLBufferManager();
@@ -107,6 +106,8 @@ public:
 	void SetQueue(const cl_int8* queue);
 	void SetQueue(const cl_int4* queue);
 	void SetNextQueue(const void* nextQueue);
+	void SetQueue(const cl_int4* queue, void* out);
+	void SetNextQueue(const void* nextQueue, void* out);
 	void SetMetrics(const void* metrics);
 	void SetOrderedMetrics(const void* metrics);
 	void SetNodes(const void* nodes);
@@ -145,6 +146,8 @@ public:
 	void ReleaseEntrypoints();
 	void ReleaseQueue();
 	void ReleaseNextQueue();
+	void ReleaseQueue(void* data);
+	void ReleaseNextQueue(void* data);
 	void ReleaseMetrics();
 	void ReleaseOrderedMetrics();
 	void ReleaseNodes();

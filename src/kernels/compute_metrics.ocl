@@ -814,7 +814,7 @@ kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, 
 
 
 //TODO: in realtà parent e child alla fine di questo kernel sono invertiti perchè adj contiene gli edge da child a parent e non il viceversa.
-kernel void compute_metrics_standard_with_rectangular_matrix(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept)
+kernel void compute_metrics_standard_with_rectangular_matrix(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int el_in_queue)
 {
 	int i = get_global_id(0);
 	int current_node_index = i;
@@ -1005,6 +1005,8 @@ kernel void compute_metrics_vectorized_rectangular(global int* restrict nodes, g
 }
 
 /*optimized version of compute_metrics_vectorized_rectangular */
+//todo: variabile globale samething cahnged che viene letta dall'host.
+//oppure lanciare secondo kernel che controlla se coda vuoto in parallelo o anche in questo stesso kernel alla fine.
 kernel void compute_metrics_vectorized_rectangular_v2(global int* restrict nodes, global int4* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept)
 {
 	local int something_changed;

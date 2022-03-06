@@ -86,7 +86,7 @@ void OCLBufferManager::InitEntrypoints() {
 	ocl_check(err, "create buffer entrypoints");
 }
 void OCLBufferManager::InitQueue() {
-	queue = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
+	queue = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, queue_memsize, NULL, &err);
 	ocl_check(err, "create buffer queue");
 }
 void OCLBufferManager::InitNextQueue() {
@@ -200,6 +200,18 @@ void OCLBufferManager::SetNextQueue(const void* nextQueue) {
 		0, NULL, &write_next_queue_evt);
 	ocl_check(err, "write into nextQueue");
 }
+void OCLBufferManager::SetQueue(const cl_int4* queue, void* out) {//TODO: queue is useless here
+	out = clEnqueueMapBuffer(OCLManager::queue, GetQueue(), CL_TRUE, CL_MAP_READ,
+		0, queue_memsize,
+		0, NULL, &write_queue_evt, &err);
+	ocl_check(err, "write into queue with map buffer");
+}
+void OCLBufferManager::SetNextQueue(const void* nextQueue, void* out) {
+	out = clEnqueueMapBuffer(OCLManager::queue, GetNextQueue(), CL_TRUE, CL_MAP_READ,
+		0, next_queue_memsize,
+		0, NULL, &write_next_queue_evt, &err);
+	ocl_check(err, "write into nextQueue with map buffer");
+}
 void OCLBufferManager::SetMetrics(const void* metrics) {
 	err = clEnqueueWriteBuffer(OCLManager::queue, GetMetrics(), CL_TRUE,
 		0, metrics_memsize, metrics,
@@ -303,6 +315,12 @@ void OCLBufferManager::ReleaseEntrypoints() {
 }
 void OCLBufferManager::ReleaseQueue() {
 	clReleaseMemObject(GetQueue());
+}
+void OCLBufferManager::ReleaseQueue(void* data) {
+	clEnqueueUnmapMemObject(OCLManager::queue, GetQueue(), data, 0, NULL, NULL);
+}
+void OCLBufferManager::ReleaseNextQueue(void* data) {
+	clEnqueueUnmapMemObject(OCLManager::queue, GetNextQueue(), data, 0, NULL, NULL);
 }
 void OCLBufferManager::ReleaseNextQueue() {
 	clReleaseMemObject(GetNextQueue());
