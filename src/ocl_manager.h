@@ -9,13 +9,16 @@ private:
 	static cl_int err;
 	static cl_program entry_discover_prog;
 	static cl_program compute_metrics_prog;
+	static cl_program reduce_queue_prog;
 	static cl_program sort_prog;
 	static cl_kernel entry_discover_k,
 		compute_metrics_k,
+		reduce_queue_k,
+		reset_k,
 		m_MergesortGlobalBigKernel,
 		m_MergesortGlobalSmallKernel,
 		m_MergesortStartKernel;
-	static void InitCommon(const char* entryDiscoverKernelName, const char* computeMetricsKernelName, const char* sortKernelName);
+	static void InitCommon(const char* entryDiscoverKernelName, const char* computeMetricsKernelName, const char* reductionKernelName, const char* sortKernelName);
 public:
 	static ComputeMetricsVersion compute_metrics_version_chosen;
 	static VectorizedComputeMetricsVersion compute_metrics_vetorized_version_chosen;
@@ -32,9 +35,13 @@ public:
 
 	static cl_kernel GetEntryDiscoverKernel();
 	static cl_kernel GetComputeMetricsKernel();
+	static cl_kernel GetResetKernel();
+	static cl_kernel GetReduceQueueKernel();
 	static cl_kernel GetSortKernel(bool smallKernel = false);
 
 	static void ReleaseEntryDiscoverKernel();
 	static void ReleaseComputeMetricsKernel();
+	static void ReleaseResetKernel();
+	static void ReleaseReduceQueueKernel();
 	static void ReleaseSortKernel();
 };

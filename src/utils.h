@@ -6,9 +6,14 @@
 using namespace std;
 
 void error(char const* str);
+void swap(cl_mem* a, cl_mem* b);
+void swap(cl_mem a, cl_mem b);
 size_t GetMetricsArrayLenght(int n_nodes);
 
 int matrix_to_array_indexes(int i, int j, int row_len);
+
+int calc_nwg(int nels, int lws);
+
 
 bool isEven(int a);
 bool isEmpty(int* v, int len, int default_v = 0);

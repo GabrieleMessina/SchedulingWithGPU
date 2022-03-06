@@ -647,6 +647,7 @@ kernel void compute_metrics_second(global int * restrict nodes, global int *queu
 {
 	int i = get_global_id(0);
 	int current_node_index = i;
+
 	if(i >= n_nodes){
 		return;
 	} 
@@ -814,7 +815,7 @@ kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, 
 
 
 //TODO: in realtà parent e child alla fine di questo kernel sono invertiti perchè adj contiene gli edge da child a parent e non il viceversa.
-kernel void compute_metrics_standard_with_rectangular_matrix(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int el_in_queue)
+kernel void compute_metrics_standard_with_rectangular_matrix_no_reduction(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int el_in_queue)
 {
 	int i = get_global_id(0);
 	int current_node_index = i;
@@ -863,6 +864,67 @@ kernel void compute_metrics_standard_with_rectangular_matrix(global int* restric
 			atomic_inc(&next_queue_[child_index]);
 	}
 
+}
+
+
+kernel void reset(global int* restrict vector, const int nels, const int default_value) {
+	int i = get_global_id(0);
+	if (i >= nels)
+		return;
+		
+	vector[i] = default_value;
+}
+
+kernel void compute_metrics_standard_with_rectangular_matrix(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept)
+{
+	int i = get_global_id(0);
+	int current_node_index = i;
+	
+
+	if (i >= n_nodes) {
+		return;
+	}
+
+	if (queue_[current_node_index] <= 0)return;
+	//se sono stato messo in coda un numero di volte pari al numero dei miei parent, allora posso proseguire, altrimenti non faccio nulla.
+	//in particolare proseguire significa calcolare la metrica dai miei parent scegliendo quella più pesante e mettere in coda i miei figli.
+
+	//per controllare di essere stato messo in coda un numero sufficiente di volte, l'int2 delle metriche viene inizializzato con il numero dei parent nella y.
+	//in questo modo ogni volta che il nodo viene messo in coda può decrementare il suo y fino a quando non diventa 0, a qual punto può procedere al calcolo del rank.
+	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
+	metriche[i].y = metriche[i].y - queue_[current_node_index];
+	//queue_[current_node_index] = 0; //Inutile perchè la queue vine resa next queue che a sua volta viene resettata all fine del ciclo.
+	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
+	if (metriche[i].y > 0)return;
+	metriche[current_node_index] = (int2)(nodes[current_node_index], 0);
+	//calcolo il livello del nodo attuale e il suo rank a partire dai parent
+	int2 metrics_with_this_parent;
+	int matrixToArrayIndex;
+	
+
+#pragma unroll
+	for (int j = 0; j < max_adj_dept; j++) {
+		/* Calcolo la metrica del nodo a partire dai parent. */
+		int parentAdjIndex = j;
+#if TRANSPOSED_ADJ
+		matrixToArrayIndex = matrix_to_array_indexes(i, parentAdjIndex, max_adj_dept);
+#else
+		matrixToArrayIndex = matrix_to_array_indexes(parentAdjIndex, i, n_nodes);
+#endif // TRANSPOSED_ADJ
+		int edge_weight = 1;
+		int parent_index = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
+		if (parent_index >= 0){ //essendo adj matrice rettangolare appena trovo il la prima riga vuota sono sicuro che sotto non ci siano altri child(anche se in questo caso li chiamiamo parent)
+			int weight_with_this_parent = edge_weight + metriche[parent_index].x + nodes[current_node_index];
+			int level_with_this_parent = metriche[parent_index].y + 1;
+			metrics_with_this_parent = (int2)(weight_with_this_parent, level_with_this_parent);
+			if (gt(metrics_with_this_parent, metriche[current_node_index]))//prendo il maggiore peso peggiore che il nodo ottiene con i suoi parent.
+				metriche[current_node_index] = metrics_with_this_parent;
+		}
+		/*Aggiugno i child alla coda*/
+		int child_index = edges_reverse[matrixToArrayIndex]; //controllo tutti i parent di current_node
+		if (child_index >= 0) //essendo adj matrice rettangolare appena trovo il la prima riga vuota sono sicuro che sotto non ci siano altri child(anche se in questo caso li chiamiamo parent)
+			atomic_inc(&next_queue_[child_index]);
+	}
 }
 
 
@@ -1138,4 +1200,6 @@ kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, 
 
 		barrier(CLK_LOCAL_MEM_FENCE);
 	} while (something_changed > 0);
+
+	//compute_metrics_vectorized8_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, metriche, max_adj_dept);
 }

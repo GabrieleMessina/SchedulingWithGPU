@@ -6,8 +6,27 @@
 #endif
 
 void error(char const* str) {
-	fprintf(stderr, "%s\n", str);
+	fprintf(stderr, "ERROR: %s\n", str);
+	system("PAUSE");
 	exit(1);
+}
+
+void swap(cl_mem* a, cl_mem* b) {
+	cl_mem* tmp = a;
+	a = b;
+	b = tmp;
+}
+void swap(cl_mem a, cl_mem b) {
+	cl_mem tmp = a;
+	a = b;
+	b = tmp;
+}
+
+int calc_nwg(int nels, int lws)
+{
+	int nwg = (nels / 2 + lws - 1) / lws;
+	// if more than one workgroup, number must be even
+	return nwg + (nwg > 1 && (nwg & 1));
 }
 
 

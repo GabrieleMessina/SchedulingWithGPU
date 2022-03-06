@@ -2,9 +2,9 @@
 \graphicspath{{\subfix{../images/}}}
 \begin{document}
 \section{Implementazione efficiente}
-Per la seconda implementazione si è modificata la matrice di adiacenza in una matrice rettangolare in cui la colonna \textit{i-esima} contiene i riferimenti ai figli del nodo \textit{i-esimo}.
+Per la seconda implementazione si è modificata la matrice di adiacenza in una matrice rettangolare in cui la colonna \textit{i-esima} contiene i riferimenti ai figli del nodo \textit{i-esimo} e, per diminuire ulteriormente i tempi di ricerca all'interno della matrice rettangolare, si è creata anche una matrice speculare che nella colonna \textit{i-esima} contiene i riferimenti ai genitori del nodo \textit{i-esimo}.
 
-Inoltre per diminuire ulteriormente i tempi di ricerca all'interno della matrice rettangolare, si è creata anche una matrice speculare che nella colonna \textit{i-esima} contiene i riferimenti ai genitori del nodo \textit{i-esimo}.
+Inoltre la condizione che rimanda in esecuzione il kernel se la coda non è vuota viene calcolata direttamente su GPU applicando una riduzione alla coda dei task.
 
 Il resto dell'algoritmo è rimasto identico ad eccezione dei cambiamenti necessari e dovuti alla nuova struttura della matrice di adiacenza.
 
@@ -51,7 +51,7 @@ kernel void compute_metrics_rectangular(global int* restrict nodes, global int* 
 }
 \end{lstlisting}
 
-Anche in questo caso il kernel deve essere eseguito dall'host più volte fin quando non si produrrà una \textit{next\_queue} identica alla precedente in cui quindi non ci sono stati cambiamenti.
+Anche in questo caso il kernel deve essere eseguito dall'host più volte fin quando non si produrrà una \textit{next\_queue} vuota.
 
 \subsection{Fase 3 - Ordinamento dei task}
 In questa fase non è stato modificato nulla in quanto il kernel lavora su un array di metriche che non ha alcuna correlazione con la matrice di adiacenza e che quindi non è influenzato dalle modifiche a quest'ultima,

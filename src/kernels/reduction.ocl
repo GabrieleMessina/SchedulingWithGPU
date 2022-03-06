@@ -1,0 +1,40 @@
+#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+#include "../app_globals.h"
+
+void print(global int2* v, int len, bool withIndexes) {
+	for (int i = 0; i < len; i++)
+	{
+		if (withIndexes)
+			printf("%d:", i);
+		printf("%d - %d - ", v[i].x, v[i].y);
+	}
+
+	printf("\n");
+}
+
+kernel void reduce_queue(global int* restrict output, const global int2* restrict input,
+	local int* restrict lmem,
+	int npairs)
+{
+	const int global_index = get_global_id(0);
+
+	//if(global_index == 0)print(input, npairs, false);
+
+	int2 pair = global_index < npairs ? input[global_index] : (int2)(0, 0);
+
+	const int local_index = get_local_id(0);
+
+	int value = max(pair.x, 0) + max(pair.y, 0);
+	lmem[local_index] = value;
+
+	for (int stride = get_local_size(0) / 2; stride > 0; stride /= 2) {
+		barrier(CLK_LOCAL_MEM_FENCE);
+		if (local_index < stride) {
+			value += lmem[local_index + stride];
+			lmem[local_index] = value;
+		}
+	}
+
+	if (local_index == 0)
+		output[get_group_id(0)] = value;
+}

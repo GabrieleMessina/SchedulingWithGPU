@@ -66,7 +66,7 @@ start:
 	isVectorizedVersion |= (strcmp(userResponseToVectorizeQuestion.c_str(), "s") == 0);
 	isVectorizedVersion |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);
 
-	if(isVectorizedVersion) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::RectangularV2); //TODO: make the user choose the version
+	if(isVectorizedVersion) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::RectangularVec8); //TODO: make the user choose the version
 	else OCLManager::Init(ComputeMetricsVersion::Rectangular);
 
 	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG

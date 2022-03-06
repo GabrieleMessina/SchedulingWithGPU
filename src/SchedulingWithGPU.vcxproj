@@ -85,6 +85,7 @@
   <ItemGroup>
     <None Include="kernels\compute_metrics.ocl" />
     <None Include="kernels\entry_discover.ocl" />
+    <None Include="kernels\reduction.ocl" />
     <None Include="kernels\sort.ocl" />
     <None Include="results\execution_results.csv" />
   </ItemGroup>
