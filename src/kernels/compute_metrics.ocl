@@ -1195,8 +1195,8 @@ kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, 
 		if (!work_item_outside_range)
 			something_changed_for_me = compute_metrics_vectorized8_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, metriche, max_adj_dept);
 
-		if (something_changed_for_me && something_changed == 0)
-			atomic_inc(&something_changed);
+		if (something_changed_for_me)
+			something_changed = 1;
 
 		barrier(CLK_LOCAL_MEM_FENCE);
 	} while (something_changed > 0);
