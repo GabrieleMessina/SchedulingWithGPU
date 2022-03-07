@@ -27,8 +27,9 @@ kernel void reduce_queue(global int* restrict output, const global int2* restric
 	bool value = (pair.x > 0) || (pair.y > 0);
 	lmem[local_index] = value;
 
-	for (int stride = get_local_size(0) / 2; stride > 0 && !value; stride /= 2) {
+	for (int stride = get_local_size(0) / 2; stride > 0; stride /= 2) {
 		barrier(CLK_LOCAL_MEM_FENCE);
+		if (value != 0) continue;
 		if (local_index < stride) {
 			value |= lmem[local_index + stride] > 0;
 			lmem[local_index] = value;
