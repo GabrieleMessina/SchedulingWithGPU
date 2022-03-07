@@ -51,7 +51,30 @@ kernel void compute_metrics_rectangular(global int* restrict nodes, global int* 
 }
 \end{lstlisting}
 
-Anche in questo caso il kernel deve essere eseguito dall'host più volte fin quando non si produrrà una \textit{next\_queue} vuota.
+Anche in questo caso il kernel deve essere eseguito dall'host più volte fin quando non si produrrà una \textit{next\_queue} vuota ma il controllo avviene tramite riduzione su GPU attraverso il seguente kernel.
+
+\subsubsection{Fase 2 - Riduzione}
+
+\begin{lstlisting}[language=C++, caption={Reduce queue kernel},captionpos=b]
+kernel void reduce_queue(global int* restrict output, const global int2* restrict input, local int* restrict lmem, int npairs)
+{
+	const int global_index = get_global_id(0);
+	int2 pair = global_index < npairs ? input[global_index] : (int2)(0, 0);
+	const int local_index = get_local_id(0);
+	bool value = (pair.x > 0) || (pair.y > 0);
+	lmem[local_index] = value;
+
+	for (int stride = get_local_size(0) / 2; stride > 0 && !value; stride /= 2) {
+		barrier(CLK_LOCAL_MEM_FENCE);
+		if (local_index < stride) {
+			value |= lmem[local_index + stride] > 0;
+			lmem[local_index] = value;
+		}
+	}
+
+	if (local_index == 0) output[get_group_id(0)] = value;
+}
+\end{lstlisting}
 
 \subsection{Fase 3 - Ordinamento dei task}
 In questa fase non è stato modificato nulla in quanto il kernel lavora su un array di metriche che non ha alcuna correlazione con la matrice di adiacenza e che quindi non è influenzato dalle modifiche a quest'ultima,
@@ -75,7 +98,8 @@ Anche in questo caso per i test si è usato un dataset di 4096 task in esecuzion
 \begin{axis}[
 symbolic x coords={
 Rectangular,
-Vec4 rectangular},
+Vec4 rectangular,
+Vec4 rect with reduction},
 xtick=data,
 x tick label style={rotate=45,anchor=east},
 nodes near coords,
@@ -84,21 +108,24 @@ ylabel=Runtime (ms),
 legend style={at={(0.5, 0.85)}, anchor=west},
 ybar=0pt,
 legend cell align={left},
-enlarge x limits=1,
+enlarge x limits=0.5,
 enlarge y limits=0,
 width=7.5cm,
 ]
 \addplot+[every node near coord/.append style={yshift=10pt, xshift=30pt}] coordinates { %entries discover
 (Rectangular, 0.04)
 (Vec4 rectangular, 0.03)
+(Vec4 rect with reduction, 0.03)
 };
 \addplot+[every node near coord/.append style={xshift=0pt, anchor=west}] coordinates { %compute metrics
 (Rectangular, 299.91)
 (Vec4 rectangular, 24.78)
+(Vec4 rect with reduction, 24.09)
 };
 \addplot+[every node near coord/.append style={yshift=-10pt, xshift=0pt}] coordinates { %mergesort
 (Rectangular, 1.91)
 (Vec4 rectangular, 1.80)
+(Vec4 rect with reduction, 1.80)
 };
 \legend{entry\_discover, compute\_metrics, merge\_sort}
 \end{axis}
@@ -112,7 +139,8 @@ width=7.5cm,
 symbolic x coords={
 Standard transpose,
 Rectangular,
-Vec4 rectangular},
+Vec4 rectangular,
+Vec4 rect with reduction},
 xtick=data,
 x tick label style={rotate=45,anchor=east},
 nodes near coords,
@@ -129,6 +157,7 @@ width=7.5cm,
 (Standard transpose, 2850.95)
 (Rectangular, 299.91)
 (Vec4 rectangular, 24.78)
+(Vec4 rect with reduction, 24.09)
 };
 \legend{compute\_metrics}
 \end{axis}
@@ -139,4 +168,38 @@ width=7.5cm,
 
 Come si può vedere quindi, i tempi sono notevolmente migliorati semplicemente cambiando la modalità di memorizzazione e accesso ai dati.
 Inoltre, visto l'ulteriore miglioramento ottenuto grazie alla versione vettorizzata del kernel si è implementato anche un kernel vettorizzato che sfruttasse una coda di \lstinline{int8} invece del precedente \lstinline{int4}, tuttavia in questo caso non si sono notati miglioramenti degni di nota.
+
+Miglioramenti più netti si notano invece mettendo a confronto le versioni \textit{Vec4 rectangular}, \textit{Vec4 rect with reduction} e \textit{Vec8 rect with reduction} sui grandi dataset, mostriamo di seguito i risultati ottenuti usando un dataset di 262144 task in esecuzione su una GPU NVIDIA GTX 1650 per 15 esecuzioni di cui successivamente è stata calcolata la media dei tempi di runtime.\\
+
+\begin{figure}[H]
+\begin{tikzpicture}
+\begin{axis}[
+symbolic x coords={
+Vec4 rectangular,
+Vec4 rect with reduction,
+Vec8 rect with reduction},
+xtick=data,
+x tick label style={rotate=45,anchor=east},
+nodes near coords,
+every node near coord/.append style={rotate=90, anchor=center},
+ylabel=Runtime (ms),
+legend style={at={(0.5, 0.85)}, anchor=west},
+ybar=0pt,
+legend cell align={left},
+enlarge x limits=0.3,
+enlarge y limits=0,
+width=7.5cm,
+]
+\addplot+[every node near coord/.append style={xshift=0pt, anchor=west}] coordinates { %compute metrics
+(Vec4 rectangular, 1921.25)
+(Vec4 rect with reduction, 1395.19)
+(Vec8 rect with reduction, 1280.17)
+};
+\legend{compute\_metrics}
+\end{axis}
+\end{tikzpicture}
+\caption{Tempi di runtime della \textit{Vec4 rectangular}, della \textit{Vec4 rect with reduction} e della \textit{Vec7 rect with reduction} a confronto su un dataset di 262144 task} \label{fig:M2}
+\end{figure}
+
+
 \end{document}

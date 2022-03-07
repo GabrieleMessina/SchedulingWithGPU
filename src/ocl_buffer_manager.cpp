@@ -86,7 +86,7 @@ void OCLBufferManager::InitEntrypoints() {
 	ocl_check(err, "create buffer entrypoints");
 }
 void OCLBufferManager::InitQueue() {
-	queue = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, queue_memsize, NULL, &err);
+	queue = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, queue_memsize, NULL, &err);
 	ocl_check(err, "create buffer queue");
 }
 void OCLBufferManager::InitNextQueue() {

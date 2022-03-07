@@ -401,10 +401,10 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 	cl_int err;
 	cl_event write_queue_evt;
-	queue = (cl_int4*)clEnqueueMapBuffer(OCLManager::queue, BufferManager.GetQueue(), CL_TRUE, CL_MAP_WRITE,
+	/*queue = (cl_int4*)clEnqueueMapBuffer(OCLManager::queue, BufferManager.GetQueue(), CL_TRUE, CL_MAP_WRITE,
 		0, BufferManager.queue_memsize,
 		0, NULL, &write_queue_evt, &err);
-	ocl_check(err, "write into queue with map buffer");
+	ocl_check(err, "write into queue with map buffer");*/
 
 	for (int i = 0; i < queue_len; i++) {
 		int j = i * 4;
@@ -414,7 +414,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 		queue[i].w = DAG->numberOfParentOfNode(j);
 	}
 
-	BufferManager.ReleaseQueue(queue);
+	//BufferManager.ReleaseQueue(queue);
 	/*cout << "queue init\n";
 	print(queue, queue_len, "\n", true);
 	cout << "\n";*/
@@ -423,8 +423,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 
 
 	BufferManager.SetNodes(DAG->nodes);
-	//BufferManager.SetQueue(queue, queue);
-	
+	BufferManager.SetQueue(queue);
 	BufferManager.SetMetrics(metrics);
 
 	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
@@ -437,15 +436,16 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 		compute_metrics_evt_end = run_compute_metrics_kernel_v2(n_nodes, DAG);
 		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
 
-		queue = (cl_int4*)clEnqueueMapBuffer(OCLManager::queue, BufferManager.GetQueue(), CL_TRUE, CL_MAP_READ,
+		/*queue = (cl_int4*)clEnqueueMapBuffer(OCLManager::queue, BufferManager.GetQueue(), CL_TRUE, CL_MAP_READ,
 			0, BufferManager.queue_memsize,
 			1, &compute_metrics_evt_end, &write_queue_evt, &err);
-		ocl_check(err, "read from queue with map buffer");
+		ocl_check(err, "read from queue with map buffer");*/
 		//BufferManager.GetQueueResult(queue, &compute_metrics_evt_end, 1);
 
+		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
 
-		moreToProcess = !isEmpty(queue, queue_len, cl_int4{ -1,-1,-1,-1 });
-		BufferManager.ReleaseQueue(queue);
+		//moreToProcess = !isEmpty(queue, queue_len, cl_int4{ -1,-1,-1,-1 });
+		//BufferManager.ReleaseQueue(queue);
 
 		count++;
 	} while (moreToProcess);
@@ -467,7 +467,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 	BufferManager.ReleaseGraphEdges();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
-	//delete[] queue;
+	delete[] queue;
 	//delete[] next_queue;
 
 	cl_event* compute_metrics_evt = DBG_NEW cl_event[2];

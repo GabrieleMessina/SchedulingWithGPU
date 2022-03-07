@@ -95,6 +95,49 @@ width=7.5cm,
 \caption{Tempi di runtime della versione \textit{Rectangular} vettorizzata}
 \end{figure}
 
+\subsection{Versione \textit{Rectangular with reduction} vettorizzata}
+
+\begin{figure}[H]
+\begin{tikzpicture}
+\begin{axis}[
+symbolic x coords={
+GTX 1650,
+Intel UHD Graphics,
+Intel Core i7
+},
+xtick=data,
+x tick label style={rotate=45,anchor=east},
+nodes near coords,
+every node near coord/.append style={rotate=90, anchor=center},
+ylabel=Runtime (ms),
+legend style={at={(1.1, 0.85)}, anchor=west},
+ybar=0pt,
+legend cell align={left},
+enlarge x limits=0.3,
+enlarge y limits=0,
+width=7.5cm,
+]
+\addplot+[every node near coord/.append style={yshift=10pt, xshift=30pt}] coordinates { %entries discover
+(GTX 1650, 0.03)
+(Intel UHD Graphics, 0.00)
+(Intel Core i7, 0.04)
+};
+\addplot+[every node near coord/.append style={xshift=0pt, anchor=west}] coordinates { %compute metrics
+(GTX 1650, 24.09)
+(Intel UHD Graphics, 56.50)
+(Intel Core i7, 90.20)
+};
+\addplot+[every node near coord/.append style={yshift=-10pt, xshift=0pt}] coordinates { %mergesort
+(GTX 1650, 1.80)
+(Intel UHD Graphics, 2.43)
+(Intel Core i7, 0.24)
+};
+\legend{entry\_discover, compute\_metrics, merge\_sort}
+\end{axis}
+\end{tikzpicture}
+\caption{Tempi di runtime della versione \textit{Rectangular} vettorizzata}
+\end{figure}
+
 \subsection{Confronto tra prestazioni attese e prestazioni effettive}
 Tenendo conto dei dati teorici riguardanti la memory bandwidth delle varie piattaforme possiamo provare a determinare se questo algoritmo riesce effettivamente a sfruttare tutti i Device allo stesso modo oppure se qualcuno di questi performa meno di quanto dovrebbe.
 
