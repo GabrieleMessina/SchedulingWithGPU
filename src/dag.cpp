@@ -201,7 +201,7 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 				continue;
 			}
 			//questo è più veloce perché crea meno nodi in quanto nodi con lo stesso peso vengono considerati lo stesso nodo: DAG->insertEdgeByIndex(DAG->indexOfNode(value), successor_index, 1/*data_transfer*/); //assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
-			DAG->insertEdgeByIndex(current_node_index, successor_index, 1/*data_transfer*/); //assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
+			DAG->insertEdgeByIndex(current_node_index, successor_index, data_transfer); //assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
 		}
 		current_node_index++;
 	}
