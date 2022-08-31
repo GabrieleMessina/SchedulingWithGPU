@@ -20,6 +20,7 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 	//PASSARE I DATI ALLA GPU
 	BufferManager.SetGraphEdges(DAG->GetEdgesArray());
 #if RECTANGULAR_ADJ
+	BufferManager.SetGraphWeights(DAG->GetWeightsArray());
 	BufferManager.SetGraphReverseEdges(DAG->GetEdgesReverseArray());
 #endif	
 	BufferManager.SetNEntrypoints(n_entrypoints);

@@ -44,6 +44,10 @@ public:
 		return this;
 	}
 
+	edge_t* GetWeightsArray() override {
+		return adj_vec.data();
+	}
+	
 	edge_t* GetEdgesArray() override {
 		return adj_vec.data();
 	}

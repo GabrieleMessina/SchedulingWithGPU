@@ -5,8 +5,9 @@
 template<typename  T>
 class GraphRectangular : public Graph<T> {
 private: 
-	edge_t* adj = NULL; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
-	edge_t* adj_reverse = NULL; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
+	edge_t* weights = NULL; // è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
+	edge_t* adj = NULL; //è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
+	edge_t* adj_reverse = NULL; //è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 	int emptyAdjCell = -1;
 public:
 
@@ -16,6 +17,8 @@ public:
 
 	~GraphRectangular(){
 		delete[] adj;
+		delete[] adj_reverse;
+		delete[] weights;
 	}
 
 	void initAdjacencyMatrix() override {
@@ -24,10 +27,12 @@ public:
 		Graph<T>::adj_len = Graph<T>::len * Graph<T>:: max_parents_for_nodes;
 		Graph<T>::adj_reverse_len = Graph<T>::len * Graph<T>::max_children_for_nodes;
 		adj = DBG_NEW edge_t[Graph<T>::adj_len];
+		weights = DBG_NEW edge_t[Graph<T>::adj_len];
 		adj_reverse = DBG_NEW edge_t[Graph<T>::adj_reverse_len];
 #pragma unroll
 		for (int i = 0; i < Graph<T>::adj_len; i++) {
 			adj[i] = emptyAdjCell;
+			weights[i] = 0;
 		}
 #pragma unroll
 		for (int i = 0; i < Graph<T>::adj_reverse_len; i++) {
@@ -107,7 +112,10 @@ public:
 			if (matrixToArrayIndex >= Graph<T>::adj_len) {
 				printf("ERROR: si è cercato di inserire un edge oltre il limite di profondità di una DAG con matrice adj rettangolare.\n");
 			}
-			else adj[matrixToArrayIndex] = indexOfa;
+			else {
+				adj[matrixToArrayIndex] = indexOfa;
+				weights[matrixToArrayIndex] = weight;
+			}
 			Graph<T>::m++;
 		}
 		else {
@@ -117,6 +125,10 @@ public:
 		return this;
 	}
 
+
+	edge_t* GetWeightsArray() override {
+		return weights;
+	}
 	edge_t* GetEdgesArray() override {
 		return adj;
 	}
@@ -136,6 +148,7 @@ public:
 		} while (parent > -1 && parentCount < Graph<T>::max_parents_for_nodes);
 		return parentCount;
 	}
+
 	int numberOfChildOfNode(int indexOfNode) override {
 		if (indexOfNode < -1 && indexOfNode >= Graph<T>::len) return 0;
 		int childCount = -1;

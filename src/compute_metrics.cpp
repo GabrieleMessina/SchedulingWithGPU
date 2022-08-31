@@ -617,6 +617,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip, Grap
 	cl_mem next_queue_GPU = (flip) ? BufferManager.GetQueue() : BufferManager.GetNextQueue();
 	cl_mem graph_edges_GPU = BufferManager.GetGraphEdges();
 	cl_mem graph_edges_reverse_GPU = BufferManager.GetGraphReverseEdges();
+	cl_mem graph_weights_GPU = BufferManager.GetGraphWeights();
 	cl_mem metrics_GPU = BufferManager.GetMetrics();
 
 	cl_int err;
@@ -634,6 +635,8 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip, Grap
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	if (version == ComputeMetricsVersion::Rectangular && DAG != NULL) {
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_reverse_GPU), &graph_edges_reverse_GPU);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_weights_GPU), &graph_weights_GPU);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(metrics_GPU), &metrics_GPU);
@@ -678,6 +681,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	cl_mem queue_GPU = BufferManager.GetQueue();
 	cl_mem graph_edges_GPU = BufferManager.GetGraphEdges();
 	cl_mem graph_edges_reverse_GPU = BufferManager.GetGraphReverseEdges();
+	cl_mem graph_weights_GPU = BufferManager.GetGraphWeights();
 	cl_mem metrics_GPU = BufferManager.GetMetrics();
 
 	cl_int err;
@@ -698,6 +702,8 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	if ((version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 || version == VectorizedComputeMetricsVersion::RectangularVec8) && DAG != NULL) {
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_reverse_GPU), &graph_edges_reverse_GPU);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_weights_GPU), &graph_weights_GPU);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
 	

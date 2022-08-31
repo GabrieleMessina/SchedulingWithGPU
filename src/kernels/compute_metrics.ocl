@@ -815,7 +815,7 @@ kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, 
 
 
 //TODO: in realtà parent e child alla fine di questo kernel sono invertiti perchè adj contiene gli edge da child a parent e non il viceversa.
-kernel void compute_metrics_standard_with_rectangular_matrix_no_reduction(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int el_in_queue)
+kernel void compute_metrics_standard_with_rectangular_matrix_no_reduction(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int el_in_queue)
 {
 	int i = get_global_id(0);
 	int current_node_index = i;
@@ -849,7 +849,7 @@ kernel void compute_metrics_standard_with_rectangular_matrix_no_reduction(global
 #else
 		matrixToArrayIndex = matrix_to_array_indexes(parentAdjIndex, i, n_nodes);
 #endif // TRANSPOSED_ADJ
-		int edge_weight = 1;
+		int edge_weight = edges_weights[matrixToArrayIndex];
 		int parent_index = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
 		if (parent_index >= 0){ //essendo adj matrice rettangolare appena trovo il la prima riga vuota sono sicuro che sotto non ci siano altri child(anche se in questo caso li chiamiamo parent)
 			int weight_with_this_parent = edge_weight + metriche[parent_index].x + nodes[current_node_index];
@@ -875,7 +875,7 @@ kernel void reset(global int* restrict vector, const int nels, const int default
 	vector[i] = default_value;
 }
 
-kernel void compute_metrics_standard_with_rectangular_matrix(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+kernel void compute_metrics_standard_with_rectangular_matrix(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	int i = get_global_id(0);
 	int current_node_index = i;
@@ -911,7 +911,7 @@ kernel void compute_metrics_standard_with_rectangular_matrix(global int* restric
 #else
 		matrixToArrayIndex = matrix_to_array_indexes(parentAdjIndex, i, n_nodes);
 #endif // TRANSPOSED_ADJ
-		int edge_weight = 1;
+		int edge_weight = edges_weights[matrixToArrayIndex];
 		int parent_index = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
 		if (parent_index >= 0){ //essendo adj matrice rettangolare appena trovo il la prima riga vuota sono sicuro che sotto non ci siano altri child(anche se in questo caso li chiamiamo parent)
 			int weight_with_this_parent = edge_weight + metriche[parent_index].x + nodes[current_node_index];
@@ -939,7 +939,7 @@ kernel void compute_metrics_standard_with_rectangular_matrix(global int* restric
 
 
 
-bool compute_metrics_vectorized_rectangular_item(global int* restrict nodes, global int4* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+bool compute_metrics_vectorized_rectangular_item(global int* restrict nodes, global int4* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	int work_item = get_global_id(0);
 	int something_changed = false;
@@ -983,7 +983,7 @@ bool compute_metrics_vectorized_rectangular_item(global int* restrict nodes, glo
 			matrixToArrayIndex = matrix_to_array_indexes(parent, node_index, n_nodes);
 #endif // TRANSPOSED_ADJ
 
-			int edge_weight = 1;
+			int edge_weight = edges_weights[matrixToArrayIndex];
 			int parentIndex = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
 			if (parentIndex >= 0) {
 				int weight_with_this_parent = edge_weight + metriche[parentIndex].x + nodes[node_index];
@@ -1022,7 +1022,7 @@ bool compute_metrics_vectorized_rectangular_item(global int* restrict nodes, glo
 	return something_changed;
 }
 
-kernel void compute_metrics_vectorized_rectangular(global int* restrict nodes, global int4* queue_, local int4* local_queue, local int4* local_queue_temp, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+kernel void compute_metrics_vectorized_rectangular(global int* restrict nodes, global int4* queue_, local int4* local_queue, local int4* local_queue_temp, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	local bool something_changed;
 	int work_item = get_global_id(0);
@@ -1063,7 +1063,7 @@ kernel void compute_metrics_vectorized_rectangular(global int* restrict nodes, g
 		//			quindi devo usare un -1 per indicare i task con analisi completata.
 
 		if (!work_item_outside_range)
-			compute_metrics_vectorized_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, metriche, max_adj_dept, max_adj_reverse_dept);
+			compute_metrics_vectorized_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
 
 		// work_group_barrier(CLK_GLOBAL_MEM_FENCE);
 		// TODO: implementare a mano facendolo fare a tutti i WI(cosa che secondo il prof è più veloce)
@@ -1089,7 +1089,7 @@ kernel void compute_metrics_vectorized_rectangular(global int* restrict nodes, g
 /*optimized version of compute_metrics_vectorized_rectangular */
 //todo: variabile globale samething cahnged che viene letta dall'host.
 //oppure lanciare secondo kernel che controlla se coda vuoto in parallelo o anche in questo stesso kernel alla fine.
-kernel void compute_metrics_vectorized_rectangular_v2(global int* restrict nodes, global int4* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+kernel void compute_metrics_vectorized_rectangular_v2(global int* restrict nodes, global int4* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	local int something_changed;
 	int something_changed_for_me;
@@ -1108,7 +1108,7 @@ kernel void compute_metrics_vectorized_rectangular_v2(global int* restrict nodes
 			something_changed = 0;
 
 		if (!work_item_outside_range)
-			something_changed_for_me = compute_metrics_vectorized_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, metriche, max_adj_dept, max_adj_reverse_dept);
+			something_changed_for_me = compute_metrics_vectorized_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
 
 		if (something_changed_for_me)
 			something_changed = 1;
@@ -1119,7 +1119,7 @@ kernel void compute_metrics_vectorized_rectangular_v2(global int* restrict nodes
 
 
 
-bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	int work_item = get_global_id(0);
 	int something_changed = false;
@@ -1164,7 +1164,7 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 #else
 			matrixToArrayIndex = matrix_to_array_indexes(parent, node_index, n_nodes);
 #endif // TRANSPOSED_ADJ
-			int edge_weight = 1;
+			int edge_weight = edges_weights[matrixToArrayIndex];
 			int parentIndex = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
 			//printf("parent: %d %d %d\n",node_index, parent, parentIndex);
 			if (parentIndex >= 0) {
@@ -1203,7 +1203,7 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 	return something_changed;
 }
 
-kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global int2* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	local int something_changed;
 	int something_changed_for_me;
@@ -1222,7 +1222,7 @@ kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, 
 			something_changed = 0;
 
 		if (!work_item_outside_range)
-			something_changed_for_me = compute_metrics_vectorized8_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, metriche, max_adj_dept, max_adj_reverse_dept);
+			something_changed_for_me = compute_metrics_vectorized8_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
 
 		if (something_changed_for_me)
 			something_changed = 1;
@@ -1230,5 +1230,5 @@ kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, 
 		barrier(CLK_LOCAL_MEM_FENCE);
 	} while (something_changed > 0);
 
-	//compute_metrics_vectorized8_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, metriche, max_adj_dept ,max_adj_reverse_dept);
+	//compute_metrics_vectorized8_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept ,max_adj_reverse_dept);
 }

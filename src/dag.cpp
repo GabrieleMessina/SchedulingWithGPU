@@ -100,6 +100,11 @@ Graph<T>* Graph<T>::insertEdgeByIndex(int indexOfa, int indexOfb, int weight) {
 }
 
 template<class T>
+edge_t* Graph<T>::GetWeightsArray(){
+	return adj;
+}
+
+template<class T>
 edge_t* Graph<T>::GetEdgesArray(){
 	return adj;
 }
