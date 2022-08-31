@@ -1,6 +1,7 @@
 ﻿using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using QuikGraph;
+using System.Text;
 
 class TaskGenerator
 {
@@ -8,7 +9,8 @@ class TaskGenerator
     static float wDag = 20f; //average computational cost of the graph
 
     static int taskCount;
-    static int[] possibleTaskCounts = new[] {30,40,50,60,70,80,100};
+    //static int[] possibleTaskCounts = new[] {30,40,50,60,70,80,100}; //la versione vettorizzata del kernel richiede che n_nodes sia potenza di 2
+    static int[] possibleTaskCounts = new[] {8,16,32,64,128,256,512,1024};
     static float shape;
     static float[] possibleShapes = new[] {0.5f,1.0f,2.0f};
     static int outDegree;
@@ -17,18 +19,19 @@ class TaskGenerator
     static float[] possibleComCompRatio = new[] {0.1f,0.5f,1.0f,5.0f,10.0f};
     static float compCostRange;
     static float[] possibleCompCostRange = new[] {0.1f,0.5f,1.0f};
-    static int processorCount;
+    static int processorsCount;
     static int[] possibleProcessorCount = new[] {4,8,12,16,20};
      
     static int height, width;
 
-    static AdjacencyGraph<int, IEdge<int>> graph;
+    static AdjacencyGraph<int, WeightedEdge<int, int>> graph;
     static int[] levelForTask;
-    static int[,] costForTaskInProcessor;
+    static int[] averageCostForTask;
+    static int[][] costForTaskInProcessor;
 
     static readonly Random random = new();
 
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
         ParseInput(args);
 
@@ -41,31 +44,78 @@ class TaskGenerator
         ComputeCostsForEachTaskInProcessors();
 
         PrintInfo();
+
+        await PrintDataSetOnFile();
+    }
+
+    static async Task PrintDataSetOnFile()
+    {
+        var builder = new StringBuilder();
+
+        //builder.AppendLine($"{taskCount} {processorsCount}");
+
+        //foreach (var task in graph.Vertices)
+        //{
+        //    builder.AppendLine(
+        //        $"{averageCostForTask[task]} " +
+        //        $"{string.Join(" ", costForTaskInProcessor[task])} " +
+        //        $"{graph.Edges.Where(e => e.Source == task).Count()} " +
+        //        $"{string.Join(" ", graph.Edges.Where(e => e.Source == task).Select(e => $"{e.Target} {e.Weight}"))} ");
+        //}
+
+        builder.AppendLine($"{taskCount}");
+
+        foreach (var task in graph.Vertices)
+        {
+            builder.AppendLine(
+                $"{averageCostForTask[task]} " +
+                //$"{string.Join(" ", costForTaskInProcessor[task])} " +
+                $"{graph.Edges.Where(e => e.Source == task).Count()} " +
+                $"{string.Join(" ", graph.Edges.Where(e => e.Source == task).Select(e => $"{e.Target} {e.Weight}"))} ");
+        }
+
+        //Info about the generator params used while generating this data set.
+        //builder.AppendLine();
+        //builder.AppendLine(
+        //   $"{nameof(taskCount)}: {taskCount} " +
+        //   $"| {nameof(processorsCount)}: {processorsCount} " +
+        //   $"| {nameof(shape)}: {shape} " +
+        //   $"| {nameof(outDegree)}: {outDegree} " +
+        //   $"| {nameof(comCompRatio)}: {comCompRatio} " +
+        //   $"| {nameof(compCostRange)}: {compCostRange} " +
+        //   $"| {nameof(height)}: {height}");
+
+        Directory.CreateDirectory("./data_set");
+        await File.WriteAllTextAsync("./data_set/" + Guid.NewGuid().ToString("N") + ".txt", builder.ToString());
     }
 
     static void ComputeCostsForEachTaskInProcessors()
     {
-        costForTaskInProcessor = new int[taskCount, processorCount];
+        costForTaskInProcessor = new int[taskCount][];
+        for (int i = 0; i < taskCount; i++)
+        {
+            costForTaskInProcessor[i] = new int[processorsCount];
+        }
         var uniformCosts = new ContinuousUniform(0, 2 * wDag);
 
-        var averageCostForTask = uniformCosts.Sample();
-
-        for (int i = 0; i < costForTaskInProcessor.GetLength(0); i++)
+        averageCostForTask = new int[taskCount];
+        for (int i = 0; i <taskCount; i++)
         {
-            for (int j = 0; j < costForTaskInProcessor.GetLength(1); j++)
+            averageCostForTask[i] = (int)uniformCosts.Sample();
+            for (int j = 0; j < processorsCount; j++)
             {
-                costForTaskInProcessor[i, j] = random.Next((int)(averageCostForTask * (1 - compCostRange / 2)), (int)(averageCostForTask * (1 + compCostRange / 2)));
+                costForTaskInProcessor[i][j] = random.Next((int)(averageCostForTask[i] * (1 - compCostRange / 2)), (int)(averageCostForTask[i] * (1 + compCostRange / 2)));
             }
         }
 
 
         //print costs info
-        for (int i = 0; i < costForTaskInProcessor.GetLength(0); i++)
+        for (int i = 0; i < taskCount; i++)
         {
             Console.Write($"{i} ==> ");
-            for (int j = 0; j < costForTaskInProcessor.GetLength(1); j++)
+            for (int j = 0; j < processorsCount; j++)
             {
-                Console.Write($"{costForTaskInProcessor[i, j]}, ");
+                Console.Write($"{costForTaskInProcessor[i][j]}, ");
             }
             Console.WriteLine();
         }
@@ -81,7 +131,7 @@ class TaskGenerator
             {
                 if (levelForTask[node] > levelForTask[i] && !graph.ContainsEdge(i, node))
                 {
-                    graph.AddEdge(new Edge<int>(i, node));
+                    graph.AddEdge(new WeightedEdge<int, int>(i, node, random.Next(0,100)));
                 }
             }
         }
@@ -106,7 +156,7 @@ class TaskGenerator
 
     static void InitGraphWithVetexes()
     {
-        graph = new AdjacencyGraph<int, IEdge<int>>(false, taskCount);
+        graph = new AdjacencyGraph<int, WeightedEdge<int, int>>(false, taskCount);
 
         for (int i = 0; i < taskCount; i++)
         {
@@ -163,7 +213,7 @@ class TaskGenerator
     {
         Console.WriteLine();
         Console.WriteLine("Values: {0}: {1} | {2}: {3} | {4}: {5} | {6}: {7} | {8}: {9} | {10}: {11}| {12}: {13}",
-            nameof(taskCount), taskCount, nameof(shape), shape, nameof(outDegree), outDegree, nameof(comCompRatio), comCompRatio, nameof(compCostRange), compCostRange, nameof(height), height, nameof(processorCount), processorCount);
+            nameof(taskCount), taskCount, nameof(shape), shape, nameof(outDegree), outDegree, nameof(comCompRatio), comCompRatio, nameof(compCostRange), compCostRange, nameof(height), height, nameof(processorsCount), processorsCount);
         Console.WriteLine();
     }
 
@@ -178,11 +228,11 @@ class TaskGenerator
                 outDegree = possibleOutDegrees[random.Next(0, possibleOutDegrees.Length)];
                 comCompRatio = possibleComCompRatio[random.Next(0, possibleComCompRatio.Length)];
                 compCostRange = possibleCompCostRange[random.Next(0, possibleCompCostRange.Length)];
-                processorCount = possibleProcessorCount[random.Next(0, possibleProcessorCount.Length)];
+                processorsCount = possibleProcessorCount[random.Next(0, possibleProcessorCount.Length)];
             }
             else if (args.Length != 6)
             {
-                Console.WriteLine("Usage: TaskGenerator [[random] | [{0} {1} {2} {3} {4} {5}]]", nameof(taskCount), nameof(shape), nameof(outDegree), nameof(comCompRatio), nameof(compCostRange), nameof(processorCount));
+                Console.WriteLine("Usage: TaskGenerator [[random] | [{0} {1} {2} {3} {4} {5}]]", nameof(taskCount), nameof(shape), nameof(outDegree), nameof(comCompRatio), nameof(compCostRange), nameof(processorsCount));
                 throw new ArgumentException(nameof(args));
             }
             else
@@ -194,7 +244,7 @@ class TaskGenerator
                     outDegree = int.Parse(args[2]);
                     comCompRatio = float.Parse(args[3]);
                     compCostRange = float.Parse(args[4]);
-                    processorCount = int.Parse(args[5]);
+                    processorsCount = int.Parse(args[5]);
                 }
                 catch (Exception ex)
                 {
@@ -210,7 +260,21 @@ class TaskGenerator
             do { Console.WriteLine($"{nameof(outDegree)}: "); } while (!int.TryParse(Console.ReadLine() ?? string.Empty, out outDegree));
             do { Console.WriteLine($"{nameof(comCompRatio)}: "); } while (!float.TryParse(Console.ReadLine() ?? string.Empty, out comCompRatio));
             do { Console.WriteLine($"{nameof(compCostRange)}: "); } while (!float.TryParse(Console.ReadLine() ?? string.Empty, out compCostRange));
-            do { Console.WriteLine($"{nameof(processorCount)}: "); } while (!int.TryParse(Console.ReadLine() ?? string.Empty, out processorCount));
+            do { Console.WriteLine($"{nameof(processorsCount)}: "); } while (!int.TryParse(Console.ReadLine() ?? string.Empty, out processorsCount));
         }
+    }
+}
+
+public class WeightedEdge<TVertex, TWeight> : IEdge<TVertex>
+{
+    public TVertex Source { get; }
+    public TVertex Target { get; }
+    public TWeight Weight { get; }
+
+    public WeightedEdge(TVertex source, TVertex target, TWeight weight) : base()
+    {
+        Source = source;
+        Target = target;
+        Weight = weight;
     }
 }
