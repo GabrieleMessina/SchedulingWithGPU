@@ -66,33 +66,28 @@ start:
 	isVectorizedVersion |= (strcmp(userResponseToVectorizeQuestion.c_str(), "s") == 0);
 	isVectorizedVersion |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);
 
-	if(isVectorizedVersion) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::RectangularVec8); //TODO: make the user choose the version
+	if(isVectorizedVersion) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::RectangularVec8);
 	else OCLManager::Init(ComputeMetricsVersion::Rectangular);
 
 	//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
 	DAG = Graph<int>::initDagWithDataSet(dataSetName.c_str());
 	int n_nodes = DAG->len;
 
+	if(isVectorizedVersion)cout<<"vectorized version"<<endl<<endl;
+	else cout<<"standard version"<<endl<<endl;
 	for (int i = 0; i < repeatNTimes; i++)
 	{
 
 		start_time = std::chrono::system_clock::now();
-		if(isVectorizedVersion)
-			cout<<"vectorized version"<<endl;
-		else cout<<"standard version"<<endl;
-
+		
 		OCLBufferManager::Init(n_nodes, DAG->adj_len, DAG->adj_reverse_len, isVectorizedVersion);
-
 
 		cl_event entry_discover_evt;
 		std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
 
-
 		cl_event *compute_metrics_evt;
-		if(isVectorizedVersion)
-			std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
-		else 
-			std::tie(compute_metrics_evt, metrics) = ComputeMetrics::Run(DAG, entrypoints);
+		if(isVectorizedVersion) std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
+		else std::tie(compute_metrics_evt, metrics) = ComputeMetrics::Run(DAG, entrypoints);
 
 		cl_event* sort_task_evts;
 		std::tie(sort_task_evts, ordered_metrics) = SortMetrics::MergeSort(metrics, n_nodes);
@@ -101,7 +96,7 @@ start:
 
 		//METRICHE
 		measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, n_nodes);
-		////VERIFICA DELLA CORRETTEZZA
+		//VERIFICA DELLA CORRETTEZZA
 		verify();
 
 		//PULIZIA FINALE

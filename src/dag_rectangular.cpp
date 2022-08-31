@@ -19,9 +19,10 @@ public:
 	}
 
 	void initAdjacencyMatrix() override {
-		//todo: per qualche motivo le lunghezze sono invertite rispetto a quello che ci aspetteremmo
-		Graph<T>::adj_len = Graph<T>::len * Graph<T>::max_edges_for_node; 
-		Graph<T>::adj_reverse_len = Graph<T>::len * Graph<T>::max_edges_reverse_for_node;
+		//in adj troviamo i parent per ogni nodo, in reverse troviamo i child di ogni nodo,
+		//inoltre la matrice può essere vista come una hashmap, quindi ogni colonna possiede i parent o i child di ogni nodo, quindi ha n_nodes colonne e max_adj righe.
+		Graph<T>::adj_len = Graph<T>::len * Graph<T>:: max_parents_for_nodes;
+		Graph<T>::adj_reverse_len = Graph<T>::len * Graph<T>::max_children_for_nodes;
 		adj = DBG_NEW edge_t[Graph<T>::adj_len];
 		adj_reverse = DBG_NEW edge_t[Graph<T>::adj_reverse_len];
 #pragma unroll
@@ -32,7 +33,7 @@ public:
 		for (int i = 0; i < Graph<T>::adj_reverse_len; i++) {
 			adj_reverse[i] = emptyAdjCell;
 		}
-		printf("GraphRectangular: len is %d and mat is %d and rev_mat is %d with dept %d and parent dept %d\n", Graph<T>::len, Graph<T>::adj_len, Graph<T>::adj_reverse_len, Graph<T>::max_edges_for_node, Graph<T>::max_edges_reverse_for_node);
+		printf("GraphRectangular: len is %d and mat is %d and rev_mat is %d with dept %d and parent dept %d\n", Graph<T>::len, Graph<T>::adj_len, Graph<T>::adj_reverse_len, Graph<T>::max_children_for_nodes, Graph<T>::max_parents_for_nodes);
 	}
 
 	bool hasEdge(T a, T b) override {
@@ -48,7 +49,7 @@ public:
 			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				matrixToArrayIndex = matrix_to_array_indexes(j, i++, Graph<T>::max_edges_for_node);
+				matrixToArrayIndex = matrix_to_array_indexes(j, i++, Graph<T>::max_children_for_nodes);
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(i++, j, Graph<T>::len);
 #endif
@@ -71,7 +72,7 @@ public:
 			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::max_edges_reverse_for_node);
+				matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::max_children_for_nodes);
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(j++, i, Graph<T>::len);
 #endif
@@ -97,7 +98,7 @@ public:
 			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				matrixToArrayIndex = matrix_to_array_indexes(j, i++, Graph<T>::max_edges_for_node);
+				matrixToArrayIndex = matrix_to_array_indexes(j, i++, Graph<T>::max_parents_for_nodes);
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(i++, j, Graph<T>::len);
 #endif
@@ -132,7 +133,7 @@ public:
 			matrixToArrayIndex = matrix_to_array_indexes(++parentCount, indexOfNode, Graph<T>::len);
 			if (matrixToArrayIndex >= Graph<T>::adj_len) return parentCount;
 			parent = adj[matrixToArrayIndex];
-		} while (parent > -1 && parentCount < Graph<T>::max_edges_for_node);
+		} while (parent > -1 && parentCount < Graph<T>::max_parents_for_nodes);
 		return parentCount;
 	}
 	int numberOfChildOfNode(int indexOfNode) override {
@@ -144,7 +145,7 @@ public:
 			matrixToArrayIndex = matrix_to_array_indexes(++childCount, indexOfNode, Graph<T>::len);
 			if (matrixToArrayIndex >= Graph<T>::adj_reverse_len) return childCount;
 			child = adj_reverse[matrixToArrayIndex];
-		} while (child > -1 && childCount < Graph<T>::max_edges_reverse_for_node);
+		} while (child > -1 && childCount < Graph<T>::max_children_for_nodes);
 		return childCount;
 	}
 };

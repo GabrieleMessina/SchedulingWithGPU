@@ -7,7 +7,8 @@ edge_t* adj = NULL; //adj è un array in modo da passarlo direttamente alla GPU s
 
 template<class T>
 Graph<T>::Graph(int len) {
-	max_edges_for_node = n = m = 0;
+	max_children_for_nodes = max_children_for_nodes = 0;
+	n = m = 0;
 	this->len = len;
 	adj_len = len * len;
 	adj_reverse_len = len * len;
@@ -176,8 +177,8 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	}
 
 	//leggo tutti gli id in prima posizione in modo da creare la dag senza adj per il momento.
-	DAG->max_edges_for_node = 0;
-	DAG->max_edges_reverse_for_node = 0;
+	DAG->max_parents_for_nodes = 0;
+	DAG->max_children_for_nodes = 0;
 	int* parentCountForNodes = DBG_NEW int[n_nodes];
 
 	for (int i = 0; i < n_nodes; i++)
@@ -188,7 +189,7 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	int value, n_successor, successor_index, data_transfer;
 	while (data_set >> value >> n_successor) {
 		int current_node_index = DAG->insertNode(value);
-		DAG->max_edges_for_node = max(DAG->max_edges_for_node, n_successor);
+		DAG->max_children_for_nodes = max(DAG->max_children_for_nodes, n_successor);
 		for (int i = 0; i < n_successor; i++)
 		{
 			data_set >> successor_index >> data_transfer;
@@ -196,11 +197,11 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 		}
 	}
 
-	DAG->max_edges_reverse_for_node = parentCountForNodes[0];
+	DAG->max_parents_for_nodes = parentCountForNodes[0];
 	for (int i = 1; i < n_nodes; i++)
 	{
-		if (parentCountForNodes[i] > DAG->max_edges_reverse_for_node) {
-			DAG->max_edges_reverse_for_node = parentCountForNodes[i];
+		if (parentCountForNodes[i] > DAG->max_parents_for_nodes) {
+			DAG->max_parents_for_nodes = parentCountForNodes[i];
 		}
 	}
 
