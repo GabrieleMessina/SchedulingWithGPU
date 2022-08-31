@@ -7,10 +7,11 @@
 OCLBufferManager *OCLBufferManager::instance = NULL;
 OCLManager OCLBufferManager::CLManager;
 
-OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, bool vectorized) {
+OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseSize, bool vectorized) {
 	OCLBufferManager* instance = DBG_NEW OCLBufferManager();
 	instance->n_nodes = nNodes;
 	instance->edges_memsize = adjSize * sizeof(edge_t);
+	instance->edges_reverse_memsize = adjReverseSize * sizeof(edge_t);
 	instance->entrypoints_memsize = nNodes * sizeof(int);
 	instance->n_entrypoints_memsize = sizeof(int);
 	instance->nodes_memsize = nNodes * sizeof(int);
@@ -74,7 +75,7 @@ void OCLBufferManager::InitGraphEdges() {
 	ocl_check(err, "create buffer graph_edges");
 }
 void OCLBufferManager::InitGraphReverseEdges() {
-	graph_reverse_edges = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, edges_memsize, NULL, &err);
+	graph_reverse_edges = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, edges_reverse_memsize, NULL, &err);
 	ocl_check(err, "create buffer graph_reverse_edges");
 }
 void OCLBufferManager::InitNEntrypoints() {
@@ -160,7 +161,7 @@ void OCLBufferManager::SetGraphEdges(const void* adj) {
 }
 void OCLBufferManager::SetGraphReverseEdges(const void* adj) {
 	err = clEnqueueWriteBuffer(OCLManager::queue, GetGraphReverseEdges(), CL_TRUE,
-		0, edges_memsize, adj,
+		0, edges_reverse_memsize, adj,
 		0, NULL, &write_edges_reverse_evt);
 	ocl_check(err, "write dataset edges into graph_edges");
 }
@@ -253,7 +254,7 @@ void OCLBufferManager::GetGraphEdgesResult(void* out, cl_event *eventsToWait, in
 }
 void OCLBufferManager::GetGraphEdgesReverseResult(void* out, cl_event *eventsToWait, int numberOfEventsToWait) {
 	err = clEnqueueReadBuffer(OCLManager::queue, GetGraphReverseEdges(), CL_TRUE,
-		0, edges_memsize, out,
+		0, edges_reverse_memsize, out,
 		numberOfEventsToWait, eventsToWait, &read_edges_reverse_evt);
 	ocl_check(err, "read buffer graph_edges");
 }

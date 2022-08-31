@@ -641,7 +641,10 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip, Grap
 
 	if (version == ComputeMetricsVersion::Rectangular && DAG != NULL) {
 		int max_adj_dept = DAG->max_edges_for_node;
+		int max_adj_reverse_dept = DAG->max_edges_reverse_for_node;
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_dept), &max_adj_dept);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_reverse_dept), &max_adj_reverse_dept);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
 
@@ -703,7 +706,10 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 
 	if ((version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 || version == VectorizedComputeMetricsVersion::RectangularVec8) && DAG != NULL) {
 		int max_adj_dept = DAG->max_edges_for_node;
+		int max_adj_reverse_dept = DAG->max_edges_reverse_for_node;
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_dept), &max_adj_dept);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_reverse_dept), &max_adj_reverse_dept);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
 

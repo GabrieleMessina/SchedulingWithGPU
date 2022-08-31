@@ -1,7 +1,6 @@
 #include "dag.h"
 #include "utils.h"
 
-//TODO: modificare kernel per usare nuova struttura di adj.
 
 template<typename  T>
 class GraphRectangular : public Graph<T> {
@@ -20,15 +19,20 @@ public:
 	}
 
 	void initAdjacencyMatrix() override {
-		Graph<T>::adj_len = Graph<T>::len * Graph<T>::max_edges_for_node;
+		//todo: per qualche motivo le lunghezze sono invertite rispetto a quello che ci aspetteremmo
+		Graph<T>::adj_len = Graph<T>::len * Graph<T>::max_edges_for_node; 
+		Graph<T>::adj_reverse_len = Graph<T>::len * Graph<T>::max_edges_reverse_for_node;
 		adj = DBG_NEW edge_t[Graph<T>::adj_len];
-		adj_reverse = DBG_NEW edge_t[Graph<T>::adj_len];
+		adj_reverse = DBG_NEW edge_t[Graph<T>::adj_reverse_len];
 #pragma unroll
 		for (int i = 0; i < Graph<T>::adj_len; i++) {
 			adj[i] = emptyAdjCell;
+		}
+#pragma unroll
+		for (int i = 0; i < Graph<T>::adj_reverse_len; i++) {
 			adj_reverse[i] = emptyAdjCell;
 		}
-		printf("GraphRectangular: len is %d and mat is %d with dept %d\n", Graph<T>::len, Graph<T>::adj_len, Graph<T>::max_edges_for_node);
+		printf("GraphRectangular: len is %d and mat is %d and rev_mat is %d with dept %d and parent dept %d\n", Graph<T>::len, Graph<T>::adj_len, Graph<T>::adj_reverse_len, Graph<T>::max_edges_for_node, Graph<T>::max_edges_reverse_for_node);
 	}
 
 	bool hasEdge(T a, T b) override {
@@ -67,13 +71,13 @@ public:
 			int matrixToArrayIndex = -1;
 			do {
 #if TRANSPOSED_ADJ
-				matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::max_edges_for_node);
+				matrixToArrayIndex = matrix_to_array_indexes(i, j++, Graph<T>::max_edges_reverse_for_node);
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(j++, i, Graph<T>::len);
 #endif
-			} while (matrixToArrayIndex < Graph<T>::adj_len && adj_reverse[matrixToArrayIndex] > emptyAdjCell);
+			} while (matrixToArrayIndex < Graph<T>::adj_reverse_len && adj_reverse[matrixToArrayIndex] > emptyAdjCell);
 
-			if (matrixToArrayIndex >= Graph<T>::adj_len) {
+			if (matrixToArrayIndex >= Graph<T>::adj_reverse_len) {
 				printf("ERROR: si è cercato di inserire un edge oltre il limite di profondità di una DAG con matrice adj rettangolare.");
 			}
 			else adj_reverse[matrixToArrayIndex] = indexOfb;
@@ -138,9 +142,9 @@ public:
 		int child;
 		do {
 			matrixToArrayIndex = matrix_to_array_indexes(++childCount, indexOfNode, Graph<T>::len);
-			if (matrixToArrayIndex >= Graph<T>::adj_len) return childCount;
+			if (matrixToArrayIndex >= Graph<T>::adj_reverse_len) return childCount;
 			child = adj_reverse[matrixToArrayIndex];
-		} while (child > -1 && childCount < Graph<T>::max_edges_for_node);
+		} while (child > -1 && childCount < Graph<T>::max_edges_reverse_for_node);
 		return childCount;
 	}
 };

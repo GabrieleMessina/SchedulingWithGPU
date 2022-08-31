@@ -17,8 +17,12 @@ public:
 	int len;
 	//superficie della matrice
 	int adj_len;
+	//superficie della matrice dei parent
+	int adj_reverse_len;
 	//numero max di edge per ogni nodo
 	int max_edges_for_node;
+	//numero max di parent per ogni nodo
+	int max_edges_reverse_for_node;
 	//numero reale di nodi(minore di len che è approssimato) 
 	int n;
 	//numero di archi
@@ -60,7 +64,7 @@ public:
 		for (int i = 0; i < len; i++) {
 			cout << "(" << i << ", " << nodes[i] << ")" << " -> | ";
 #if RECTANGULAR_ADJ
-			for (int j = 0; j < max_edges_for_node; j++) {
+			for (int j = 0; j < max_edges_reverse_for_node; j++) {
 #else
 			for (int j = 0; j < len; j++) {
 #endif
@@ -71,7 +75,7 @@ public:
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
 #endif // TRANSPOSED_ADJ
-				if (edges[matrixToArrayIndex] != 0) cout << "(" << j << ", " << edges[matrixToArrayIndex] << ") | ";
+				/*if (edges[matrixToArrayIndex] != -1) */cout << "(" << j << ", " << edges[matrixToArrayIndex] << ") | ";
 			}
 			cout << endl;
 			}
@@ -97,7 +101,7 @@ public:
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
 #endif // TRANSPOSED_ADJ
-				if (edges[matrixToArrayIndex] != 0) cout << "(" << j << ", " << edges[matrixToArrayIndex] << ") | ";
+				/*if (edges[matrixToArrayIndex] != 0)*/ cout << "(" << j << ", " << edges[matrixToArrayIndex] << ") | ";
 			}
 			cout << endl;
 		}

@@ -19,6 +19,7 @@ public:
 	cl_event write_edges_evt;
 
 	cl_mem graph_reverse_edges;
+	size_t edges_reverse_memsize;
 	cl_event read_edges_reverse_evt;
 	cl_event write_edges_reverse_evt;
 	
@@ -65,7 +66,7 @@ public:
 	size_t local_queue_temp_memsize;
 	cl_event write_local_queue_temp_evt;*/
 
-	static OCLBufferManager Init(int nNodes, int adjSize, bool vectorized = false);
+	static OCLBufferManager Init(int nNodes, int adjSize, int adjReverseSize, bool vectorized = false);
 	static void Release();
 	~OCLBufferManager();
 

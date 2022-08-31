@@ -81,7 +81,7 @@ start:
 			cout<<"vectorized version"<<endl;
 		else cout<<"standard version"<<endl;
 
-		OCLBufferManager::Init(n_nodes, DAG->adj_len, isVectorizedVersion);
+		OCLBufferManager::Init(n_nodes, DAG->adj_len, DAG->adj_reverse_len, isVectorizedVersion);
 
 
 		cl_event entry_discover_evt;
