@@ -4,22 +4,28 @@
 #include "dag_rectangular.cpp"
 
 edge_t* adj = NULL; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
+int* cost_on_processors = NULL; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 
 template<class T>
-Graph<T>::Graph(int len) {
-	max_children_for_nodes = max_children_for_nodes = 0;
+Graph<T>::Graph(int len, int processor_count) {
+	max_children_for_nodes = max_parents_for_nodes = 0;
 	n = m = 0;
 	this->len = len;
 	adj_len = len * len;
 	adj_reverse_len = len * len;
+	number_of_processors = processor_count;
+	cost_on_processors_lenght = len * processor_count;
+	cost_on_processors = DBG_NEW int[cost_on_processors_lenght]; //righe task, colonne processori
 	nodes = DBG_NEW T[len];
 	for (int i = 0; i < len; i++) nodes[i] = 0;
+	for (int i = 0; i < cost_on_processors_lenght; i++) cost_on_processors[i] = -1;
 	adj = NULL;
 }
 
 template<class T>
 Graph<T>::~Graph() {
 	delete[] nodes;
+	delete[] cost_on_processors;
 	if(adj != NULL) delete[] adj; 
 }
 
@@ -58,8 +64,14 @@ void Graph<T>::initAdjacencyMatrix() {
 }
 
 template<class T>
+Graph<T>* Graph<T>::insertCostForProcessor(int indexOfNode, int indexOfProcessor, int cost) {
+	int matrixToArrayIndex = matrix_to_array_indexes(indexOfNode, indexOfProcessor, number_of_processors);
+	cost_on_processors[matrixToArrayIndex] = cost;
+	return this;
+}
+
+template<class T>
 Graph<T>* Graph<T>::insertEdge(T a, T b, int weight) {
-	//TODO: verifica che non crei cicli!
 	int i = indexOfNode(a);
 	int j = indexOfNode(b);
 
@@ -97,6 +109,11 @@ Graph<T>* Graph<T>::insertEdgeByIndex(int indexOfa, int indexOfb, int weight) {
 		printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", indexOfa, indexOfb);
 	}
 	return this;
+}
+
+template<class T>
+int* Graph<T>::GetCostsArray(){
+	return cost_on_processors;
 }
 
 template<class T>
@@ -165,14 +182,15 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	}
 
 	int n_nodes = 0;
-	data_set >> n_nodes;
+	int n_processors = 0;
+	data_set >> n_nodes >> n_processors;
 
 #if VECTOR_ADJ
-	Graph<int>* DAG = DBG_NEW GraphVector<int>(n_nodes);
+	Graph<int>* DAG = DBG_NEW GraphVector<int>(n_nodes, n_processors);
 #elif RECTANGULAR_ADJ
-	Graph<int>* DAG = DBG_NEW GraphRectangular<int>(n_nodes);
+	Graph<int>* DAG = DBG_NEW GraphRectangular<int>(n_nodes, n_processors);
 #else
-	Graph<int>* DAG = DBG_NEW Graph<int>(n_nodes);
+	Graph<int>* DAG = DBG_NEW Graph<int>(n_nodes, n_processors);
 #endif
 
 	if (!DAG) {
@@ -191,9 +209,18 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 		parentCountForNodes[i] = 0;
 	}
 
-	int value, n_successor, successor_index, data_transfer;
-	while (data_set >> value >> n_successor) {
+	int value, cost_processor, n_successor, successor_index, data_transfer;
+	for (int node = 0; node < n_nodes; node++) {
+		data_set >> value;
 		int current_node_index = DAG->insertNode(value);
+		
+		for (int i = 0; i < n_processors; i++)
+		{
+			data_set >> cost_processor;
+			DAG->insertCostForProcessor(current_node_index, i, cost_processor);
+		}
+
+		data_set >> n_successor;
 		DAG->max_children_for_nodes = max(DAG->max_children_for_nodes, n_successor);
 		for (int i = 0; i < n_successor; i++)
 		{
@@ -212,11 +239,19 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 
 	data_set.clear();
 	data_set.seekg(0);
-	data_set >> n_nodes;
+	data_set >> n_nodes >> n_processors;
 
 	//adesso leggo di nuovo per creare la adj
-	int current_node_index = 0;
-	while (data_set >> value >> n_successor) {
+	int current_node_index;
+	for (current_node_index = 0; current_node_index < n_nodes; current_node_index++) {
+		data_set >> value;
+
+		for (int i = 0; i < n_processors; i++)
+		{
+			data_set >> cost_processor;
+		}
+
+		data_set >> n_successor;
 		for (int i = 0; i < n_successor; i++)
 		{
 			data_set >> successor_index >> data_transfer;
@@ -227,7 +262,6 @@ Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 			//questo è più veloce perché crea meno nodi in quanto nodi con lo stesso peso vengono considerati lo stesso nodo: DAG->insertEdgeByIndex(DAG->indexOfNode(value), successor_index, 1/*data_transfer*/); //assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
 			DAG->insertEdgeByIndex(current_node_index, successor_index, data_transfer); //assumo che l'indice sia l'id dell'elemento, altrimenti avrei dovuto leggere i dati da dataset a partire dal fondo a causa delle dipendenze.
 		}
-		current_node_index++;
 	}
 
 	cout << "#edge:" << DAG->m << endl;

@@ -1,14 +1,12 @@
 #include "dag.h"
 #include "utils.h"
 
-//TODO: eliminare??
-
 template<typename  T>
 class GraphVector : public Graph<T> {
 private:
 	vector<edge_t> adj_vec; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 public:
-	GraphVector(int len = 100) : Graph<T>(len)
+	GraphVector(int len = 100, int processor_count = 1) : Graph<T>(len, processor_count)
 	{
 	}
 

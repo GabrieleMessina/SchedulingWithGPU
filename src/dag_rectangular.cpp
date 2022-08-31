@@ -11,7 +11,7 @@ private:
 	int emptyAdjCell = -1;
 public:
 
-	GraphRectangular(int len = 100) : Graph<T>(len)
+	GraphRectangular(int len = 100, int processor_count = 1) : Graph<T>(len, processor_count)
 	{
 	}
 

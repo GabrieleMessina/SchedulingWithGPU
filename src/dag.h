@@ -23,13 +23,17 @@ public:
 	int max_children_for_nodes;
 	//numero max di parent per ogni nodo
 	int max_parents_for_nodes;
+	//numero di processori
+	int number_of_processors;
+	//lunghezza della matrice dei costi per ogni processore
+	int cost_on_processors_lenght;
 	//numero reale di nodi(minore di len che è approssimato) 
 	int n;
 	//numero di archi
 	int m;
 	T* nodes;
 
-	Graph(int len = 100);
+	Graph(int len = 100, int processor_count = 1);
 	virtual ~Graph();
 
 	virtual int insertNode(T key);
@@ -42,7 +46,11 @@ public:
 
 	virtual Graph<T>* insertEdge(T a, T b, int weight = 1);
 	
+	virtual Graph<T>* insertCostForProcessor(int indexOfNode, int indexOfProcessor, int cost = 1);
+	
 	virtual Graph<T>* insertEdgeByIndex(int indexOfa, int indexOfb, int weight = 1);
+
+	virtual int* GetCostsArray();
 
 	virtual edge_t* GetWeightsArray();
 	
@@ -57,6 +65,21 @@ public:
 	virtual int numberOfParentOfNode(int indexOfNode);
 	
 	virtual int numberOfChildOfNode(int indexOfNode);
+
+	void PrintCosts() {
+		cout << "adj dei costi per nodo e processore: \n" << endl;
+		cout << "(index, value) -> [(processor_index, cost)]" << endl;
+		int* cost_on_processors = GetCostsArray();
+		int matrixToArrayIndex;
+		for (int i = 0; i < len; i++) {
+			cout << "(" << i << ", " << nodes[i] << ")" << " -> | ";
+			for (int j = 0; j < number_of_processors; j++) {
+				matrixToArrayIndex = matrix_to_array_indexes(i, j, number_of_processors);
+				cout << "(" << j << ", " << cost_on_processors[matrixToArrayIndex] << ") | ";
+			}
+			cout << endl;
+		}
+	}
 
 	void PrintReverse() {
 		cout << "adj dei figli per nodo: \n" << endl;
@@ -80,8 +103,8 @@ public:
 				/*if (edges[matrixToArrayIndex] != -1) */cout << "(" << j << ", " << edges[matrixToArrayIndex] << ") | ";
 			}
 			cout << endl;
-			}
 		}
+	}
 
 	//TODO: rendere virtuali? o riescono a chiamare fun più ad alto livello?
 	void Print(){
@@ -112,6 +135,7 @@ public:
 #if RECTANGULAR_ADJ
 		PrintReverse();
 #endif
+		PrintCosts();
 	}
 	
 	static Graph<int>* initDagWithDataSet(const char* dataset_file_name);
