@@ -5,7 +5,7 @@
 #include "ocl_buffer_manager.h"
 #include <iostream>
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints) {
 	ComputeMetricsVersion version = OCLManager::compute_metrics_version_chosen;
 	switch (version)
 	{
@@ -20,7 +20,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints
 			return compute_metrics(DAG, entrypoints);
 	}
 }
-tuple<cl_event*, cl_int2*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* entrypoints) {
 	VectorizedComputeMetricsVersion version = OCLManager::compute_metrics_vetorized_version_chosen;
 	switch (version)
 	{
@@ -47,19 +47,20 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* e
 }
 
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int *entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int *entrypoints) {
 	int const n_nodes = DAG->len;
 	int* queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) queue[i] = entrypoints[i]; //alias for clarity
 	int *next_queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
 
-	cl_int2 *metrics = DBG_NEW cl_int2[metrics_len];
+	metrics_t *metrics = DBG_NEW metrics_t[metrics_len];
 	int matrixToArrayIndex;
 	int parent_of_node;
 	for (int i = 0; i < metrics_len; i++) {
 		metrics[i].x = 0;
 		metrics[i].y = 0;
+		metrics[i].z = i;
 		if (i > n_nodes) continue;
 		for (int j = 0; j < n_nodes; j++) {
 			parent_of_node = DAG->hasEdgeByIndex(j, i);
@@ -108,7 +109,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
 		cout<<"metrics: "<<metrics_len<<endl;
-		print(metrics, DAG->len, "\n", true);
+		print(metrics, DAG->len, "\n", true, 0);
 		cout<<"\n";
 	}
 	cout << endl;
@@ -130,14 +131,14 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	return make_tuple(compute_metrics_evt, metrics);
 }
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int>* DAG, int *entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_rectangular(Graph<int>* DAG, int *entrypoints) {
 	int const n_nodes = DAG->len;
 	int* queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) queue[i] = entrypoints[i]; //alias for clarity
 	int *next_queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
 
-	cl_int2 *metrics = DBG_NEW cl_int2[metrics_len];
+	metrics_t *metrics = DBG_NEW metrics_t[metrics_len];
 	int matrixToArrayIndex;
 	int parent_of_node;
 	for (int i = 0; i < metrics_len; i++) {
@@ -192,7 +193,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
 		cout<<"metrics: "<<metrics_len<<endl;
-		print(metrics, DAG->len, "\n", true);
+		print(metrics, DAG->len, "\n", true, 0);
 		cout<<"\n";
 	}
 	cout << endl;
@@ -215,7 +216,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int
 }
 
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
 	int const queue_len = ceil(n_nodes / 4.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -231,7 +232,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<i
 		queue[i].w = (j < n_nodes) ? entrypoints[j] : 0;
 	}
 
-	cl_int2* metrics = DBG_NEW cl_int2[metrics_len];
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len];
 	int matrixToArrayIndex;
 	for (int i = 0; i < metrics_len; i++) {
 		metrics[i].x = 0;
@@ -290,7 +291,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<i
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
 		cout << "metrics: " << metrics_len << endl;
-		print(metrics, DAG->len, "\n", true);
+		print(metrics, DAG->len, "\n", true, 0);
 		cout << "\n";
 	}
 
@@ -310,7 +311,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<i
 	return make_tuple(compute_metrics_evt, metrics);
 }
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
 	int const queue_len = ceil(n_nodes / 4.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -340,7 +341,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 	print(queue, queue_len, "\n", true);
 	cout << "\n";*/
 
-	cl_int2* metrics = DBG_NEW cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = cl_int2{ DAG->nodes[i],0};
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = metrics_t{ DAG->nodes[i], 0, i };
 
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
@@ -369,7 +370,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 	if (DEBUG_COMPUTE_METRICS) {
 		cout << "metrics: " << metrics_len << endl;
 		cout << "count:" << count << endl;
-		print(metrics, metrics_len, "\n", true);
+		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
 	}
 
@@ -389,7 +390,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 	return make_tuple(compute_metrics_evt, metrics);
 }
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangular(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_rectangular(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
 	int queue_len = ceil(n_nodes / 4.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -419,7 +420,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 	print(queue, queue_len, "\n", true);
 	cout << "\n";*/
 
-	cl_int2* metrics = DBG_NEW cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = cl_int2{ DAG->nodes[i],0 };
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = metrics_t{ DAG->nodes[i], 0, i };
 
 
 	BufferManager.SetNodes(DAG->nodes);
@@ -455,7 +456,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 	if (DEBUG_COMPUTE_METRICS) {
 		cout << "metrics: " << metrics_len << endl;
 		cout << "count:" << count << endl;
-		print(metrics, metrics_len, "\n", true);
+		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
 	}
 
@@ -477,7 +478,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 }
 
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized8_rectangular(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectangular(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
 	int queue_len = ceil(n_nodes / 8.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -501,7 +502,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized8_rectangul
 	print(queue, queue_len, "\n", true);
 	cout << "\n";*/
 
-	cl_int2* metrics = DBG_NEW cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = cl_int2{ DAG->nodes[i],0 };
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = metrics_t{ DAG->nodes[i],0,i};
 
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
@@ -535,7 +536,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized8_rectangul
 	if (DEBUG_COMPUTE_METRICS) {
 		cout << "metrics: " << metrics_len << endl;
 		cout << "count:" << count << endl;
-		print(metrics, metrics_len, "\n", true);
+		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
 	}
 

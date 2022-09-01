@@ -1,7 +1,7 @@
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 #include "../app_globals.h"
 
-void print(global int2* v, int len, bool withIndexes) {
+void print(global metrics_tt* v, int len, bool withIndexes) {
 	for (int i = 0; i < len; i++)
 	{
 		if (withIndexes)
@@ -12,7 +12,7 @@ void print(global int2* v, int len, bool withIndexes) {
 	printf("\n");
 }
 
-kernel void reduce_queue(global int* restrict output, const global int2* restrict input,
+kernel void reduce_queue(global int* restrict output, const global metrics_tt* restrict input,
 	local int* restrict lmem,
 	int npairs)
 {
@@ -20,7 +20,7 @@ kernel void reduce_queue(global int* restrict output, const global int2* restric
 
 	//if(global_index == 0)print(input, npairs, false);
 
-	int2 pair = global_index < npairs ? input[global_index] : (int2)(0, 0);
+	metrics_tt pair = global_index < npairs ? input[global_index] : (metrics_tt)(0, 0, 0);
 
 	const int local_index = get_local_id(0);
 

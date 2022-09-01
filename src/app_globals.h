@@ -17,6 +17,8 @@
 
 /*DAG*/
 #define edge_t int
+#define metrics_t cl_int3
+#define metrics_tt int3 //for kernels
 #define VECTOR_ADJ false
 #define TRANSPOSED_ADJ false
 #define RECTANGULAR_ADJ true

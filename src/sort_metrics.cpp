@@ -6,11 +6,11 @@
 #include <iostream>
 #include <math.h>
 
-tuple<cl_event*, cl_int2*> SortMetrics::MergeSort(cl_int2* metrics, int n_nodes) {
+tuple<cl_event*, metrics_t*> SortMetrics::MergeSort(metrics_t* metrics, int n_nodes) {
 	const int metrics_len = GetMetricsArrayLenght(n_nodes);
 	OCLBufferManager BufferManager= *OCLBufferManager::GetInstance();
 
-	cl_int2 *ordered_metrics = DBG_NEW cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) ordered_metrics[i] = metrics[i];
+	metrics_t *ordered_metrics = DBG_NEW metrics_t[metrics_len]; for (int i = 0; i < metrics_len; i++) ordered_metrics[i] = metrics[i];
 	BufferManager.SetOrderedMetrics(metrics);
 
 	unsigned int locLimit = 1;
@@ -40,14 +40,15 @@ tuple<cl_event*, cl_int2*> SortMetrics::MergeSort(cl_int2* metrics, int n_nodes)
 		BufferManager.GetOrderedMetricsResult(ordered_metrics, &sort_task_evts_end, 1);
 
 	printf("array sorted\n");
+	cout << "metrics sorted: (rank, level, task_id)" << endl;
 	if (DEBUG_SORT) {
 		cout << "sort kernel launch count:" << task_event_launched << endl;
-		print(ordered_metrics, metrics_len, "\n", true);
+		print(ordered_metrics, metrics_len, "\n", true, 0);
 		//print(ordered_metrics, metrics_len, "\n"); //per vedere anche i dati aggiunti per padding
 		cout << "\n";
 	}
 	else { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
-		print(ordered_metrics, min(metrics_len, 5), "\n", true);
+		print(ordered_metrics, min(metrics_len, 5), "\n", true, 0);
 		cout << "[...]" << endl << endl;
 		print(ordered_metrics, metrics_len, "\n", true, metrics_len - 5);
 	}

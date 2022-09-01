@@ -127,8 +127,8 @@ public:
 	void SetEntrypoints(int *entrypoints);
 	void SetQueue(int* queue);
 	void SetNextQueue(int* nextQueue);
-	void SetMetrics(cl_int2* metrics);
-	void SetOrderedMetrics(cl_int2* metrics);
+	void SetMetrics(metrics_t* metrics);
+	void SetOrderedMetrics(metrics_t* metrics);
 	void SetNodes(int *nodes);*/
 
 	void GetGraphEdgesResult(void* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
@@ -146,8 +146,8 @@ public:
 	void GetEntrypointsResult(int* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetQueueResult(int* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetNextQueueResult(int* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
-	void GetMetricsResult(cl_int2* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
-	void GetOrderedMetricsResult(cl_int2* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
+	void GetMetricsResult(metrics_t* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
+	void GetOrderedMetricsResult(metrics_t* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetNodesResult(int* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);*/
 
 	void ReleaseGraphEdges();

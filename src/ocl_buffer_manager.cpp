@@ -21,7 +21,7 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseS
 		instance->queue_memsize = (vectorized) ? ceil(nNodes / 8.0) * sizeof(cl_int8) : nNodes * sizeof(int);
 	instance->next_queue_memsize = instance->queue_memsize;
 	const int metrics_len = GetMetricsArrayLenght(nNodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
-	instance->metrics_memsize = metrics_len * sizeof(cl_int2);
+	instance->metrics_memsize = metrics_len * sizeof(metrics_t);
 	instance->ordered_metrics_memsize = instance->metrics_memsize;
 	//instance->local_queue_memsize = (vectorized) ? CLManager.preferred_wg_size * sizeof(cl_int4) : nNodes * sizeof(int); //TODO: min(preferred e n_nodes/4);
 

@@ -1,61 +1,62 @@
 #define MAX_LOCAL_SIZE 256 //set via compile options
+#include "../app_globals.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // needed helper methods
-int compare (int2 V1, int2 V2){
+int compare (metrics_tt V1, metrics_tt V2){
 	if(V1.y == V2.y){
 		return (V1.x < V2.x) ? 1 : -1;
 	}
 	return (V1.y > V2.y) ? 1 : -1;
 }
 
-int gt (int2 V1, int2 V2){
+int gt (metrics_tt V1, metrics_tt V2){
 	return compare(V1, V2) > 0;
 }
-int lt (int2 V1, int2 V2){
+int lt (metrics_tt V1, metrics_tt V2){
 	return compare(V1, V2) < 0;
 }
-int gte (int2 V1, int2 V2){
+int gte (metrics_tt V1, metrics_tt V2){
 	return compare(V1, V2) >= 0;
 }
-int lte (int2 V1, int2 V2){
+int lte (metrics_tt V1, metrics_tt V2){
 	return compare(V1, V2) <= 0;
 }
 
-int same (int2 V1, int2 V2){
+int same (metrics_tt V1, metrics_tt V2){
 	return gt(V1, V2) == 0;
 }
-inline void swap(int2 *a, int2 *b) {
-	int2 tmp;
+inline void swap(metrics_tt *a, metrics_tt *b) {
+	metrics_tt tmp;
 	tmp = *b;
 	*b = *a;
 	*a = tmp;
 }
 
 // dir == 1 means ascending
-inline void sort(int2 *a, int2 *b, int dir) {
+inline void sort(metrics_tt *a, metrics_tt *b, int dir) {
 	if (gt(*a, *b) == dir) swap(a, b);
 }
 
-inline void swapLocal(__local int2 *a, __local int2 *b) {
-	int2 tmp;
+inline void swapLocal(__local metrics_tt *a, __local metrics_tt *b) {
+	metrics_tt tmp;
 	tmp = *b;
 	*b = *a;
 	*a = tmp;
 }
 
 // dir == 1 means ascending
-inline void sortLocal(__local int2 *a, __local int2 *b, char dir) {
+inline void sortLocal(__local metrics_tt *a, __local metrics_tt *b, char dir) {
 	if (gt(*a, *b) == dir) swapLocal(a, b);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // basic kernel for mergesort start
-__kernel void Sort_MergesortStart(const __global int2 *inArray, __global int2 *outArray)
+__kernel void Sort_MergesortStart(const __global metrics_tt *inArray, __global metrics_tt *outArray)
 {
 	int c = 0;
-	__local int2 local_buffer[2][MAX_LOCAL_SIZE * 2]; //visibile a tutto il work group
+	__local metrics_tt local_buffer[2][MAX_LOCAL_SIZE * 2]; //visibile a tutto il work group
 	const uint lid = get_local_id(0);
 	const uint index = get_group_id(0) * (MAX_LOCAL_SIZE * 2) + lid; //index per la seconda riga di local buffer?
 	char pong = 0;
@@ -79,8 +80,8 @@ __kernel void Sort_MergesortStart(const __global int2 *inArray, __global int2 *o
 		if (rightBoundary > MAX_LOCAL_SIZE * 2) continue;
 #pragma unroll
 		for (uint i = 0; i < stride; i++) {
-			int2 leftVal = local_buffer[ping][left];
-			int2 rightVal = local_buffer[ping][right];
+			metrics_tt leftVal = local_buffer[ping][left];
+			metrics_tt rightVal = local_buffer[ping][right];
 			bool selectLeft = left < middle && (right >= rightBoundary || lte(leftVal, rightVal));
 
 			local_buffer[pong][leftBoundary + i] = (selectLeft) ? leftVal : rightVal;
@@ -97,9 +98,9 @@ __kernel void Sort_MergesortStart(const __global int2 *inArray, __global int2 *o
 }
 
 // For smaller strides so we can use local_buffer without getting into memory problems
-__kernel void Sort_MergesortGlobalSmall(const __global int2* inArray, __global int2* outArray, const uint stride, const uint size)
+__kernel void Sort_MergesortGlobalSmall(const __global metrics_tt* inArray, __global metrics_tt* outArray, const uint stride, const uint size)
 {
-	__local int2 local_buffer[MAX_LOCAL_SIZE * 2];
+	__local metrics_tt local_buffer[MAX_LOCAL_SIZE * 2];
 	//printf("get_id: %d, %d, %d\n", get_local_id(0), get_group_id(0), get_global_id(0));
 
 	// within one stride merge the different parts
@@ -131,7 +132,7 @@ __kernel void Sort_MergesortGlobalSmall(const __global int2* inArray, __global i
 	}
 }
 
-__kernel void Sort_MergesortGlobalBig(const __global int2* inArray, __global int2* outArray, const uint stride, const uint size)
+__kernel void Sort_MergesortGlobalBig(const __global metrics_tt* inArray, __global metrics_tt* outArray, const uint stride, const uint size)
 {
 	//Problems: Breaks at large arrays. this version was stripped down (so little less performance but supports little bigger arrays)
 
@@ -163,7 +164,7 @@ __kernel void Sort_MergesortGlobalBig(const __global int2* inArray, __global int
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OLD and BASIC global Kernel
 /*
-__kernel void Sort_SimpleSortingNetwork(const __global int2* inArray, __global int2* outArray, const uint offset, const uint size)
+__kernel void Sort_SimpleSortingNetwork(const __global metrics_tt* inArray, __global metrics_tt* outArray, const uint offset, const uint size)
 {
 	// TO DO: pimp! Problem: Kernel gets called pretty often -> overhead!
 	const uint index = (get_global_id(0) << 1) + offset;
@@ -189,7 +190,7 @@ __kernel void Sort_SimpleSortingNetwork(const __global int2* inArray, __global i
  * offset	- whether or not there will be an offset
  */
  /*
-__kernel void Sort_SimpleSortingNetworkLocal(__global int2* data, const uint size, const uint offset)
+__kernel void Sort_SimpleSortingNetworkLocal(__global metrics_tt* data, const uint size, const uint offset)
 {
 	__local uint local_buffer[MAX_LOCAL_SIZE * 2];
 	const uint limit = MAX_LOCAL_SIZE * 2;
@@ -218,7 +219,7 @@ __kernel void Sort_SimpleSortingNetworkLocal(__global int2* data, const uint siz
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-__kernel void Sort_BitonicMergesortStart(const __global int2* inArray, __global int2* outArray)
+__kernel void Sort_BitonicMergesortStart(const __global metrics_tt* inArray, __global metrics_tt* outArray)
 {
 	__local uint local_buffer[MAX_LOCAL_SIZE * 2];
 	const uint gid = get_global_id(0);
@@ -257,7 +258,7 @@ __kernel void Sort_BitonicMergesortStart(const __global int2* inArray, __global 
 	outArray[index + MAX_LOCAL_SIZE] = local_buffer[lid + MAX_LOCAL_SIZE];
 }
 
-__kernel void Sort_BitonicMergesortLocal(__global int2* data, const uint size, const uint blocksize, uint stride)
+__kernel void Sort_BitonicMergesortLocal(__global metrics_tt* data, const uint size, const uint blocksize, uint stride)
 {
 	// This Kernel is basically the same as Sort_BitonicMergesortStart except of the "unrolled" part and the provided parameters
 	__local uint local_buffer[2 * MAX_LOCAL_SIZE];
@@ -286,7 +287,7 @@ __kernel void Sort_BitonicMergesortLocal(__global int2* data, const uint size, c
 	data[index + MAX_LOCAL_SIZE] = local_buffer[lid + MAX_LOCAL_SIZE];
 }
 
-__kernel void Sort_BitonicMergesortGlobal(__global int2* data, const uint size, const uint blocksize, const uint stride)
+__kernel void Sort_BitonicMergesortGlobal(__global metrics_tt* data, const uint size, const uint blocksize, const uint stride)
 {
 	// TO DO: Kernel implementation
 	uint gid = get_global_id(0);
