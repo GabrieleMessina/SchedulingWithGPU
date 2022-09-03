@@ -172,13 +172,13 @@ void OCLBufferManager::SetGraphWeights(const void* weights) {
 	err = clEnqueueWriteBuffer(OCLManager::queue, GetGraphWeights(), CL_TRUE,
 		0, edges_weights_memsize, weights,
 		0, NULL, &write_edges_weights_evt);
-	ocl_check(err, "write dataset edges into graph_edges");
+	ocl_check(err, "write dataset weights into graph_edges");
 }
 void OCLBufferManager::SetGraphReverseEdges(const void* adj) {
 	err = clEnqueueWriteBuffer(OCLManager::queue, GetGraphReverseEdges(), CL_TRUE,
 		0, edges_reverse_memsize, adj,
 		0, NULL, &write_edges_reverse_evt);
-	ocl_check(err, "write dataset edges into graph_edges");
+	ocl_check(err, "write dataset edges reverse into graph_edges");
 }
 void OCLBufferManager::SetNEntrypoints(const void* nEntries) {
 	err = clEnqueueWriteBuffer(OCLManager::queue, GetNEntrypoints(), CL_TRUE,
