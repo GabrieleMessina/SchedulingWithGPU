@@ -53,6 +53,8 @@ public:
 	virtual int* GetCostsArray();
 
 	virtual edge_t* GetWeightsArray();
+
+	virtual edge_t* GetWeightsReverseArray();
 	
 	virtual edge_t* GetEdgesArray();
 
@@ -86,6 +88,7 @@ public:
 		cout << "(index, value) -> [(edges_index, weight)]" << endl;
 		int matrixToArrayIndex;
 		edge_t* edges = GetEdgesReverseArray();
+		edge_t* weights = GetWeightsReverseArray();
 		for (int i = 0; i < len; i++) {
 			cout << "(" << i << ", " << nodes[i] << ")" << " -> | ";
 #if RECTANGULAR_ADJ
@@ -100,7 +103,7 @@ public:
 #else
 				matrixToArrayIndex = matrix_to_array_indexes(i, j, len);
 #endif // TRANSPOSED_ADJ
-				/*if (edges[matrixToArrayIndex] != -1) */cout << "(" << j << ", " << edges[matrixToArrayIndex] << ") | ";
+				/*if (edges[matrixToArrayIndex] != -1) */cout << "(" << j << ", " << edges[matrixToArrayIndex] << " w: " << weights[matrixToArrayIndex] << ") | ";
 			}
 			cout << endl;
 		}

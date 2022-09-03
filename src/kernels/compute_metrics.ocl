@@ -781,6 +781,8 @@ kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, 
 }
 
 
+//SOPRA NON FUNZIONANO E NON SONO PIÙ MANTENUTI.
+
 
 // Comincio la BFS.
 
@@ -813,6 +815,8 @@ kernel void compute_metrics_4(global int * restrict nodes, global int4 *queue_, 
 
 
 
+//SOPRA NON FUNZIONANO E NON SONO PIÙ MANTENUTI.
+
 
 //TODO: in realtà parent e child alla fine di questo kernel sono invertiti perchè adj contiene gli edge da child a parent e non il viceversa.
 kernel void compute_metrics_standard_with_rectangular_matrix_no_reduction(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int el_in_queue)
@@ -838,8 +842,6 @@ kernel void compute_metrics_standard_with_rectangular_matrix_no_reduction(global
 	//calcolo il livello del nodo attuale e il suo rank a partire dai parent
 	metrics_tt metrics_with_this_parent;
 	int matrixToArrayIndex;
-	
-
 #pragma unroll
 	for (int j = 0; j < max_adj_dept; j++) {
 		/* Calcolo la metrica del nodo a partire dai parent. */
@@ -875,7 +877,7 @@ kernel void reset(global int* restrict vector, const int nels, const int default
 	vector[i] = default_value;
 }
 
-kernel void compute_metrics_standard_with_rectangular_matrix(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+kernel void compute_metrics_standard_with_rectangular_matrix(global int* restrict nodes, global int* queue_, global int* next_queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global metrics_tt* metriche /*<RANK,LIVELLO,TASK_ID>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	int i = get_global_id(0);
 	int current_node_index = i;
@@ -896,11 +898,21 @@ kernel void compute_metrics_standard_with_rectangular_matrix(global int* restric
 	//queue_[current_node_index] = 0; //Inutile perchè la queue vine resa next queue che a sua volta viene resettata all fine del ciclo.
 	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
 	if (metriche[i].y > 0)return;
-	metriche[current_node_index] = (metrics_tt)(nodes[current_node_index], 0,current_node_index);
+	int edge_weight = 0;
+	for (int j = 0; j < max_adj_reverse_dept; j++) {
+		int matrixToArrayIndex = matrix_to_array_indexes(current_node_index, j, n_nodes);
+		if(edges_weights[matrixToArrayIndex] > -1){
+			edge_weight += edges_weights[matrixToArrayIndex];
+		}
+	}
+
+	metriche[current_node_index] = (metrics_tt)(edge_weight + nodes[current_node_index], 0,current_node_index);
 	//calcolo il livello del nodo attuale e il suo rank a partire dai parent
 	metrics_tt metrics_with_this_parent;
 	int matrixToArrayIndex;
 	
+
+	//printf("Task: %d ha DTC: %d \n", current_node_index, edge_weight);
 
 #pragma unroll
 	for (int j = 0; j < max_adj_dept; j++) {
@@ -911,7 +923,6 @@ kernel void compute_metrics_standard_with_rectangular_matrix(global int* restric
 #else
 		matrixToArrayIndex = matrix_to_array_indexes(parentAdjIndex, i, n_nodes);
 #endif // TRANSPOSED_ADJ
-		int edge_weight = edges_weights[matrixToArrayIndex];
 		int parent_index = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
 		if (parent_index >= 0){ //essendo adj matrice rettangolare appena trovo il la prima riga vuota sono sicuro che sotto non ci siano altri child(anche se in questo caso li chiamiamo parent)
 			int weight_with_this_parent = edge_weight + metriche[parent_index].x + nodes[current_node_index];
@@ -972,10 +983,21 @@ bool compute_metrics_vectorized_rectangular_item(global int* restrict nodes, glo
 #pragma unroll
 	for (int i = 0; i < 4; i++) {
 		if (!indexes_to_analyze[i]) continue;
+	
+		int node_index = work_item * 4 + i;
+		int edge_weight = 0;
+		for (int j = 0; j < max_adj_reverse_dept; j++) {
+			int matrixToArrayIndex = matrix_to_array_indexes(j, node_index, n_nodes);
+			if(edges_weights[matrixToArrayIndex] > -1){
+				edge_weight += edges_weights[matrixToArrayIndex];
+			}
+		}
+
+		metriche[node_index] = (metrics_tt)(edge_weight + nodes[node_index],0,node_index);
+
 #pragma unroll
 		for (int j = 0; j < max_adj_reverse_dept; j++) {
 			int parent = j;
-			int node_index = work_item * 4 + i;
 
 #if TRANSPOSED_ADJ
 			matrixToArrayIndex = matrix_to_array_indexes(node_index, parent, max_adj_reverse_dept);
@@ -983,7 +1005,6 @@ bool compute_metrics_vectorized_rectangular_item(global int* restrict nodes, glo
 			matrixToArrayIndex = matrix_to_array_indexes(parent, node_index, n_nodes);
 #endif // TRANSPOSED_ADJ
 
-			int edge_weight = edges_weights[matrixToArrayIndex];
 			int parentIndex = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
 			if (parentIndex >= 0) {
 				int weight_with_this_parent = edge_weight + metriche[parentIndex].x + nodes[node_index];
@@ -1154,17 +1175,26 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 #pragma unroll
 	for (int i = 0; i < 8; i++) {
 		if (!indexes_to_analyze[i]) continue;
+
+		int node_index = work_item * 8 + i;
+		int edge_weight = 0;
+		for (int j = 0; j < max_adj_reverse_dept; j++) {
+			int matrixToArrayIndex = matrix_to_array_indexes(j, node_index, n_nodes);
+			if(edges_weights[matrixToArrayIndex] > -1){
+				edge_weight += edges_weights[matrixToArrayIndex];
+			}
+		}
+		metriche[node_index] = (metrics_tt)(edge_weight + nodes[node_index],0,node_index);
+
 #pragma unroll
 		for (int j = 0; j < max_adj_dept; j++) {
 			int parent = j;
-			int node_index = work_item * 8 + i;
 
 #if TRANSPOSED_ADJ
 			matrixToArrayIndex = matrix_to_array_indexes(node_index, parent, max_adj_dept);
 #else
 			matrixToArrayIndex = matrix_to_array_indexes(parent, node_index, n_nodes);
 #endif // TRANSPOSED_ADJ
-			int edge_weight = edges_weights[matrixToArrayIndex];
 			int parentIndex = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
 			//printf("parent: %d %d %d\n",node_index, parent, parentIndex);
 			if (parentIndex >= 0) {

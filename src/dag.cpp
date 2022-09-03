@@ -122,6 +122,11 @@ edge_t* Graph<T>::GetWeightsArray(){
 }
 
 template<class T>
+edge_t* Graph<T>::GetWeightsReverseArray(){
+	return adj;
+}
+
+template<class T>
 edge_t* Graph<T>::GetEdgesArray(){
 	return adj;
 }

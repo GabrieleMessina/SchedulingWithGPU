@@ -76,6 +76,19 @@ void print(T* v, int row_len, int col_len, const char *separator) {
 	std::cout << "\n";
 }
 
+template<typename T>
+void maxOfSequence(T* v, int len) {
+	T max = v[0];
+	for (int i = 1; i < len; i++)
+	{
+		if (v[i] > max) {
+			max = v[i];
+		}
+	}
+	return max;
+}
+
+
 
 //template<typename T> T* matrix_to_array(T** mat, int row_len, int col_len) {
 //	T* v = DBG_NEW T[row_len * col_len];

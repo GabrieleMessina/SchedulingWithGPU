@@ -22,12 +22,13 @@
 #include "entry_discover.h"
 #include "compute_metrics.h"
 #include "sort_metrics.h"
+#include "processor_assignment.h"
 
 using namespace std;
 
 Graph<int> *DAG;
 int *entrypoints;
-cl_int2 *metrics, *ordered_metrics;
+metrics_t*metrics, *ordered_metrics;
 
 void printMemoryUsage();
 void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_evt, cl_event *sort_task_evts, int nels);
@@ -92,17 +93,7 @@ start:
 		cl_event* sort_task_evts;
 		std::tie(sort_task_evts, ordered_metrics) = SortMetrics::MergeSort(metrics, n_nodes);
 
-		//TODO: processor selection
-		// per ogni livello calcola EST e EFT di ogni task su ogni processore
-
-		//AFT = actual finish time
-		//EFT = Earliest finish time
-		//EST = Earliest start time
-		//est(v,p) = max(nextPossibleSlotInProcessorStart, max_per_ogni_pred(AFT(pred di v) + weights(pred, v)));
-		//eft(v,p) = est(v,p) + costOnProcessor p di v;
-
-		//per ogni livello si estraggono dalla coda creata sui rank i task, e si assegnato man mano al loro processore preferito,
-		//cioè quello che fornisce EFT minore.
+		processor_assignment::ScheduleTasksOnProcessors(DAG, ordered_metrics);
 
 		end_time = std::chrono::system_clock::now();
 
@@ -205,7 +196,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		m_device_name
 	);
 
-	if (DEBUG_METRICS) {
+	if (DEBUG_OCL_METRICS) {
 		printf("%s; %d; %E; %E; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
 			end_date_time,
 			nels,
@@ -226,7 +217,7 @@ void measurePerformance(cl_event entry_discover_evt,cl_event *compute_metrics_ev
 		printMemoryUsage();
 	}
 	//somma di byte letti e scritti dal kernel diviso tempo di esecuzione
-	//if (DEBUG_METRICS) {
+	//if (DEBUG_OCL_METRICS) {
 	//	//TODO: check the math as algorithms changed
 	//	printf("discover entries: runtime %.4gms, %.4g GE/s, %.4g GB/s\n",
 	//		runtime_discover_ms, nels / runtime_discover_ms / 1.0e6, OCLManager::preferred_wg_size / runtime_discover_ms / 1.0e6);

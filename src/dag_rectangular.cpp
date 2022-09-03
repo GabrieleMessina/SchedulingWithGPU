@@ -6,6 +6,7 @@ template<typename  T>
 class GraphRectangular : public Graph<T> {
 private: 
 	edge_t* weights = NULL; // è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
+	edge_t* weightsReverse = NULL; // è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 	edge_t* adj = NULL; //è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 	edge_t* adj_reverse = NULL; //è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 	int emptyAdjCell = -1;
@@ -19,6 +20,7 @@ public:
 		delete[] adj;
 		delete[] adj_reverse;
 		delete[] weights;
+		delete[] weightsReverse;
 	}
 
 	void initAdjacencyMatrix() override {
@@ -28,15 +30,17 @@ public:
 		Graph<T>::adj_reverse_len = Graph<T>::len * Graph<T>::max_children_for_nodes;
 		adj = DBG_NEW edge_t[Graph<T>::adj_len];
 		weights = DBG_NEW edge_t[Graph<T>::adj_len];
+		weightsReverse = DBG_NEW edge_t[Graph<T>::adj_reverse_len];
 		adj_reverse = DBG_NEW edge_t[Graph<T>::adj_reverse_len];
 #pragma unroll
 		for (int i = 0; i < Graph<T>::adj_len; i++) {
 			adj[i] = emptyAdjCell;
-			weights[i] = 0;
+			weights[i] = -1;
 		}
 #pragma unroll
 		for (int i = 0; i < Graph<T>::adj_reverse_len; i++) {
 			adj_reverse[i] = emptyAdjCell;
+			weightsReverse[i] = -1;
 		}
 		printf("GraphRectangular: len is %d and mat is %d and rev_mat is %d with dept %d and parent dept %d\n", Graph<T>::len, Graph<T>::adj_len, Graph<T>::adj_reverse_len, Graph<T>::max_children_for_nodes, Graph<T>::max_parents_for_nodes);
 	}
@@ -86,7 +90,10 @@ public:
 			if (matrixToArrayIndex >= Graph<T>::adj_reverse_len) {
 				printf("ERROR: si è cercato di inserire un edge oltre il limite di profondità di una DAG con matrice adj rettangolare.");
 			}
-			else adj_reverse[matrixToArrayIndex] = indexOfb;
+			else {
+				adj_reverse[matrixToArrayIndex] = indexOfb;
+				weightsReverse[matrixToArrayIndex] = weight;
+			}
 		}
 		else {
 			printf("impossibile aggiungere l'edge perche' uno degli indici non esiste in insertEdge(%d,%d)\n", indexOfa, indexOfb);
@@ -128,6 +135,9 @@ public:
 
 	edge_t* GetWeightsArray() override {
 		return weights;
+	}
+	edge_t* GetWeightsReverseArray() override {
+		return weightsReverse;
 	}
 	edge_t* GetEdgesArray() override {
 		return adj;

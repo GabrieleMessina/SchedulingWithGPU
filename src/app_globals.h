@@ -11,7 +11,8 @@
 #define DEBUG_ENTRY_DISCOVER false
 #define DEBUG_COMPUTE_METRICS false
 #define DEBUG_SORT false
-#define DEBUG_METRICS true
+#define DEBUG_PROCESSOR_ASSIGNMENT true
+#define DEBUG_OCL_METRICS true
 #define DEBUG_HEAP_ALLOC false
 /*debug*/
 
