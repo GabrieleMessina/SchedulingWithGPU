@@ -1,7 +1,9 @@
 #include "dag.h"
-#include "utils.h"
 #include "dag_vector.cpp"
 #include "dag_rectangular.cpp"
+#include <filesystem>
+namespace fs = std::filesystem;
+#include "utils.h"
 
 edge_t* adj = NULL; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 int* cost_on_processors = NULL; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.

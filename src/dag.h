@@ -2,13 +2,13 @@
 /* IMPLEMENTAZIONE DI UNA DAG (DIRECT ACYCLIC GRAPH)*/
 #pragma once
 #include "app_globals.h"
-#include "utils.h"
 #include <string>
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include "utils.h"
 
 template<typename  T> 
 class Graph {

@@ -15,3 +15,6 @@
 0 0 0 0 0
 0 0 0 0 0
 0 0 0 0 0
+
+generato a partire da IEEE TRANSACTIONS ON PARALLEL AND DISTRIBUTED SYSTEMS, VOL. 15, NO. 2, FEBRUARY 2004 Improving Scheduling of Tasks in a
+Heterogeneous Environment Rashmi Bajaj and Dharma P. Agrawal, Fellow, IEEE | https://ieeexplore.ieee.org/document/1264795

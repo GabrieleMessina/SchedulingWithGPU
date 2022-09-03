@@ -4,7 +4,6 @@
 	#include <crtdbg.h>
 #endif // DEBUG_MEMORY_LEAK
 #include <cstdlib>
-#include "utils.h"
 #include <stdio.h>
 #include <math.h>
 #include <fstream>
@@ -23,6 +22,7 @@
 #include "compute_metrics.h"
 #include "sort_metrics.h"
 #include "processor_assignment.h"
+#include "utils.h"
 
 using namespace std;
 

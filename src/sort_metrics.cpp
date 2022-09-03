@@ -1,10 +1,10 @@
 #include "sort_metrics.h"
 #include "app_globals.h"
-#include "utils.h"
 #include "ocl_manager.h"
 #include "ocl_buffer_manager.h"
 #include <iostream>
 #include <math.h>
+#include "utils.h"
 
 tuple<cl_event*, metrics_t*> SortMetrics::MergeSort(metrics_t* metrics, int n_nodes) {
 	const int metrics_len = GetMetricsArrayLenght(n_nodes);

@@ -1,9 +1,9 @@
 #include "compute_metrics.h"
 #include "app_globals.h"
-#include "utils.h"
 #include "ocl_manager.h"
 #include "ocl_buffer_manager.h"
 #include <iostream>
+#include "utils.h"
 
 tuple<cl_event*, metrics_t*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints) {
 	ComputeMetricsVersion version = OCLManager::compute_metrics_version_chosen;

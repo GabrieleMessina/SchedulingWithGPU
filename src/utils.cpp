@@ -1,9 +1,10 @@
-#include "utils.h"
 #include <math.h>
+#include "app_globals.h"
 #if WINDOWS
 #include "windows.h"
 #include "psapi.h"
 #endif
+#include "utils.h"
 
 void error(char const* str) {
 	fprintf(stderr, "ERROR: %s\n", str);

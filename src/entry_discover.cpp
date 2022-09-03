@@ -1,9 +1,9 @@
 #include "app_globals.h"
 #include "entry_discover.h"
-#include "utils.h"
 #include "ocl_manager.h"
 #include "ocl_buffer_manager.h"
 #include <iostream>
+#include "utils.h"
 
 tuple<cl_event, int*> EntryDiscover::Run(Graph<int>* DAG) {
 	return entry_discover(DAG);
