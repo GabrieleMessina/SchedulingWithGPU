@@ -33,7 +33,7 @@ int* entrypoints;
 metrics_t* metrics, * ordered_metrics;
 
 void printMemoryUsage();
-void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_evt, cl_event* sort_task_evts, int nels);
+void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_evt, cl_event* sort_task_evts, cl_event* processor_assignment_evts, int nels);
 void verify();
 
 std::chrono::system_clock::time_point start_time;
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
 				//cout << count++ << endl;
 				start_time = std::chrono::system_clock::now();
 
-				OCLBufferManager::Init(n_nodes, DAG->adj_len, DAG->adj_reverse_len, isVectorizedVersion);
+				OCLBufferManager::Init(n_nodes, DAG->adj_len, DAG->adj_reverse_len, DAG->number_of_processors, isVectorizedVersion);
 
 				cl_event entry_discover_evt;
 				std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
@@ -104,12 +104,13 @@ int main(int argc, char* argv[]) {
 				cl_event* sort_task_evts;
 				std::tie(sort_task_evts, ordered_metrics) = SortMetrics::MergeSort(metrics, n_nodes);
 
-				processor_assignment::ScheduleTasksOnProcessors(DAG, ordered_metrics);
+				cl_event* processor_assignment_evts;
+				processor_assignment_evts = processor_assignment::ScheduleTasksOnProcessors(DAG, ordered_metrics);
 
 				end_time = std::chrono::system_clock::now();
 
 				//METRICHE
-				measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, n_nodes);
+				measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, /*processor_assignment_evts (non usiamo la GPU)*/ sort_task_evts, n_nodes);
 				//VERIFICA DELLA CORRETTEZZA
 				verify();
 
@@ -120,6 +121,7 @@ int main(int argc, char* argv[]) {
 
 				delete[] compute_metrics_evt;
 				delete[] sort_task_evts;
+				delete[] processor_assignment_evts;
 
 				OCLBufferManager::Release();
 				OCLManager::Reset();
@@ -152,12 +154,13 @@ int main(int argc, char* argv[]) {
 	}
 }
 
-void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_evt, cl_event* sort_task_evts, int nels) {
+void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_evt, cl_event* sort_task_evts, cl_event* processor_assignment_evts, int nels) {
 	double runtime_discover_ms = runtime_ms(entry_discover_evt);
 	double runtime_metrics_ms = total_runtime_ms(compute_metrics_evt[0], compute_metrics_evt[1]);
 	double gap_discover_metrics = total_runtime_ms(entry_discover_evt, compute_metrics_evt[0]);
 	double runtime_sorts_ms = total_runtime_ms(sort_task_evts[0], sort_task_evts[1]);
 	double gap_metrics_sort = total_runtime_ms(compute_metrics_evt[1], sort_task_evts[0]);
+	double runtime_proc_ass_ms = total_runtime_ms(processor_assignment_evts[0], processor_assignment_evts[1]);
 
 	std::time_t end_time_t = std::chrono::system_clock::to_time_t(end_time);
 	std::chrono::duration<double, std::milli> elapsed_seconds = end_time - start_time;
@@ -166,7 +169,7 @@ void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_e
 	strftime(end_date_time, 80, "%d/%m/%y %H.%M.%S", end_date_time_info);
 	end_date_time[strcspn(end_date_time, "\n")] = 0; //remove new line
 
-	double total_elapsed_time_GPU = total_runtime_ms(entry_discover_evt, sort_task_evts[1]);
+	double total_elapsed_time_GPU = total_runtime_ms(entry_discover_evt, processor_assignment_evts[1]);
 	int platform_id = 0;
 	char* m_platform_name = getSelectedPlatformInfo(platform_id);
 	int device_id = 0;
@@ -195,9 +198,9 @@ void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_e
 		exit(1);
 	}
 	if (is_file_empty(fp))
-		fprintf(fp, "DATA; N TASKS; TOTAL RUN SECONDS CPU; TOTAL RUN SECONDS GPU; DISCOVER ENTRIES RUNTIME MS; COMPUTE METRICS RUNTIME MS; SORT RUNTIME MS; VERSION; PLATFORM; PREFERRED WORK GROUP SIZE; GPU TEMPERATURE; CPU TEMPERATURE; DEVICE\n");
+		fprintf(fp, "DATA; N TASKS; TOTAL RUN SECONDS CPU; TOTAL RUN SECONDS GPU; DISCOVER ENTRIES RUNTIME MS; COMPUTE METRICS RUNTIME MS; SORT RUNTIME MS; PROC ASSIGN RUNTIME MS; VERSION; PLATFORM; PREFERRED WORK GROUP SIZE; GPU TEMPERATURE; CPU TEMPERATURE; DEVICE\n");
 
-	fprintf(fp, "%s; %d; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
+	fprintf(fp, "%s; %d; %E; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
 		end_date_time,
 		nels,
 		elapsed_seconds.count(),
@@ -205,6 +208,7 @@ void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_e
 		runtime_discover_ms,
 		runtime_metrics_ms,
 		runtime_sorts_ms,
+		runtime_proc_ass_ms,
 		(isVectorizedVersion ? "vectorized" : "standard"),
 		m_platform_name,
 		OCLManager::preferred_wg_size,
@@ -214,7 +218,7 @@ void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_e
 	);
 
 	if (DEBUG_OCL_METRICS) {
-		printf("%s; %d; %E; %E; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
+		printf("%s; %d; %E; %E; %E; %E; %E; %E; %E; %E; %s; %s; %d; %d; %d; %s\n",
 			end_date_time,
 			nels,
 			elapsed_seconds.count(),
@@ -224,6 +228,7 @@ void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_e
 			runtime_sorts_ms,
 			gap_discover_metrics,
 			gap_metrics_sort,
+			runtime_proc_ass_ms,
 			(isVectorizedVersion ? "vectorized" : "standard"),
 			m_platform_name,
 			OCLManager::preferred_wg_size,

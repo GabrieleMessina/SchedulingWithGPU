@@ -7,7 +7,7 @@
 OCLBufferManager *OCLBufferManager::instance = NULL;
 OCLManager OCLBufferManager::CLManager;
 
-OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseSize, bool vectorized) {
+OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseSize, int number_of_processors, bool vectorized) {
 	OCLBufferManager* instance = DBG_NEW OCLBufferManager();
 	instance->n_nodes = nNodes;
 	instance->edges_memsize = adjSize * sizeof(edge_t);
@@ -24,7 +24,14 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseS
 	instance->metrics_memsize = metrics_len * sizeof(metrics_t);
 	instance->ordered_metrics_memsize = instance->metrics_memsize;
 	//instance->local_queue_memsize = (vectorized) ? CLManager.preferred_wg_size * sizeof(cl_int4) : nNodes * sizeof(int); //TODO: min(preferred e n_nodes/4);
+	
+	instance->processors_cost_memsize = number_of_processors * sizeof(cl_int3);
+	instance->task_processor_assignment_memsize = nNodes * sizeof(cl_int3);
+	instance->processors_next_slot_start_memsize = number_of_processors * sizeof(int);
+	instance->costs_on_processor_memsize = nNodes * number_of_processors * sizeof(edge_t);
 
+	
+	
 	instance->InitGraphEdges();
 	instance->InitGraphWeightsReverse();
 	instance->InitGraphReverseEdges();
@@ -35,6 +42,10 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseS
 	instance->InitMetrics();
 	instance->InitOrderedMetrics();
 	instance->InitNodes();
+	instance->InitProcessorsCost();
+	instance->InitTaskProcessorAssignment();
+	instance->InitProcessorNextSlotStart();
+	instance->InitCostsOnProcessor();
 	/*instance->InitLocalQueue();
 	instance->InitLocalQueueTemp();*/
 
@@ -112,6 +123,22 @@ void OCLBufferManager::InitNodes() {
 	nodes = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, nodes_memsize, NULL, &err);
 	ocl_check(err, "create buffer nodes");
 }
+void OCLBufferManager::InitProcessorsCost() {
+	processors_cost = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, processors_cost_memsize, NULL, &err);
+	ocl_check(err, "create buffer processors_cost");
+}
+void OCLBufferManager::InitTaskProcessorAssignment() {
+	task_processor_assignment = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, task_processor_assignment_memsize, NULL, &err);
+	ocl_check(err, "create buffer task_processor_assignment");
+}
+void OCLBufferManager::InitProcessorNextSlotStart() {
+	processors_next_slot_start = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, processors_next_slot_start_memsize, NULL, &err);
+	ocl_check(err, "create buffer processors_next_slot_start");
+}
+void OCLBufferManager::InitCostsOnProcessor() {
+	costs_on_processor = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, costs_on_processor_memsize, NULL, &err);
+	ocl_check(err, "create buffer costs_on_processor");
+}
 //void OCLBufferManager::InitLocalQueue() {
 //	local_queue = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, local_queue_memsize, NULL, &err);
 //	ocl_check(err, "create local buffer queue");
@@ -151,6 +178,18 @@ cl_mem OCLBufferManager::GetOrderedMetrics() {
 }
 cl_mem OCLBufferManager::GetNodes() {
 	return nodes;
+}
+cl_mem OCLBufferManager::GetProcessorsCost() {
+	return processors_cost;
+}
+cl_mem OCLBufferManager::GetTaskProcessorAssignment() {
+	return task_processor_assignment;
+}
+cl_mem OCLBufferManager::GetProcessorNextSlotStart() {
+	return processors_next_slot_start;
+}
+cl_mem OCLBufferManager::GetCostsOnProcessor() {
+	return costs_on_processor;
 }
 //cl_mem OCLBufferManager::GetLocalQueue() {
 //	return local_queue;
@@ -246,6 +285,30 @@ void OCLBufferManager::SetNodes(const void* nodes) {
 		0, NULL, &write_nodes_evt);
 	ocl_check(err, "write into nodes");
 }
+void OCLBufferManager::SetProcessorsCost(const void* data) {
+	err = clEnqueueWriteBuffer(OCLManager::queue, GetProcessorsCost(), CL_TRUE,
+		0, processors_cost_memsize, data,
+		0, NULL, &write_processors_cost_evt);
+	ocl_check(err, "write into processors_cost");
+}
+void OCLBufferManager::SetTaskProcessorAssignment(const void* data) {
+	err = clEnqueueWriteBuffer(OCLManager::queue, GetTaskProcessorAssignment(), CL_TRUE,
+		0, task_processor_assignment_memsize, data,
+		0, NULL, &write_task_processor_assignment_evt);
+	ocl_check(err, "write into task_processor_assignment");
+}
+void OCLBufferManager::SetProcessorNextSlotStart(const void* data) {
+	err = clEnqueueWriteBuffer(OCLManager::queue, GetProcessorNextSlotStart(), CL_TRUE,
+		0, processors_next_slot_start_memsize, data,
+		0, NULL, &write_processors_next_slot_start_evt);
+	ocl_check(err, "write into processors_next_slot_start");
+}
+void OCLBufferManager::SetCostsOnProcessor(const void* data) {
+	err = clEnqueueWriteBuffer(OCLManager::queue, GetCostsOnProcessor(), CL_TRUE,
+		0, costs_on_processor_memsize, data,
+		0, NULL, &write_costs_on_processor_evt);
+	ocl_check(err, "write into costs_on_processor");
+}
 //void OCLBufferManager::SetLocalQueue(const void* local_queue) {
 //	err = clEnqueueWriteBuffer(OCLManager::queue, GetLocalQueue(), CL_TRUE,
 //		0, local_queue_memsize, local_queue,
@@ -321,6 +384,30 @@ void OCLBufferManager::GetNodesResult(void* out, cl_event* eventsToWait, int num
 		numberOfEventsToWait, eventsToWait, &read_nodes_evt);
 	ocl_check(err, "read buffer nodes");
 }
+void OCLBufferManager::GetProcessorsCostResult(void* out, cl_event* eventsToWait, int numberOfEventsToWait) {
+	err = clEnqueueReadBuffer(OCLManager::queue, GetProcessorsCost(), CL_TRUE,
+		0, processors_cost_memsize, out,
+		numberOfEventsToWait, eventsToWait, &read_processors_cost_evt);
+	ocl_check(err, "read buffer processors_cost");
+}
+void OCLBufferManager::GetTaskProcessorAssignmentResult(void* out, cl_event* eventsToWait, int numberOfEventsToWait) {
+	err = clEnqueueReadBuffer(OCLManager::queue, GetTaskProcessorAssignment(), CL_TRUE,
+		0, task_processor_assignment_memsize, out,
+		numberOfEventsToWait, eventsToWait, &read_task_processor_assignment_evt);
+	ocl_check(err, "read buffer task_processor_assignment");
+}
+void OCLBufferManager::GetProcessorNextSlotStartResult(void* out, cl_event* eventsToWait, int numberOfEventsToWait) {
+	err = clEnqueueReadBuffer(OCLManager::queue, GetProcessorNextSlotStart(), CL_TRUE,
+		0, processors_next_slot_start_memsize, out,
+		numberOfEventsToWait, eventsToWait, &read_processors_next_slot_start_evt);
+	ocl_check(err, "read buffer processors_next_slot_start");
+}
+void OCLBufferManager::GetCostsOnProcessorResult(void* out, cl_event* eventsToWait, int numberOfEventsToWait) {
+	err = clEnqueueReadBuffer(OCLManager::queue, GetCostsOnProcessor(), CL_TRUE,
+		0, costs_on_processor_memsize, out,
+		numberOfEventsToWait, eventsToWait, &read_costs_on_processor_evt);
+	ocl_check(err, "read buffer costs_on_processor");
+}
 
 /*Release*/
 void OCLBufferManager::ReleaseGraphEdges() {
@@ -358,6 +445,18 @@ void OCLBufferManager::ReleaseOrderedMetrics() {
 }
 void OCLBufferManager::ReleaseNodes() {
 	clReleaseMemObject(GetNodes());
+}
+void OCLBufferManager::ReleaseProcessorsCost() {
+	clReleaseMemObject(GetProcessorsCost());
+}
+void OCLBufferManager::ReleaseTaskProcessorAssignment() {
+	clReleaseMemObject(GetTaskProcessorAssignment());
+}
+void OCLBufferManager::ReleaseProcessorNextSlotStart() {
+	clReleaseMemObject(GetProcessorNextSlotStart());
+}
+void OCLBufferManager::ReleaseCostsOnProcessor() {
+	clReleaseMemObject(GetCostsOnProcessor());
 }
 //void OCLBufferManager::ReleaseLocalQueue() {
 //	clReleaseMemObject(GetLocalQueue());

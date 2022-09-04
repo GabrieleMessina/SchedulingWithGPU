@@ -71,7 +71,27 @@ public:
 	size_t local_queue_temp_memsize;
 	cl_event write_local_queue_temp_evt;*/
 
-	static OCLBufferManager Init(int nNodes, int adjSize, int adjReverseSize, bool vectorized = false);
+	cl_mem processors_cost;
+	size_t processors_cost_memsize;
+	cl_event read_processors_cost_evt;
+	cl_event write_processors_cost_evt;
+	
+	cl_mem task_processor_assignment;
+	size_t task_processor_assignment_memsize;
+	cl_event read_task_processor_assignment_evt;
+	cl_event write_task_processor_assignment_evt;
+	
+	cl_mem processors_next_slot_start;
+	size_t processors_next_slot_start_memsize;
+	cl_event read_processors_next_slot_start_evt;
+	cl_event write_processors_next_slot_start_evt;
+	
+	cl_mem costs_on_processor;
+	size_t costs_on_processor_memsize;
+	cl_event read_costs_on_processor_evt;
+	cl_event write_costs_on_processor_evt;
+
+	static OCLBufferManager Init(int nNodes, int adjSize, int adjReverseSize, int number_of_processors, bool vectorized = false);
 	static void Release();
 	~OCLBufferManager();
 
@@ -90,6 +110,10 @@ public:
 	void InitOrderedMetrics();
 	void InitMetrics();
 	void InitNodes();
+	void InitProcessorsCost();
+	void InitTaskProcessorAssignment();
+	void InitProcessorNextSlotStart();
+	void InitCostsOnProcessor();
 	/*void InitLocalQueue();
 	void InitLocalQueueTemp();*/
 
@@ -103,6 +127,10 @@ public:
 	cl_mem GetOrderedMetrics();
 	cl_mem GetMetrics();
 	cl_mem GetNodes();
+	cl_mem GetProcessorsCost();
+	cl_mem GetTaskProcessorAssignment();
+	cl_mem GetProcessorNextSlotStart();
+	cl_mem GetCostsOnProcessor();
 	/*cl_mem GetLocalQueue();
 	cl_mem GetLocalQueueTemp();*/
 
@@ -120,6 +148,10 @@ public:
 	void SetMetrics(const void* metrics);
 	void SetOrderedMetrics(const void* metrics);
 	void SetNodes(const void* nodes);
+	void SetProcessorsCost(const void* data);
+	void SetTaskProcessorAssignment(const void* data);
+	void SetProcessorNextSlotStart(const void* data);
+	void SetCostsOnProcessor(const void* data);
 	/*void SetLocalQueue(const void* queue);
 	void SetLocalQueueTemp(const void* queue);*/
 	/*void SetGraphEdges(bool *adj);
@@ -141,6 +173,10 @@ public:
 	void GetMetricsResult(void* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetOrderedMetricsResult(void* out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetNodesResult(void* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
+	void GetProcessorsCostResult(void* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
+	void GetTaskProcessorAssignmentResult(void* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
+	void GetProcessorNextSlotStartResult(void* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
+	void GetCostsOnProcessorResult(void* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
 	/*void GetGraphEdgesResult(bool *out, cl_event* eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetNEntrypointsResult(int* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
 	void GetEntrypointsResult(int* out, cl_event *eventToWait = NULL, int numberOfEventsToWait = 0);
@@ -162,6 +198,10 @@ public:
 	void ReleaseMetrics();
 	void ReleaseOrderedMetrics();
 	void ReleaseNodes();
+	void ReleaseProcessorsCost();
+	void ReleaseTaskProcessorAssignment();
+	void ReleaseProcessorNextSlotStart();
+	void ReleaseCostsOnProcessor();
 	/*void ReleaseLocalQueue();
 	void ReleaseLocalQueueTemp();*/
 };

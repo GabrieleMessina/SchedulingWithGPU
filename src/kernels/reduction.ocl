@@ -1,6 +1,11 @@
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 #include "../app_globals.h"
 
+int matrix_to_array_indexes(int i, int j, int row_len){
+	return i * row_len + j;
+}
+
+
 void print(global metrics_tt* v, int len, bool withIndexes) {
 	for (int i = 0; i < len; i++)
 	{
@@ -41,4 +46,38 @@ kernel void reduce_queue(global int* restrict output, const global int2* restric
 	
 		
 	//if(global_index == 0)print(output, npairs, false);
+}
+
+kernel void compute_processor_cost(
+	const int current_node, 
+	global edge_t* restrict edges, 
+	global edge_t* restrict predecessors, 
+	global edge_t* restrict costs, 
+	const int max_edges_dept, 
+	global int3* restrict output, 
+	global int3* restrict task_processor_assignment, 
+	global int* restrict processorsNextSlotStart, 
+	const int len, 
+	const int number_of_processors, 
+	const int predecessor_with_max_aft, 
+	const int weight_for_max_aft_predecessor, 
+	const int processor_for_max_aft_predecessor, 
+	const int cost_of_predecessors_in_different_processors, 
+	const int max_aft_of_predecessors){
+	
+	
+	const int processor = get_global_id(0);
+
+	int cost_on_processor = costs[matrix_to_array_indexes(current_node, processor, number_of_processors)];
+	int cost_of_predecessor_in_same_processor = 0;
+	if (processor_for_max_aft_predecessor == processor) {
+		cost_of_predecessor_in_same_processor = weight_for_max_aft_predecessor;
+	}
+
+	int remaining_transfer_cost = max(max_aft_of_predecessors - cost_of_predecessor_in_same_processor, cost_of_predecessors_in_different_processors);
+
+	//finalmente posso aggiungere l'eft al task.
+	int est = max(processorsNextSlotStart[processor], remaining_transfer_cost);
+	int eft = est + cost_on_processor;
+	output[processor] = (int3)(processor, est, eft); 
 }

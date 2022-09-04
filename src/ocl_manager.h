@@ -15,6 +15,7 @@ private:
 		compute_metrics_k,
 		reduce_queue_k,
 		reset_k,
+		compute_processor_cost_k,
 		m_MergesortGlobalBigKernel,
 		m_MergesortGlobalSmallKernel,
 		m_MergesortStartKernel;
@@ -36,12 +37,14 @@ public:
 	static cl_kernel GetEntryDiscoverKernel();
 	static cl_kernel GetComputeMetricsKernel();
 	static cl_kernel GetResetKernel();
+	static cl_kernel GetComputeProcessorCostKernel();
 	static cl_kernel GetReduceQueueKernel();
 	static cl_kernel GetSortKernel(bool smallKernel = false);
 
 	static void ReleaseEntryDiscoverKernel();
 	static void ReleaseComputeMetricsKernel();
 	static void ReleaseResetKernel();
+	static void ReleaseComputeProcessorCostKernel();
 	static void ReleaseReduceQueueKernel();
 	static void ReleaseSortKernel();
 };

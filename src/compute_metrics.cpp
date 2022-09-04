@@ -105,9 +105,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics(Graph<int>* DAG, in
 	
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	
-	cout << "count:" << count << endl;
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
+		cout << "number of cycles to converge:" << count << endl;
 		cout<<"metrics: "<<metrics_len<<endl;
 		print(metrics, DAG->len, "\n", true, 0);
 		cout<<"\n";
@@ -118,9 +118,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics(Graph<int>* DAG, in
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
-	BufferManager.ReleaseGraphWeightsReverse();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -190,9 +190,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_rectangular(Graph<i
 	
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	
-	cout << "count:" << count << endl;
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
+		cout << "number of cycles to converge:" << count << endl;
 		cout<<"metrics: "<<metrics_len<<endl;
 		print(metrics, DAG->len, "\n", true, 0);
 		cout<<"\n";
@@ -203,9 +203,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_rectangular(Graph<i
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
-	BufferManager.ReleaseGraphWeightsReverse();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -289,9 +289,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v1(Graph
 
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 
-	cout << "count:" << count << endl;
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
+		cout << "number of cycles to converge:" << count << endl;
 		cout << "metrics: " << metrics_len << endl;
 		print(metrics, DAG->len, "\n", true, 0);
 		cout << "\n";
@@ -301,9 +301,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v1(Graph
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
-	BufferManager.ReleaseGraphWeightsReverse();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -372,8 +372,8 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v2(Graph
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
-		cout << "metrics: " << metrics_len << endl;
-		cout << "count:" << count << endl;
+		cout << "metrics len: " << metrics_len << endl;
+		cout << "number of cycles to converge:" << count << endl;
 		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
 	}
@@ -382,9 +382,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v2(Graph
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
-	BufferManager.ReleaseGraphWeightsReverse();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -460,8 +460,8 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_rectangu
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
-		cout << "metrics: " << metrics_len << endl;
-		cout << "count:" << count << endl;
+		cout << "metrics len: " << metrics_len << endl;
+		cout << "number of cycles to converge:" << count << endl;
 		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
 	}
@@ -471,9 +471,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_rectangu
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
-	BufferManager.ReleaseGraphWeightsReverse();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -543,8 +543,8 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectang
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
-		cout << "metrics: " << metrics_len << endl;
-		cout << "count:" << count << endl;
+		cout << "metrics len: " << metrics_len << endl;
+		cout << "number of cycles to converge:" << count << endl;
 		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
 	}
@@ -553,9 +553,9 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectang
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
-	BufferManager.ReleaseGraphWeightsReverse();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;

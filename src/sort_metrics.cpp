@@ -22,7 +22,7 @@ tuple<cl_event*, metrics_t*> SortMetrics::MergeSort(metrics_t* metrics, int n_no
 
 	cl_event sort_task_evts_start = cl_event();
 	cl_event sort_task_evts_end = cl_event();
-	cout << "small kernel? " << (useSmallKernel ? "true" : "false") << ", metrics len: " << (int)metrics_len << endl;
+	//cout << "small kernel? " << (useSmallKernel ? "true" : "false") << ", metrics len: " << (int)metrics_len << endl;
 	for (; stride <= metrics_len; stride <<= 1 /*stride x 2*/) { // crea i branch per il merge sort.
 		//calculate work sizes
 		sort_task_evts_end = run_sort_kernel(metrics_len, stride, useSmallKernel, flip);
@@ -39,14 +39,15 @@ tuple<cl_event*, metrics_t*> SortMetrics::MergeSort(metrics_t* metrics, int n_no
 	else 
 		BufferManager.GetOrderedMetricsResult(ordered_metrics, &sort_task_evts_end, 1);
 
-	cout << "metrics sorted: (rank, level, task_id)" << endl;
 	if (DEBUG_SORT) {
+		cout << "metrics sorted: (rank, level, task_id)" << endl;
 		cout << "sort kernel launch count:" << task_event_launched << endl;
 		print(ordered_metrics, metrics_len, "\n", true, 0);
 		//print(ordered_metrics, metrics_len, "\n"); //per vedere anche i dati aggiunti per padding
 		cout << "\n";
 	}
-	else { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+	else if(DEBUG_SORT_PARTIAL){ //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "metrics sorted: (rank, level, task_id)" << endl;
 		print(ordered_metrics, min(metrics_len, 5), "\n", true, 0);
 		cout << "[...]" << endl << endl;
 		print(ordered_metrics, metrics_len, "\n", true, metrics_len - 5);

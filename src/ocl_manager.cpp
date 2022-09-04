@@ -15,6 +15,7 @@ cl_kernel	OCLManager::entry_discover_k,
 			OCLManager::compute_metrics_k,
 			OCLManager::reset_k,
 			OCLManager::reduce_queue_k,
+			OCLManager::compute_processor_cost_k,
 			OCLManager::m_MergesortGlobalBigKernel,
 			OCLManager::m_MergesortGlobalSmallKernel,
 			OCLManager::m_MergesortStartKernel;
@@ -44,6 +45,8 @@ void OCLManager::InitCommon(const char* entryDiscoverKernelName, const char* com
 	ocl_check(err, "create kernel %s", "reset");
 	reduce_queue_k = clCreateKernel(reduce_queue_prog, reductionKernelName, &err);
 	ocl_check(err, "create kernel %s", reductionKernelName);
+	compute_processor_cost_k = clCreateKernel(reduce_queue_prog, "compute_processor_cost", &err);
+	ocl_check(err, "create kernel %s", "compute_processor_cost");
 
 	preferred_wg_size = get_preferred_work_group_size_multiple(compute_metrics_k, queue);
 
@@ -113,6 +116,7 @@ void OCLManager::Release() {
 	ReleaseReduceQueueKernel();
 	ReleaseResetKernel();
 	ReleaseSortKernel();
+	ReleaseComputeProcessorCostKernel();
 }
 
 void OCLManager::Reset() {
@@ -132,6 +136,9 @@ cl_kernel OCLManager::GetResetKernel() {
 }
 cl_kernel OCLManager::GetReduceQueueKernel() {
 	return reduce_queue_k;
+}
+cl_kernel OCLManager::GetComputeProcessorCostKernel() {
+	return compute_processor_cost_k;
 }
 cl_kernel OCLManager::GetSortKernel(bool smallKernel) {
 	if(smallKernel)
@@ -153,6 +160,9 @@ void OCLManager::ReleaseResetKernel() {
 }
 void OCLManager::ReleaseReduceQueueKernel() {
 	clReleaseKernel(reduce_queue_k);
+}
+void OCLManager::ReleaseComputeProcessorCostKernel() {
+	clReleaseKernel(compute_processor_cost_k);
 }
 void OCLManager::ReleaseSortKernel() {
 	clReleaseKernel(m_MergesortStartKernel);
