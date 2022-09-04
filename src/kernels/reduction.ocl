@@ -18,7 +18,7 @@ kernel void reduce_queue(global int* restrict output, const global int2* restric
 {
 	const int global_index = get_global_id(0);
 
-	if(global_index == 0)print(input, npairs, false);
+	//if(global_index == 0)print(input, npairs, false);
 
 	int2 pair = global_index < npairs ? input[global_index] : (int2)(0, 0);
 
@@ -40,5 +40,5 @@ kernel void reduce_queue(global int* restrict output, const global int2* restric
 		output[get_group_id(0)] = value;
 	
 		
-	if(global_index == 0)print(output, npairs, false);
+	//if(global_index == 0)print(output, npairs, false);
 }

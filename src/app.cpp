@@ -73,66 +73,60 @@ int main(int argc, char* argv[]) {
 		isVectorizedVersion |= (strcmp(userResponseToVectorizeQuestion.c_str(), "1") == 0);*/
 
 		std::string path = ".\\data_set\\raw";
-		dataSetName = "";
 		for (const auto& entry : fs::directory_iterator(path)) {
 			dataSetName = entry.path().string();
-			break;
+
+
+			if (isVectorizedVersion) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::RectangularVec8);
+			else OCLManager::Init(ComputeMetricsVersion::Rectangular);
+
+			//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
+			DAG = Graph<int>::initDagWithDataSet(dataSetName.c_str());
+			int n_nodes = DAG->len;
+
+			if (isVectorizedVersion)cout << "vectorized version" << endl << endl;
+			else cout << "standard version" << endl << endl;
+			for (int i = 0; i < repeatNTimes; i++)
+			{
+				//int count = 0;
+				//cout << count++ << endl;
+				start_time = std::chrono::system_clock::now();
+
+				OCLBufferManager::Init(n_nodes, DAG->adj_len, DAG->adj_reverse_len, isVectorizedVersion);
+
+				cl_event entry_discover_evt;
+				std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
+
+				cl_event* compute_metrics_evt;
+				if (isVectorizedVersion) std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
+				else std::tie(compute_metrics_evt, metrics) = ComputeMetrics::Run(DAG, entrypoints);
+
+				cl_event* sort_task_evts;
+				std::tie(sort_task_evts, ordered_metrics) = SortMetrics::MergeSort(metrics, n_nodes);
+
+				processor_assignment::ScheduleTasksOnProcessors(DAG, ordered_metrics);
+
+				end_time = std::chrono::system_clock::now();
+
+				//METRICHE
+				measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, n_nodes);
+				//VERIFICA DELLA CORRETTEZZA
+				verify();
+
+				//PULIZIA FINALE
+				delete[] entrypoints;
+				delete[] metrics;
+				delete[] ordered_metrics;
+
+				delete[] compute_metrics_evt;
+				delete[] sort_task_evts;
+
+				OCLBufferManager::Release();
+				OCLManager::Reset();
+				cout << "-----------------END LOOP " << i + 1 << "/" << repeatNTimes << "---------------------" << endl;
+			}
+			delete DAG;
 		}
-
-		if (strcmp(dataSetName.c_str(), "") == 0) {
-			system("PAUSE");
-			return 0;
-		}
-
-		if (isVectorizedVersion) OCLManager::InitVectorized(VectorizedComputeMetricsVersion::RectangularVec8);
-		else OCLManager::Init(ComputeMetricsVersion::Rectangular);
-
-		//LEGGERE IL DATASET E INIZIALIZZARE LA DAG
-		DAG = Graph<int>::initDagWithDataSet(dataSetName.c_str());
-		int n_nodes = DAG->len;
-
-		if (isVectorizedVersion)cout << "vectorized version" << endl << endl;
-		else cout << "standard version" << endl << endl;
-		for (int i = 0; i < repeatNTimes; i++)
-		{
-			//int count = 0;
-			//cout << count++ << endl;
-			start_time = std::chrono::system_clock::now();
-
-			OCLBufferManager::Init(n_nodes, DAG->adj_len, DAG->adj_reverse_len, isVectorizedVersion);
-
-			cl_event entry_discover_evt;
-			std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
-
-			cl_event* compute_metrics_evt;
-			if (isVectorizedVersion) std::tie(compute_metrics_evt, metrics) = ComputeMetrics::RunVectorized(DAG, entrypoints);
-			else std::tie(compute_metrics_evt, metrics) = ComputeMetrics::Run(DAG, entrypoints);
-
-			cl_event* sort_task_evts;
-			std::tie(sort_task_evts, ordered_metrics) = SortMetrics::MergeSort(metrics, n_nodes);
-
-			processor_assignment::ScheduleTasksOnProcessors(DAG, ordered_metrics);
-
-			end_time = std::chrono::system_clock::now();
-
-			//METRICHE
-			measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, n_nodes);
-			//VERIFICA DELLA CORRETTEZZA
-			verify();
-
-			//PULIZIA FINALE
-			delete[] entrypoints;
-			delete[] metrics;
-			delete[] ordered_metrics;
-
-			delete[] compute_metrics_evt;
-			delete[] sort_task_evts;
-
-			OCLBufferManager::Release();
-			OCLManager::Reset();
-			cout << "-----------------END LOOP " << i + 1 << "/" << repeatNTimes << "---------------------" << endl;
-		}
-		delete DAG;
 
 		cout << "-----------------------------------------" << endl;
 		cout << "-----------------END---------------------" << endl;
@@ -142,7 +136,7 @@ int main(int argc, char* argv[]) {
 		_CrtDumpMemoryLeaks();
 #endif // DEBUG_MEMORY_LEAK
 
-		//system("PAUSE");
+		system("PAUSE");
 //
 //#if WINDOWS
 //		exec("cls");
@@ -150,15 +144,7 @@ int main(int argc, char* argv[]) {
 //		exec("clear");
 //#endif
 
-		//cout << exec(".\\utils\\run_next_test.cmd") << endl<<endl;
-		//exec("/k C:\\Users\\gabry\\Universita\\GPGPU\\Progetto\\SchedulingWithGPUVS\\src\\build\\Debug\\SchedulingWithGPU.exe 11 1 1");
-		stringstream ss;
-		ss << "del " << dataSetName;
-		string remove_used_dataset = ss.str();
-		cout << remove_used_dataset << endl;
-		exec(remove_used_dataset.c_str());
-
-		goto start;
+		//goto start;
 	}
 	catch (const std::exception& e)
 	{

@@ -11,10 +11,10 @@
 #define DEBUG_ENTRY_DISCOVER        DEBUG_ALL | false
 #define DEBUG_COMPUTE_METRICS       DEBUG_ALL | false
 #define DEBUG_SORT                  DEBUG_ALL | false
-#define DEBUG_PROCESSOR_ASSIGNMENT  DEBUG_ALL | true
+#define DEBUG_PROCESSOR_ASSIGNMENT  DEBUG_ALL | false
 #define DEBUG_OCL_METRICS           DEBUG_ALL | true
-#define DEBUG_HEAP_ALLOC            DEBUG_ALL | true
-#define DEBUG_MEMORY_LEAK           DEBUG_ALL | true
+#define DEBUG_HEAP_ALLOC            DEBUG_ALL | false
+#define DEBUG_MEMORY_LEAK           DEBUG_ALL | false
 /*debug*/
 
 /*DAG*/

@@ -100,6 +100,17 @@ void processor_assignment::ScheduleTasksOnProcessors(Graph<edge_t>* DAG, metrics
 		print(task_processor_assignment, n_nodes, "\n", true, 0);
 	}
 
+	cout << "processors assigned: (processor id, EST, EFT)" << endl;
+	if (DEBUG_PROCESSOR_ASSIGNMENT) {
+		print(task_processor_assignment, n_nodes, "\n", true, 0);
+	}
+	else { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		print(task_processor_assignment, min(n_nodes, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(task_processor_assignment, n_nodes, "\n", true, n_nodes - 5);
+	}
+	cout << endl;
+
 	delete[] processorsNextSlotStart;
 	delete[] task_processor_assignment;
 }

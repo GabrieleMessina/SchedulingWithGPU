@@ -39,7 +39,6 @@ tuple<cl_event*, metrics_t*> SortMetrics::MergeSort(metrics_t* metrics, int n_no
 	else 
 		BufferManager.GetOrderedMetricsResult(ordered_metrics, &sort_task_evts_end, 1);
 
-	printf("array sorted\n");
 	cout << "metrics sorted: (rank, level, task_id)" << endl;
 	if (DEBUG_SORT) {
 		cout << "sort kernel launch count:" << task_event_launched << endl;
