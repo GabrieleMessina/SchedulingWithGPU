@@ -11,8 +11,8 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseS
 	OCLBufferManager* instance = DBG_NEW OCLBufferManager();
 	instance->n_nodes = nNodes;
 	instance->edges_memsize = adjSize * sizeof(edge_t);
-	instance->edges_weights_memsize = adjSize * sizeof(edge_t);
 	instance->edges_reverse_memsize = adjReverseSize * sizeof(edge_t);
+	instance->edges_weights_reverse_memsize = instance->edges_reverse_memsize;
 	instance->entrypoints_memsize = nNodes * sizeof(int);
 	instance->n_entrypoints_memsize = sizeof(int);
 	instance->nodes_memsize = nNodes * sizeof(int);
@@ -26,7 +26,7 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseS
 	//instance->local_queue_memsize = (vectorized) ? CLManager.preferred_wg_size * sizeof(cl_int4) : nNodes * sizeof(int); //TODO: min(preferred e n_nodes/4);
 
 	instance->InitGraphEdges();
-	instance->InitGraphWeights();
+	instance->InitGraphWeightsReverse();
 	instance->InitGraphReverseEdges();
 	instance->InitNEntrypoints();
 	instance->InitEntrypoints();
@@ -76,8 +76,8 @@ void OCLBufferManager::InitGraphEdges() {
 	graph_edges = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, edges_memsize, NULL, &err);
 	ocl_check(err, "create buffer graph_edges");
 }
-void OCLBufferManager::InitGraphWeights() {
-	graph_edges_weights = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, edges_weights_memsize, NULL, &err);
+void OCLBufferManager::InitGraphWeightsReverse() {
+	graph_edges_weights_reverse = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE, edges_weights_reverse_memsize, NULL, &err);
 	ocl_check(err, "create buffer graph_edges_weights");
 }
 void OCLBufferManager::InitGraphReverseEdges() {
@@ -125,8 +125,8 @@ void OCLBufferManager::InitNodes() {
 cl_mem OCLBufferManager::GetGraphEdges() {
 	return graph_edges;
 }
-cl_mem OCLBufferManager::GetGraphWeights() {
-	return graph_edges_weights;
+cl_mem OCLBufferManager::GetGraphWeightsReverse() {
+	return graph_edges_weights_reverse;
 }
 cl_mem OCLBufferManager::GetGraphReverseEdges() {
 	return graph_reverse_edges;
@@ -168,10 +168,10 @@ void OCLBufferManager::SetGraphEdges(const void* adj) {
 		0, NULL, &write_edges_evt);
 	ocl_check(err, "write dataset edges into graph_edges");
 }
-void OCLBufferManager::SetGraphWeights(const void* weights) {
-	err = clEnqueueWriteBuffer(OCLManager::queue, GetGraphWeights(), CL_TRUE,
-		0, edges_weights_memsize, weights,
-		0, NULL, &write_edges_weights_evt);
+void OCLBufferManager::SetGraphWeightsReverse(const void* weights) {
+	err = clEnqueueWriteBuffer(OCLManager::queue, GetGraphWeightsReverse(), CL_TRUE,
+		0, edges_weights_reverse_memsize, weights,
+		0, NULL, &write_edges_weights_reverse_evt);
 	ocl_check(err, "write dataset weights into graph_edges");
 }
 void OCLBufferManager::SetGraphReverseEdges(const void* adj) {
@@ -268,9 +268,9 @@ void OCLBufferManager::GetGraphEdgesResult(void* out, cl_event *eventsToWait, in
 	ocl_check(err, "read buffer graph_edges");
 }
 void OCLBufferManager::GetGraphWeightsResult(void* out, cl_event *eventsToWait, int numberOfEventsToWait) {
-	err = clEnqueueReadBuffer(OCLManager::queue, GetGraphWeights(), CL_TRUE,
-		0, edges_weights_memsize, out,
-		numberOfEventsToWait, eventsToWait, &read_edges_weights_evt);
+	err = clEnqueueReadBuffer(OCLManager::queue, GetGraphWeightsReverse(), CL_TRUE,
+		0, edges_weights_reverse_memsize, out,
+		numberOfEventsToWait, eventsToWait, &read_edges_weights_reverse_evt);
 	ocl_check(err, "read buffer graph_edges_weights");
 }
 void OCLBufferManager::GetGraphEdgesReverseResult(void* out, cl_event *eventsToWait, int numberOfEventsToWait) {
@@ -326,8 +326,8 @@ void OCLBufferManager::GetNodesResult(void* out, cl_event* eventsToWait, int num
 void OCLBufferManager::ReleaseGraphEdges() {
 	clReleaseMemObject(GetGraphEdges());
 }
-void OCLBufferManager::ReleaseGraphWeights() {
-	clReleaseMemObject(GetGraphWeights());
+void OCLBufferManager::ReleaseGraphWeightsReverse() {
+	clReleaseMemObject(GetGraphWeightsReverse());
 }
 void OCLBufferManager::ReleaseGraphReverseEdges() {
 	clReleaseMemObject(GetGraphReverseEdges());

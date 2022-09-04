@@ -899,8 +899,9 @@ kernel void compute_metrics_standard_with_rectangular_matrix(global int* restric
 	//printf("%d, %d, %d\n", current_node_index, metriche[i].y, queue_[current_node_index]);
 	if (metriche[i].y > 0)return;
 	int edge_weight = 0;
+#pragma unroll
 	for (int j = 0; j < max_adj_reverse_dept; j++) {
-		int matrixToArrayIndex = matrix_to_array_indexes(current_node_index, j, n_nodes);
+		int matrixToArrayIndex = matrix_to_array_indexes(j,current_node_index, n_nodes);
 		if(edges_weights[matrixToArrayIndex] > -1){
 			edge_weight += edges_weights[matrixToArrayIndex];
 		}
@@ -1178,6 +1179,7 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 
 		int node_index = work_item * 8 + i;
 		int edge_weight = 0;
+#pragma unroll
 		for (int j = 0; j < max_adj_reverse_dept; j++) {
 			int matrixToArrayIndex = matrix_to_array_indexes(j, node_index, n_nodes);
 			if(edges_weights[matrixToArrayIndex] > -1){

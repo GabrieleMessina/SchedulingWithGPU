@@ -13,6 +13,7 @@
 #include <time.h>
 #include <string.h>
 #include <iostream>
+#include <fstream>
 
 #define BUFSIZE 4096
 char platform_name[BUFSIZE];
@@ -79,9 +80,11 @@ cl_platform_id select_platform() {
 	ocl_check(err, "getting platform IDs");
 
 	char buff[BUFSIZE];
-	FILE* config = fopen("./utils/config.txt", "a+");
-	const char* const env = fgets(buff, 2, config);
-	fclose(config);
+	std::ifstream config;
+	config.open("./utils/config.txt");
+	if (!config) throw std::runtime_error("config open failed!");
+	config >> buff;
+	config.close();
 
 	if (buff && buff[0] != '\0')platform_number = atoi(buff);
 

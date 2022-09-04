@@ -12,15 +12,15 @@ void print(global metrics_tt* v, int len, bool withIndexes) {
 	printf("\n");
 }
 
-kernel void reduce_queue(global int* restrict output, const global metrics_tt* restrict input,
+kernel void reduce_queue(global int* restrict output, const global int2* restrict input,
 	local int* restrict lmem,
 	int npairs)
 {
 	const int global_index = get_global_id(0);
 
-	//if(global_index == 0)print(input, npairs, false);
+	if(global_index == 0)print(input, npairs, false);
 
-	metrics_tt pair = global_index < npairs ? input[global_index] : (metrics_tt)(0, 0, 0);
+	int2 pair = global_index < npairs ? input[global_index] : (int2)(0, 0);
 
 	const int local_index = get_local_id(0);
 
@@ -38,4 +38,7 @@ kernel void reduce_queue(global int* restrict output, const global metrics_tt* r
 
 	if (local_index == 0)
 		output[get_group_id(0)] = value;
+	
+		
+	if(global_index == 0)print(output, npairs, false);
 }

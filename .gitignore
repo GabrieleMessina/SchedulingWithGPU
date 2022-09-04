@@ -77,3 +77,4 @@ src/execution_results.csv
 /TaskGenerator/TaskGenerator/bin/Debug/net6.0
 /TaskGenerator/TaskGenerator/obj
 *.user
+/.vs

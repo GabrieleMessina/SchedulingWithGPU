@@ -1,8 +1,6 @@
 #include "dag.h"
 #include "dag_vector.cpp"
 #include "dag_rectangular.cpp"
-#include <filesystem>
-namespace fs = std::filesystem;
 #include "utils.h"
 
 edge_t* adj = NULL; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
@@ -178,11 +176,11 @@ bool Graph<T>::hasEdgeByIndex(int indexOfa, int indexOfb){
 template <>
 Graph<int>* Graph<int>::initDagWithDataSet(const char* dataset_file_name) {
 	ifstream data_set;
-	stringstream ss;
-	ss << "./data_set/" << dataset_file_name << ".txt";
-	string dataset_file_name_with_extension = ss.str();
-	data_set.open(dataset_file_name_with_extension);
-	cout << "dataset_file_name_with_extension: " << dataset_file_name_with_extension << endl;
+	//stringstream ss;
+	//ss << "./data_set/raw/" << dataset_file_name << ".txt";
+	//string dataset_file_name_with_extension = ss.str();
+	data_set.open(dataset_file_name);
+	cout << "dataset_file_name_with_extension: " << dataset_file_name << endl;
 	if (!data_set.is_open()) {
 		fprintf(stderr, "%s\n", "impossibile aprire il dataset");
 		exit(1);

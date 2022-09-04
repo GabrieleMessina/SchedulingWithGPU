@@ -5,15 +5,16 @@
 /*ocl*/
 
 /*debug*/
-#define DEBUG_MEMORY_LEAK false
-#define DEBUG_OCL_INIT false
-#define DEBUG_DAG_INIT false
-#define DEBUG_ENTRY_DISCOVER false
-#define DEBUG_COMPUTE_METRICS false
-#define DEBUG_SORT false
-#define DEBUG_PROCESSOR_ASSIGNMENT true
-#define DEBUG_OCL_METRICS true
-#define DEBUG_HEAP_ALLOC false
+#define DEBUG_ALL false
+#define DEBUG_OCL_INIT              DEBUG_ALL | false
+#define DEBUG_DAG_INIT              DEBUG_ALL | false
+#define DEBUG_ENTRY_DISCOVER        DEBUG_ALL | false
+#define DEBUG_COMPUTE_METRICS       DEBUG_ALL | false
+#define DEBUG_SORT                  DEBUG_ALL | false
+#define DEBUG_PROCESSOR_ASSIGNMENT  DEBUG_ALL | true
+#define DEBUG_OCL_METRICS           DEBUG_ALL | true
+#define DEBUG_HEAP_ALLOC            DEBUG_ALL | true
+#define DEBUG_MEMORY_LEAK           DEBUG_ALL | true
 /*debug*/
 
 /*DAG*/

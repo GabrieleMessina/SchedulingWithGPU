@@ -120,6 +120,7 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics(Graph<int>* DAG, in
 	BufferManager.ReleaseNextQueue();
 	BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
+	BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -204,6 +205,7 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_rectangular(Graph<i
 	BufferManager.ReleaseNextQueue();
 	BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
+	BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -300,6 +302,8 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v1(Graph
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
 	BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -379,6 +383,8 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v2(Graph
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
 	BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -466,6 +472,8 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_rectangu
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
 	BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -526,6 +534,7 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectang
 		printf("\n");*/
 
 		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+		//run_reset_kernel(BufferManager.GetQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 
 		//moreToProcess = !isEmpty(queue, queue_len, cl_int8{ -1,-1,-1,-1,-1,-1,-1,-1 });
 		count++;
@@ -545,6 +554,8 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectang
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
 	BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -618,7 +629,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip, Grap
 	cl_mem next_queue_GPU = (flip) ? BufferManager.GetQueue() : BufferManager.GetNextQueue();
 	cl_mem graph_edges_GPU = BufferManager.GetGraphEdges();
 	cl_mem graph_edges_reverse_GPU = BufferManager.GetGraphReverseEdges();
-	cl_mem graph_weights_GPU = BufferManager.GetGraphWeights();
+	cl_mem graph_weights_GPU = BufferManager.GetGraphWeightsReverse();
 	cl_mem metrics_GPU = BufferManager.GetMetrics();
 
 	cl_int err;
@@ -682,7 +693,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	cl_mem queue_GPU = BufferManager.GetQueue();
 	cl_mem graph_edges_GPU = BufferManager.GetGraphEdges();
 	cl_mem graph_edges_reverse_GPU = BufferManager.GetGraphReverseEdges();
-	cl_mem graph_weights_GPU = BufferManager.GetGraphWeights();
+	cl_mem graph_weights_GPU = BufferManager.GetGraphWeightsReverse();
 	cl_mem metrics_GPU = BufferManager.GetMetrics();
 
 	cl_int err;
