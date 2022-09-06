@@ -39,7 +39,7 @@ void verify();
 std::chrono::system_clock::time_point start_time;
 std::chrono::system_clock::time_point end_time;
 
-int repeatNTimes = 10;
+int repeatNTimes = 20;
 bool isVectorizedVersion = false;
 string dataSetName = "";
 string userResponseToVectorizeQuestion = "1";
@@ -111,8 +111,6 @@ int main(int argc, char* argv[]) {
 
 				//METRICHE
 				measurePerformance(entry_discover_evt, compute_metrics_evt, sort_task_evts, /*processor_assignment_evts (non usiamo la GPU)*/ sort_task_evts, n_nodes);
-				//VERIFICA DELLA CORRETTEZZA
-				verify();
 
 				//PULIZIA FINALE
 				delete[] entrypoints;
@@ -255,13 +253,5 @@ void measurePerformance(cl_event entry_discover_evt, cl_event* compute_metrics_e
 }
 
 void verify() {
-	//TODO: calcolare le metriche su CPU e verificare che siano identiche a quelle calcolate su GPU;
-	//scandire ordered_metrics e verificare che sia ordinati
-	for (int i = 0; i < DAG->len - 1; ++i) {
-		if (ordered_metrics[i] > ordered_metrics[i + 1]) {
-			fprintf(stderr, "ordered_metrics[%d] = (%d, %d) > ordered_metrics[%d] = (%d, %d)\n", i, ordered_metrics[i].x, ordered_metrics[i].y, i + 1, ordered_metrics[i + 1].x, ordered_metrics[i + 1].y);
-			error("mismatch");
-		}
-	}
-	printf("Everything sorted, verified\n");
+	//TODO: calcolare il risultato finale e verificare che sia identico a quelle calcolate su GPU;
 }

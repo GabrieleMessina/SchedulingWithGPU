@@ -137,6 +137,9 @@ cl_event* processor_assignment::ScheduleTasksOnProcessors(Graph<edge_t>* DAG, me
 		cout << "[...]" << endl << endl;
 		print(task_processor_assignment, n_nodes, "\n", true, n_nodes - 5);
 	}
+	else {
+		cout << "processors assigned" << endl;
+	}
 	cout << endl;
 
 	BufferManager.ReleaseGraphEdges();
