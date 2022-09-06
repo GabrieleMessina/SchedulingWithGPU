@@ -101,7 +101,6 @@ __kernel void Sort_MergesortStart(const __global metrics_tt *inArray, __global m
 __kernel void Sort_MergesortGlobalSmall(const __global metrics_tt* inArray, __global metrics_tt* outArray, const uint stride, const uint size)
 {
 	__local metrics_tt local_buffer[MAX_LOCAL_SIZE * 2];
-	//printf("get_id: %d, %d, %d\n", get_local_id(0), get_group_id(0), get_global_id(0));
 
 	// within one stride merge the different parts
 	const uint baseIndex = get_global_id(0) * stride;//ogni work item lavora su due item la prima volta, poi 4, 8 ecc.
@@ -119,9 +118,10 @@ __kernel void Sort_MergesortGlobalSmall(const __global metrics_tt* inArray, __gl
 
 #pragma unroll
 	for (uint i = baseIndex; i < (baseIndex + stride); i++) { // per ogni elemento di mia competenza
+		//printf("%d: ciclo start %d di %d right: %d left: %d middle: %d stride: %d base index: %d \n", baseLocalIndex, i, baseIndex + stride -1, right, left, middle, stride, baseIndex);
 		// check which value should be written out
+		selectLeft = (left < middle && (right == (baseIndex + stride) || lte(local_buffer[baseLocalIndex + 1], local_buffer[baseLocalIndex]))) == 1;
 		local_buffer[baseLocalIndex + (int)selectLeft] = (selectLeft) ? inArray[left] : inArray[right];
-		selectLeft = left < middle && (right == (baseIndex + stride) || lte(local_buffer[baseLocalIndex + 1], local_buffer[baseLocalIndex]));
 
 		// write out
 		outArray[i] = (selectLeft) ? local_buffer[baseLocalIndex + 1] : local_buffer[baseLocalIndex]; //PROBLEMATIC PART! WE RUN OUT OF MEMORY
