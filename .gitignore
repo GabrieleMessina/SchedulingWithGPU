@@ -5,6 +5,7 @@ src/.vs/**
 src/build
 src/utils/hidden
 src/Debug
+/src/x64/
 
 ##Latex file to ignore
 *.aux
