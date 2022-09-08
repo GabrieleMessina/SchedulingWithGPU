@@ -10,9 +10,11 @@ public static class TaskGenerator
     static readonly Random random = new();
     static readonly float skew = 2f;
     static readonly float wDag = 20f; //average computational cost of the graph
+    static readonly bool PrintDebugInfoToConsole = false;
+    static readonly int NumberOfGenerationForTaskCount = 5;
 
     //static int[] possibleTaskCounts = new[] {30,40,50,60,70,80,100}; //la versione vettorizzata del kernel richiede che n_nodes sia potenza di 2
-    static readonly int[] possibleTaskCounts = new[] { 8, 16, 32, 64, 128, 256, 512, 1024 };
+    static readonly int[] possibleTaskCounts = new[] { 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     static int taskCount;
     static readonly float[] possibleShapes = new[] { 0.5f, 1.0f, 2.0f };
     static float shape;
@@ -37,19 +39,22 @@ public static class TaskGenerator
 
     static async Task Main(string[] args)
     {
-        ParseInput(args);
+        for(int i=0; i< NumberOfGenerationForTaskCount; i++)
+        {
+            ParseInput(args);
 
-        InitGraphWithVetexes();
+            InitGraphWithVetexes();
 
-        SubdivideVertexesInLevels();
+            SubdivideVertexesInLevels();
 
-        CreateEdges();
+            CreateEdges();
 
-        ComputeCostsForEachTaskInProcessors();
+            ComputeCostsForEachTaskInProcessors();
 
-        PrintInfo();
+            PrintInfo();
 
-        await PrintDataSetOnFile();
+            await PrintDataSetOnFile();
+        }
     }
 
     static async Task PrintDataSetOnFile()
@@ -113,16 +118,19 @@ public static class TaskGenerator
 
 
         //print costs info
-        for (int i = 0; i < taskCount; i++)
+        if (PrintDebugInfoToConsole)
         {
-            Console.Write($"{i} ==> ");
-            for (int j = 0; j < processorsCount; j++)
+            for (int i = 0; i < taskCount; i++)
             {
-                Console.Write($"{costForTaskInProcessor[i][j]}, ");
+                Console.Write($"{i} ==> ");
+                for (int j = 0; j < processorsCount; j++)
+                {
+                    Console.Write($"{costForTaskInProcessor[i][j]}, ");
+                }
+                Console.WriteLine();
             }
             Console.WriteLine();
         }
-        Console.WriteLine();
     }
 
     static void CreateEdges()
@@ -140,20 +148,23 @@ public static class TaskGenerator
         }
 
         //print edges info
-        var count = 0;
-        for (int i = 0; i < taskCount; i++)
+        if (PrintDebugInfoToConsole)
         {
-            Console.Write($"{i} ==> ");
-            var linkedNodes = graph.Edges.Where(e => e.Source == i).Select(e => e.Target);
-            Console.Write(string.Join(", ", linkedNodes));
+            var count = 0;
+            for (int i = 0; i < taskCount; i++)
+            {
+                Console.Write($"{i} ==> ");
+                var linkedNodes = graph.Edges.Where(e => e.Source == i).Select(e => e.Target);
+                Console.Write(string.Join(", ", linkedNodes));
+                Console.WriteLine();
+
+                count += linkedNodes.Count();
+            }
             Console.WriteLine();
 
-            count += linkedNodes.Count();
+            var mean = (float)count / taskCount;
+            Console.WriteLine($"mean OutDegree espected: {outDegree}, actual {mean}\n");
         }
-        Console.WriteLine();
-
-        var mean = (float)count / taskCount;
-        Console.WriteLine($"mean OutDegree espected: {outDegree}, actual {mean}\n");
     }
 
 
@@ -197,27 +208,31 @@ public static class TaskGenerator
             }
         }
 
-        Console.WriteLine($"height mean: {uniformHeight.Mean} == {heightMean}");
-        Console.WriteLine(uniformHeight.ToString());
-        Console.WriteLine($"width mean: {uniformWidth.Mean} == {widthMean}");
-        Console.WriteLine(uniformWidth.ToString());
-
-        Console.WriteLine();
-        Console.WriteLine("Livello per ogni task: ");
-        for (int i = 0; i < levelForTask.Length; i++)
+        if (PrintDebugInfoToConsole)
         {
-            Console.Write(levelForTask[i]);
-            Console.Write(" ");
+
+            Console.WriteLine($"height mean: {uniformHeight.Mean} == {heightMean}");
+            Console.WriteLine(uniformHeight.ToString());
+            Console.WriteLine($"width mean: {uniformWidth.Mean} == {widthMean}");
+            Console.WriteLine(uniformWidth.ToString());
+
+            Console.WriteLine();
+            Console.WriteLine("Livello per ogni task: ");
+            for (int i = 0; i < levelForTask.Length; i++)
+            {
+                Console.Write(levelForTask[i]);
+                Console.Write(" ");
+            }
+            Console.WriteLine();
         }
-        Console.WriteLine();
     }
 
     static void PrintInfo()
     {
-        Console.WriteLine();
-        Console.WriteLine("Values: {0}: {1} | {2}: {3} | {4}: {5} | {6}: {7} | {8}: {9} | {10}: {11}| {12}: {13}",
-            nameof(taskCount), taskCount, nameof(shape), shape, nameof(outDegree), outDegree, nameof(comCompRatio), comCompRatio, nameof(compCostRange), compCostRange, nameof(height), height, nameof(processorsCount), processorsCount);
-        Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine("Values: {0}: {1} | {2}: {3} | {4}: {5} | {6}: {7} | {8}: {9} | {10}: {11}| {12}: {13}",
+                nameof(taskCount), taskCount, nameof(shape), shape, nameof(outDegree), outDegree, nameof(comCompRatio), comCompRatio, nameof(compCostRange), compCostRange, nameof(height), height, nameof(processorsCount), processorsCount);
+            Console.WriteLine();
     }
 
     static void ParseInput(string[] args)
