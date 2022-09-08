@@ -106,17 +106,18 @@ void OCLManager::InitVectorized(VectorizedComputeMetricsVersion compute_metrics_
 
 void OCLManager::Release() {
 	clFinish(queue);
-	clReleaseProgram(entry_discover_prog);
-	clReleaseProgram(compute_metrics_prog);
-	clReleaseProgram(reduce_queue_prog);
-	clReleaseProgram(sort_prog);
-	clReleaseContext(ctx);
 	ReleaseEntryDiscoverKernel();
 	ReleaseComputeMetricsKernel();
 	ReleaseReduceQueueKernel();
 	ReleaseResetKernel();
 	ReleaseSortKernel();
 	ReleaseComputeProcessorCostKernel();
+	clReleaseProgram(entry_discover_prog);
+	clReleaseProgram(compute_metrics_prog);
+	clReleaseProgram(reduce_queue_prog);
+	clReleaseProgram(sort_prog);
+	clReleaseCommandQueue(queue);
+	clReleaseContext(ctx);
 }
 
 void OCLManager::Reset() {

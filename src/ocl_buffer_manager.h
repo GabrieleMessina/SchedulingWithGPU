@@ -91,8 +91,8 @@ public:
 	cl_event read_costs_on_processor_evt;
 	cl_event write_costs_on_processor_evt;
 
-	static OCLBufferManager Init(int nNodes, int adjSize, int adjReverseSize, int number_of_processors, bool vectorized = false);
-	static void Release();
+	static OCLBufferManager* Init(int nNodes, int adjSize, int adjReverseSize, int number_of_processors, bool vectorized = false);
+	void Release();
 	~OCLBufferManager();
 
 	static OCLBufferManager *GetInstance();

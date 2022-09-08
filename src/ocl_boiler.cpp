@@ -79,14 +79,14 @@ cl_platform_id select_platform() {
 	err = clGetPlatformIDs(nplats, plats, NULL);
 	ocl_check(err, "getting platform IDs");
 
-	char buff[BUFSIZE];
+	std::string buff = "";
 	std::ifstream config;
 	config.open("./utils/config.txt");
 	if (!config) throw std::runtime_error("config open failed!");
 	config >> buff;
 	config.close();
 
-	if (buff && buff[0] != '\0')platform_number = atoi(buff);
+	if (strcmp(buff.c_str(), "") != 0)platform_number = atoi(buff.c_str());
 
 	if (platform_number >= nplats) {
 		fprintf(stderr, "no platform number %u", platform_number);
@@ -177,12 +177,12 @@ cl_command_queue create_queue(cl_context ctx, cl_device_id d) {
 
 // Compile the device part of the program, stored in the external
 // file `fname`, for device `dev` in context `ctx`
+char src_buf[BUFSIZE + 1];
 cl_program create_program(const char* const fname, cl_context ctx,
 	cl_device_id dev) {
 	cl_int err, errlog;
 	cl_program prg;
 
-	char src_buf[BUFSIZE + 1];
 	char* log_buf;
 	size_t logsize;
 	const char* buf_ptr = src_buf;

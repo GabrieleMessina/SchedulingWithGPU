@@ -197,6 +197,13 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_rectangular(Graph<i
 		print(metrics, DAG->len, "\n", true, 0);
 		cout<<"\n";
 	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
+	}
 	cout << endl;
 
 	//PULIZIA FINALE
@@ -296,6 +303,13 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v1(Graph
 		print(metrics, DAG->len, "\n", true, 0);
 		cout << "\n";
 	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
+	}
 
 	//PULIZIA FINALE
 	BufferManager.ReleaseNodes();
@@ -376,6 +390,13 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v2(Graph
 		cout << "number of cycles to converge:" << count << endl;
 		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
+	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
 	}
 
 	//PULIZIA FINALE
@@ -465,6 +486,13 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_rectangu
 		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
 	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
+	}
 
 		/*BufferManager.ReleaseQueue(queue);*/
 	//PULIZIA FINALE
@@ -547,6 +575,13 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectang
 		cout << "number of cycles to converge:" << count << endl;
 		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
+	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
 	}
 
 	//PULIZIA FINALE

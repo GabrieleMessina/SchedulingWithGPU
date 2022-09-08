@@ -40,7 +40,7 @@ std::chrono::system_clock::time_point start_time;
 std::chrono::system_clock::time_point end_time;
 
 int repeatNTimes = 20;
-bool isVectorizedVersion = false;
+bool isVectorizedVersion = true;
 string dataSetName = "";
 string userResponseToVectorizeQuestion = "1";
 
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
 				//cout << count++ << endl;
 				start_time = std::chrono::system_clock::now();
 
-				OCLBufferManager::Init(n_nodes, DAG->adj_len, DAG->adj_reverse_len, DAG->number_of_processors, isVectorizedVersion);
+				OCLBufferManager* bufferMananger = OCLBufferManager::Init(n_nodes, DAG->adj_len, DAG->adj_reverse_len, DAG->number_of_processors, isVectorizedVersion);
 
 				cl_event entry_discover_evt;
 				std::tie(entry_discover_evt, entrypoints) = EntryDiscover::Run(DAG);
@@ -121,11 +121,12 @@ int main(int argc, char* argv[]) {
 				delete[] sort_task_evts;
 				delete[] processor_assignment_evts;
 
-				OCLBufferManager::Release();
+				bufferMananger->Release();
 				OCLManager::Reset();
 				cout << "-----------------END LOOP " << i + 1 << "/" << repeatNTimes << "---------------------" << endl;
 			}
 			delete DAG;
+			OCLManager::Release();
 		}
 
 		cout << "-----------------------------------------" << endl;

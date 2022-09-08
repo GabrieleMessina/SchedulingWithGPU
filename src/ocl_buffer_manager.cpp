@@ -7,7 +7,7 @@
 OCLBufferManager *OCLBufferManager::instance = NULL;
 OCLManager OCLBufferManager::CLManager;
 
-OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseSize, int number_of_processors, bool vectorized) {
+OCLBufferManager* OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseSize, int number_of_processors, bool vectorized) {
 	OCLBufferManager* instance = DBG_NEW OCLBufferManager();
 	instance->n_nodes = nNodes;
 	instance->edges_memsize = adjSize * sizeof(edge_t);
@@ -50,24 +50,31 @@ OCLBufferManager OCLBufferManager::Init(int nNodes, int adjSize, int adjReverseS
 	instance->InitLocalQueueTemp();*/
 
 	OCLBufferManager::instance = instance;
-	return *instance;
+	return instance;
 }
 
 OCLBufferManager::~OCLBufferManager() {
 	/*free(metrics);
 	free(queue);
 	free(next_queue);*/
-	/*ReleaseGraphEdges();
-	ReleaseNEntrypoints();
-	ReleaseEntrypoints();
-	ReleaseQueue();
-	ReleaseNextQueue();
-	ReleaseMetrics();
-	ReleaseOrderedMetrics();
-	ReleaseNodes();*/
+	//ReleaseGraphEdges();
+	//ReleaseGraphWeightsReverse();
+	//ReleaseGraphReverseEdges();
+	//ReleaseNEntrypoints();
+	//ReleaseEntrypoints();
+	//ReleaseQueue();
+	//ReleaseNextQueue();
+	//ReleaseMetrics();
+	//ReleaseOrderedMetrics();
+	//ReleaseNodes();
+	//ReleaseProcessorsCost();
+	//ReleaseTaskProcessorAssignment();
+	//ReleaseProcessorNextSlotStart();
+	//ReleaseCostsOnProcessor();
 }
 void OCLBufferManager::Release () {
 	if (instance != NULL) delete instance;
+	OCLBufferManager::instance = NULL;
 }
 
 OCLBufferManager *OCLBufferManager::GetInstance() {

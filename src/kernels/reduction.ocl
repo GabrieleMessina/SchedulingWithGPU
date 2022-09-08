@@ -68,6 +68,8 @@ kernel void compute_processor_cost(
 	
 	const int processor = get_global_id(0);
 
+	if(processor >= number_of_processors) return;
+
 	int cost_on_processor = costs[matrix_to_array_indexes(current_node, processor, number_of_processors)];
 	int cost_of_predecessor_in_same_processor = 0;
 	if (processor_for_max_aft_predecessor == processor) {
