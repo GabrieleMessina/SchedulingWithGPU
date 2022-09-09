@@ -18,7 +18,10 @@ cl_kernel	OCLManager::entry_discover_k,
 			OCLManager::compute_processor_cost_k,
 			OCLManager::m_MergesortGlobalBigKernel,
 			OCLManager::m_MergesortGlobalSmallKernel,
-			OCLManager::m_MergesortStartKernel;
+			OCLManager::m_MergesortStartKernel,
+			OCLManager::m_BitonicsortGlobalBigKernel,
+			OCLManager::m_BitonicsortGlobalSmallKernel,
+			OCLManager::m_BitonicsortStartKernel;
 
 cl_context OCLManager::ctx;
 cl_command_queue OCLManager::queue;
@@ -35,7 +38,6 @@ void OCLManager::InitCommon(const char* entryDiscoverKernelName, const char* com
 	entry_discover_prog = create_program("./kernels/entry_discover.ocl", ctx, d); //165MB
 	compute_metrics_prog = create_program("./kernels/compute_metrics.ocl", ctx, d);
 	reduce_queue_prog = create_program("./kernels/reduction.ocl", ctx, d);
-	sort_prog = create_program("./kernels/sort.ocl", ctx, d);
 
 	entry_discover_k = clCreateKernel(entry_discover_prog, entryDiscoverKernelName, &err);
 	ocl_check(err, "create kernel %s", entryDiscoverKernelName);
@@ -49,13 +51,23 @@ void OCLManager::InitCommon(const char* entryDiscoverKernelName, const char* com
 	ocl_check(err, "create kernel %s", "compute_processor_cost");
 
 	preferred_wg_size = get_preferred_work_group_size_multiple(compute_metrics_k, queue);
+	//preferred_wg_size = 128;
 
+	sort_prog = create_program("./kernels/sort.ocl", ctx, d, preferred_wg_size); //ha bisogno di stare dopo che il preferred wg group size è stato calcolato
+	
 	m_MergesortStartKernel = clCreateKernel(sort_prog, "Sort_MergesortStart", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortStart");
 	m_MergesortGlobalSmallKernel = clCreateKernel(sort_prog, "Sort_MergesortGlobalSmall", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalSmall");
 	m_MergesortGlobalBigKernel = clCreateKernel(sort_prog, "Sort_MergesortGlobalBig", &err);
 	ocl_check(err, "create kernel %s", "Sort_MergesortGlobalBig");
+	
+	m_BitonicsortStartKernel = clCreateKernel(sort_prog, "Sort_BitonicMergesortStart", &err);
+	ocl_check(err, "create kernel %s", "m_BitonicsortStartKernel");
+	m_BitonicsortGlobalSmallKernel = clCreateKernel(sort_prog, "Sort_BitonicMergesortLocal", &err);
+	ocl_check(err, "create kernel %s", "m_BitonicsortGlobalSmallKernel");
+	m_BitonicsortGlobalBigKernel = clCreateKernel(sort_prog, "Sort_BitonicMergesortGlobal", &err);
+	ocl_check(err, "create kernel %s", "m_BitonicsortGlobalBigKernel");
 }
 
 void OCLManager::Init(ComputeMetricsVersion compute_metrics_version) {
@@ -111,6 +123,7 @@ void OCLManager::Release() {
 	ReleaseReduceQueueKernel();
 	ReleaseResetKernel();
 	ReleaseSortKernel();
+	ReleaseBitonicSortKernel();
 	ReleaseComputeProcessorCostKernel();
 	clReleaseProgram(entry_discover_prog);
 	clReleaseProgram(compute_metrics_prog);
@@ -148,6 +161,13 @@ cl_kernel OCLManager::GetSortKernel(bool smallKernel) {
 		return m_MergesortGlobalBigKernel;
 	//clReleaseKernel(OCLManager::m_MergesortStartKernel);
 }
+cl_kernel OCLManager::GetBitonicSortKernel(int startSmallBigKernel) {
+	if (startSmallBigKernel == 0)
+		return m_BitonicsortStartKernel;
+	else if (startSmallBigKernel == 1)
+		return m_BitonicsortGlobalSmallKernel;
+	else return m_BitonicsortGlobalBigKernel;
+}
 
 
 void OCLManager::ReleaseEntryDiscoverKernel() {
@@ -169,4 +189,9 @@ void OCLManager::ReleaseSortKernel() {
 	clReleaseKernel(m_MergesortStartKernel);
 	clReleaseKernel(m_MergesortGlobalSmallKernel);
 	clReleaseKernel(m_MergesortGlobalBigKernel);
+}
+void OCLManager::ReleaseBitonicSortKernel() {
+	clReleaseKernel(m_BitonicsortStartKernel);
+	clReleaseKernel(m_BitonicsortGlobalSmallKernel);
+	clReleaseKernel(m_BitonicsortGlobalBigKernel);
 }

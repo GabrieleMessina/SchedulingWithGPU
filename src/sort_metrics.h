@@ -8,6 +8,8 @@
 class SortMetrics {
 private:
 	static cl_event run_sort_kernel(int metrics_len, int stride, bool smallKernel, bool flip);
+	static cl_event run_bitonic_sort_kernel(int metrics_len, int stride, int blocksize, int startSmallBigKernel, bool flip);
 public:
 	static std::tuple<cl_event*, metrics_t*> MergeSort(metrics_t* metrics, int n_nodes);
+	static std::tuple<cl_event*, metrics_t*> BitonicMergesort(metrics_t* metrics, int n_nodes);
 };

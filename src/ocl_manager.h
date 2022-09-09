@@ -18,7 +18,11 @@ private:
 		compute_processor_cost_k,
 		m_MergesortGlobalBigKernel,
 		m_MergesortGlobalSmallKernel,
-		m_MergesortStartKernel;
+		m_MergesortStartKernel,
+		m_BitonicsortGlobalBigKernel,
+		m_BitonicsortGlobalSmallKernel,
+		m_BitonicsortStartKernel;
+
 	static void InitCommon(const char* entryDiscoverKernelName, const char* computeMetricsKernelName, const char* reductionKernelName, const char* sortKernelName);
 public:
 	static ComputeMetricsVersion compute_metrics_version_chosen;
@@ -40,6 +44,7 @@ public:
 	static cl_kernel GetComputeProcessorCostKernel();
 	static cl_kernel GetReduceQueueKernel();
 	static cl_kernel GetSortKernel(bool smallKernel = false);
+	static cl_kernel GetBitonicSortKernel(int startSmallBigKernel = 0);
 
 	static void ReleaseEntryDiscoverKernel();
 	static void ReleaseComputeMetricsKernel();
@@ -47,4 +52,5 @@ public:
 	static void ReleaseComputeProcessorCostKernel();
 	static void ReleaseReduceQueueKernel();
 	static void ReleaseSortKernel();
+	static void ReleaseBitonicSortKernel();
 };
