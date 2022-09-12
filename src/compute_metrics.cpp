@@ -3,6 +3,7 @@
 #include "ocl_manager.h"
 #include "ocl_buffer_manager.h"
 #include <iostream>
+#include <chrono>
 #include "utils.h"
 
 tuple<cl_event*, metrics_t*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints) {
@@ -91,11 +92,11 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics(Graph<int>* DAG, in
 		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
 
 		if (flip) {
-			moreToProcess = reduce(n_nodes, BufferManager.GetNextQueue(), 1, &compute_metrics_evt_end) > 0;
+			moreToProcess = reduce_old(n_nodes, BufferManager.GetNextQueue(), 1, &compute_metrics_evt_end) > 0;
 			run_reset_kernel(BufferManager.GetNextQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 		}
 		else {
-			moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+			moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
 			run_reset_kernel(BufferManager.GetQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 		}
 
@@ -175,11 +176,11 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_rectangular(Graph<i
 		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
 
 		if (flip){
-			moreToProcess = reduce(n_nodes, BufferManager.GetNextQueue(), 1, &compute_metrics_evt_end) > 0;
+			moreToProcess = reduce_old(n_nodes, BufferManager.GetNextQueue(), 1, &compute_metrics_evt_end) > 0;
 			run_reset_kernel(BufferManager.GetNextQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 		}
 		else {
-			moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+			moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
 			run_reset_kernel(BufferManager.GetQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 		}
 
@@ -470,7 +471,7 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_rectangu
 		ocl_check(err, "read from queue with map buffer");*/
 		//BufferManager.GetQueueResult(queue, &compute_metrics_evt_end, 1);
 
-		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+		moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
 
 		//moreToProcess = !isEmpty(queue, queue_len, cl_int4{ -1,-1,-1,-1 });
 		//BufferManager.ReleaseQueue(queue);
@@ -549,34 +550,57 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectang
 	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
 	cl_event compute_metrics_evt_start = cl_event(), compute_metrics_evt_end = cl_event();
 
+	//std::chrono::system_clock::time_point middle_time1;
+	//std::chrono::system_clock::time_point middle_time2;
+	//std::chrono::system_clock::time_point middle_time3;
+
+	cl_uint ncu; /* number of compute units */
+	cl_int err = clGetDeviceInfo(OCLManager::device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(ncu), &ncu, NULL);
+	cl_uint lws = 8;
+	cl_uint nwg = ncu * lws;
+
+	cl_mem d_out = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE,
+		nwg * sizeof(cl_int), NULL, &err);
+	ocl_check(err, "create buffer d_out");
+
 	bool moreToProcess = false;
 	int count = 0;
 	do
 	{
+		//middle_time1 = std::chrono::system_clock::now();
 		compute_metrics_evt_end = run_compute_metrics_kernel_v2(n_nodes, DAG);
 		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
+		//middle_time2 = std::chrono::system_clock::now();
 		
 		/*BufferManager.GetQueueResult(queue, &compute_metrics_evt_end, 1);
 		print((cl_int*)queue, n_nodes, " - ", false);
 		printf("\n");
 		printf("\n");*/
 
-		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), d_out, nwg, lws, 1, &compute_metrics_evt_end);
+		//moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+		//middle_time3 = std::chrono::system_clock::now();
 		//run_reset_kernel(BufferManager.GetQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 
 		//moreToProcess = !isEmpty(queue, queue_len, cl_int8{ -1,-1,-1,-1,-1,-1,-1,-1 });
 		count++;
+
+		//std::chrono::duration<double, std::milli> elapsed_seconds1 = middle_time2 - middle_time1;
+		//std::chrono::duration<double, std::milli> elapsed_seconds2 = middle_time3 - middle_time2;
+		//printf("Compute vs reduction: %E | %E\n", elapsed_seconds1.count(), elapsed_seconds2.count());
+
 	} while (moreToProcess);
 
-	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
-	printf("metrics computed\n");
+	//printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
+		BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 		cout << "metrics len: " << metrics_len << endl;
 		cout << "number of cycles to converge:" << count << endl;
 		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
 	}
 	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 		cout << "number of cycles to converge:" << count << endl;
 		cout << "metrics: " << metrics_len << endl;
 		print(metrics, min(metrics_len, 5), "\n", true, 0);
@@ -585,6 +609,7 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectang
 	}
 
 	//PULIZIA FINALE
+	clReleaseMemObject(d_out);
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
@@ -605,7 +630,26 @@ tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectang
 
 
 
-cl_int ComputeMetrics::reduce(int n_nodes, cl_mem to_reduce, cl_int num_events_to_wait, cl_event* to_wait) {
+bool ComputeMetrics::reduce(int n_nodes, cl_mem to_reduce, cl_mem out, cl_int nwg, cl_int lws, cl_int num_events_to_wait, cl_event* to_wait) {
+	int nwg0 = calc_nwg(n_nodes, OCLManager::preferred_wg_size);
+	const size_t memsize = n_nodes * sizeof(int);
+
+	cl_event reduction_evt[2];
+	reduction_evt[0] = run_reduce_kernel(n_nodes, nwg, lws, out, to_reduce, num_events_to_wait, to_wait);
+	reduction_evt[1] = run_reduce_kernel(nwg, 1, lws, out, out, 1, &reduction_evt[0]);
+
+	cl_event read_evt;
+	int reduction_sum;
+	clEnqueueReadBuffer(OCLManager::queue, out, CL_TRUE, 0, sizeof(reduction_sum), &reduction_sum,
+		1, reduction_evt + 1, &read_evt);
+
+	/*double runtime_reduction_total_ms = total_runtime_ms(reduction_evt[0], reduction_evt[1]);
+	printf("runtime_reduction_total_ms: %E\n", runtime_reduction_total_ms);*/
+
+	return reduction_sum > (-1 * n_nodes);
+}
+
+cl_int ComputeMetrics::reduce_old(int n_nodes, cl_mem to_reduce, cl_int num_events_to_wait, cl_event* to_wait) {
 	int nwg0 = calc_nwg(n_nodes, OCLManager::preferred_wg_size);
 	const size_t memsize = n_nodes * sizeof(int);
 
@@ -624,11 +668,11 @@ cl_int ComputeMetrics::reduce(int n_nodes, cl_mem to_reduce, cl_int num_events_t
 	}
 
 	nwg = n_nodes;
-	cl_event *last_reduction_event = to_wait + (num_events_to_wait-1);
+	cl_event* last_reduction_event = to_wait + (num_events_to_wait - 1);
 
 	int npairs = nwg / 2;
 	nwg = calc_nwg(nwg, OCLManager::preferred_wg_size);
-	*last_reduction_event = run_reduce_kernel(nwg, reduction_result, to_reduce, npairs, 1, last_reduction_event);
+	*last_reduction_event = run_reduce_kernel_old(nwg, reduction_result, to_reduce, npairs, 1, last_reduction_event);
 	cl_mem tmp = d_input;
 	d_input = reduction_result;
 	reduction_result = tmp;
@@ -636,7 +680,7 @@ cl_int ComputeMetrics::reduce(int n_nodes, cl_mem to_reduce, cl_int num_events_t
 	for (int pass = 1; pass < npass; ++pass) {
 		npairs = nwg / 2;
 		nwg = calc_nwg(nwg, OCLManager::preferred_wg_size);
-		*last_reduction_event = run_reduce_kernel(nwg, reduction_result, d_input, npairs, 1, last_reduction_event);
+		*last_reduction_event = run_reduce_kernel_old(nwg, reduction_result, d_input, npairs, 1, last_reduction_event);
 		cl_mem tmp = d_input;
 		d_input = reduction_result;
 		reduction_result = tmp;
@@ -780,9 +824,37 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 
 
 
-cl_event ComputeMetrics::run_reduce_kernel(cl_int nwg, cl_mem d_output, cl_mem d_input, cl_int npairs, cl_int num_events_to_wait, cl_event* to_wait)
+cl_event ComputeMetrics::run_reduce_kernel(cl_int nels, cl_int nwg, cl_int lws_spec, cl_mem d_output, cl_mem d_input,cl_int num_events_to_wait, cl_event* to_wait)
 {
 	cl_kernel k = OCLManager::GetReduceQueueKernel();
+	cl_command_queue q = OCLManager::queue;
+	int arg_index = 0;
+	cl_int nquarts = nels / 4;
+	size_t lws[] = { lws_spec };
+	size_t gws[] = { nwg * lws[0] };
+
+
+	cl_int err;
+	err = clSetKernelArg(OCLManager::GetReduceQueueKernel(), 0, sizeof(nquarts), &nquarts);
+	ocl_check(err, "set arg 0 for reduction_k");
+	err = clSetKernelArg(OCLManager::GetReduceQueueKernel(), 1, sizeof(d_output), &d_output);
+	ocl_check(err, "set arg 1 for reduction_k");
+	err = clSetKernelArg(OCLManager::GetReduceQueueKernel(), 2, sizeof(d_input), &d_input);
+	ocl_check(err, "set arg 2 for reduction_k");
+	err = clSetKernelArg(OCLManager::GetReduceQueueKernel(), 3, lws[0] * sizeof(cl_int), NULL);
+	ocl_check(err, "set arg 3 for reduction_k");
+
+	cl_event reduce_evt;
+	err = clEnqueueNDRangeKernel(q, k,
+		1, NULL, gws, lws,
+		num_events_to_wait, to_wait, &reduce_evt);
+	ocl_check(err, "launch kernel reduce_vec");
+	return reduce_evt;
+}
+
+cl_event ComputeMetrics::run_reduce_kernel_old(cl_int nwg, cl_mem d_output, cl_mem d_input, cl_int npairs, cl_int num_events_to_wait, cl_event* to_wait)
+{
+	cl_kernel k = OCLManager::GetReduceQueueOldKernel();
 	cl_command_queue q = OCLManager::queue;
 	int arg_index = 0;
 	const size_t lws[] = { OCLManager::preferred_wg_size };
