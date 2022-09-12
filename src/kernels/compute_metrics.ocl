@@ -1,10 +1,12 @@
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 #include "../app_globals.h"
 
+#pragma inline
 int matrix_to_array_indexes(int i, int j, int row_len){
 	return i * row_len + j;
 }
 
+#pragma inline
 bool areEquals(local const int4 *a, local const int4*b, int len){
 	bool equal = true;
 	#pragma unroll
@@ -17,6 +19,7 @@ bool areEquals(local const int4 *a, local const int4*b, int len){
 	return equal;
 }
 
+#pragma inline
 int compare (metrics_tt V1, metrics_tt V2){
 	if(V1.y == V2.y){
 		return (V1.x > V2.x) ? 1 : -1; //NOTA: è diverso da quello implementato nel sort, perché in quel caso abbiamo dei criteri diversi su come definire un elemento maggiore di un altro.
@@ -24,10 +27,12 @@ int compare (metrics_tt V1, metrics_tt V2){
 	return (V1.y > V2.y) ? 1 : -1;
 }
 
+#pragma inline
 int gt (metrics_tt V1, metrics_tt V2){
 	return compare(V1, V2) > 0;
 }
 
+#pragma inline
 bool isEmpty(local const int4 *v, int len, int4 default_v, int starting_from){
 	#pragma unroll
 	for (int i = starting_from; i < len; i++)
@@ -39,6 +44,7 @@ bool isEmpty(local const int4 *v, int len, int4 default_v, int starting_from){
 	return true;
 }
 
+#pragma inline
 bool isEmptyGlobal(global const int4 *v, int len, int4 default_v, int starting_from){
 	#pragma unroll
 	for (int i = starting_from; i < len; i++)
@@ -74,11 +80,12 @@ void print(global int4 *v, int len, bool withIndexes){
 	printf("\n");
 }
 
-
+#pragma inline
 bool isEven(int a){
 	return (a%2) == 0;
 }
 
+#pragma inline
 bool firstOfFour(int a){
 	return (a%4) == 0;
 }
@@ -436,8 +443,8 @@ kernel void compute_metrics_vectorized_rectangular_v2(global int* restrict nodes
 }
 
 
-
-bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+#pragma inline
+bool compute_metrics_vectorized8_rectangular_item(const global int* restrict nodes, global int8* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	int work_item = get_global_id(0);
 	int something_changed = false;
@@ -446,21 +453,22 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 	}
 	int indexes_to_analyze[8] = { 1, 1, 1, 1, 1, 1, 1, 1 };
 
+#pragma unroll
 	for (int i = 0; i < 8; i++) {
 		int node_index = work_item * 8 + i;
 		int node;
-		volatile global int* nodes = &(queue_[work_item]);//TODO: funziona solo se potenza del due, per n_nodes diversi da problemi.
+		global int* _nodes = &(queue_[work_item]);//TODO: funziona solo se potenza del due, per n_nodes diversi da problemi.
 
-		node = nodes[i];
+		node = _nodes[i];
 		if (node != 0)indexes_to_analyze[i] = 0; //Non è ancora da analizzare, qualche parent non ha finito l'esecuzione (>0). O è già stato analizzato (-1).
 		else {
 			// printf("analizzo: %d\n", node_index);
 			metriche[node_index].y = metriche[node_index].y - node;
-			atomic_dec(&(nodes[i])); //lo porto a -1 così non ciclo all'infinito.
+			atomic_dec(&(_nodes[i])); //lo porto a -1 così non ciclo all'infinito.
 		}
 
 		// if(metriche[node_index].y > 0)indexes_to_analyze[i] = 0; //non ancora tutti i parent sono stati analizzati.
-		// else metriche[node_index] = (metrics_tt)(nodes[node_index],0);
+		// else metriche[node_index] = (metrics_tt)(_nodes[node_index],0);
 	}
 
 	if (!indexes_to_analyze[0] && !indexes_to_analyze[1] && !indexes_to_analyze[2] && !indexes_to_analyze[3] 
@@ -469,13 +477,13 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 
 	metrics_tt metrics_with_this_parent;
 	int matrixToArrayIndex;
+	
 #pragma unroll
 	for (int i = 0; i < 8; i++) {
 		if (!indexes_to_analyze[i]) continue;
 
 		int node_index = work_item * 8 + i;
-		int edge_weight = 0;
-#pragma unroll
+		int edge_weight = 0; 
 		for (int j = 0; j < max_adj_reverse_dept; j++) {
 			int matrixToArrayIndex = matrix_to_array_indexes(j, node_index, n_nodes);
 			if(edges_weights[matrixToArrayIndex] > -1){
@@ -503,10 +511,11 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 					metriche[node_index] = metrics_with_this_parent;
 			}
 		}
+
 #pragma unroll
 		for (int j = 0; j < max_adj_reverse_dept; j++) {
-		int parent = j;
-		int node_index = work_item * 8 + i;
+			int parent = j;
+			int node_index = work_item * 8 + i;
 #if TRANSPOSED_ADJ
 			matrixToArrayIndex = matrix_to_array_indexes(node_index, parent, max_adj_reverse_dept);
 #else
@@ -517,7 +526,7 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 				// printf("%d parent di %d\n", node_index, child);
 				int globalIndexStart = (int)(floor(j / 8.0));
 				// printf("%d parent di %d -> %d\n", node_index, child, globalIndexStart);	
-				volatile global int* four_next_nodes = &(queue_[globalIndexStart]);
+				global int* four_next_nodes = &(queue_[globalIndexStart]);
 				// printf("before ");
 				// print(&queue_[globalIndexStart], 1, false);
 				atomic_dec(&(four_next_nodes[childIndex - globalIndexStart * 8]));
@@ -531,7 +540,8 @@ bool compute_metrics_vectorized8_rectangular_item(global int* restrict nodes, gl
 	return something_changed;
 }
 
-kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+//kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+kernel void compute_metrics_vectorized8_rectangular(const global int* restrict nodes, global int8* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	local int something_changed;
 	int something_changed_for_me;
@@ -539,12 +549,11 @@ kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, 
 	int work_item_local_index = get_local_id(0);
 	int work_group_size = get_local_size(0);
 	int work_group = get_group_id(0);
-	int global_queue_size = (int)ceil(n_nodes / 8.0);
+	int global_queue_size = (n_nodes + 7) / 8;
 	int local_queue_size = min(work_group_size, global_queue_size); //non è la lunghezza dalla coda globale ma la lunghezza di cui si deve occupare questo work group.
 
 	bool work_item_outside_range = work_item >= global_queue_size || work_item_local_index >= local_queue_size;
 
-#pragma unroll
 	do {
 		if (work_item_local_index == 0)
 			something_changed = 0;
