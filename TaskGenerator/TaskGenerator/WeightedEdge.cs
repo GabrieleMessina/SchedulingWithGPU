@@ -2,7 +2,7 @@
 
 namespace TaskGenerator;
 
-public class WeightedEdge<TVertex, TWeight> : IEdge<TVertex>
+public class WeightedEdge<TVertex, TWeight> /*: IEdge<TVertex>*/
 {
     public TVertex Source { get; }
     public TVertex Target { get; }

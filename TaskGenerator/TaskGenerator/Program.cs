@@ -2,6 +2,7 @@
 using MathNet.Numerics.Random;
 using QuikGraph;
 using System.Text;
+using System.Text.Unicode;
 
 namespace TaskGenerator;
 
@@ -11,10 +12,10 @@ public static class TaskGenerator
     static readonly float skew = 2f;
     static readonly float wDag = 20f; //average computational cost of the graph
     static readonly bool PrintDebugInfoToConsole = false;
-    static readonly int NumberOfGenerationForTaskCount = 5;
+    static readonly int NumberOfGenerationForTaskCount = 3;
 
     //static int[] possibleTaskCounts = new[] {30,40,50,60,70,80,100}; //la versione vettorizzata del kernel richiede che n_nodes sia potenza di 2
-    static readonly int[] possibleTaskCounts = new[] { 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    static readonly int[] possibleTaskCounts = new[] { 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288 };
     static int taskCount;
     static readonly float[] possibleShapes = new[] { 0.5f, 1.0f, 2.0f };
     static float shape;
@@ -30,7 +31,9 @@ public static class TaskGenerator
     static int height, width;
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-    static AdjacencyGraph<int, WeightedEdge<int, int>> graph;
+    //static AdjacencyGraph<int, WeightedEdge<int, int>> graph;
+    //static List<int> Vertexes;
+    static WeightedEdge<int,int>[][] adj;
     static int[] levelForTask;
     static int[] averageCostForTask;
     static int[][] costForTaskInProcessor;
@@ -39,62 +42,57 @@ public static class TaskGenerator
 
     static async Task Main(string[] args)
     {
-        for(int i=0; i< NumberOfGenerationForTaskCount; i++)
+        for (int i=0; i< NumberOfGenerationForTaskCount; i++)
         {
             ParseInput(args);
 
             InitGraphWithVetexes();
 
             SubdivideVertexesInLevels();
-
+            
             CreateEdges();
-
+            
             ComputeCostsForEachTaskInProcessors();
-
+            
             PrintInfo();
-
+            
             await PrintDataSetOnFile();
         }
     }
 
     static async Task PrintDataSetOnFile()
     {
-        var builder = new StringBuilder();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        Directory.CreateDirectory("./data_set");
+        using var stream = File.CreateText("./data_set/" + Guid.NewGuid().ToString("N") + ".txt");
+        
+        await stream.WriteLineAsync($"{taskCount} {processorsCount}");
 
-        builder.AppendLine($"{taskCount} {processorsCount}");
-
-        foreach (var task in graph.Vertices)
+        string data = string.Empty;
+        for (int task = 0; task< taskCount; task ++)
         {
-            builder.AppendLine(
-                $"{averageCostForTask[task]} " +
-                $"{string.Join(" ", costForTaskInProcessor[task])} " +
-                $"{graph.Edges.Count(e => e.Source == task)} " +
-                $"{string.Join(" ", graph.Edges.Where(e => e.Source == task).Select(e => $"{e.Target} {e.Weight}"))} ");
+            var edges = adj[task].Where(e=> e != null).Select(e => $"{e.Target} {e.Weight}").ToArray();
+
+            data = $"{averageCostForTask[task]} " +
+            $"{string.Join(" ", costForTaskInProcessor[task])} " +
+            $"{edges.Length} " +
+            $"{string.Join(" ", edges)}";
+            await stream.WriteLineAsync(data);
         }
 
-        //builder.AppendLine($"{taskCount}");
-
-        //foreach (var task in graph.Vertices)
-        //{
-        //    builder.AppendLine(
-        //        $"{averageCostForTask[task]} " +
-        //        $"{graph.Edges.Count(e => e.Source == task)} " +
-        //        $"{string.Join(" ", graph.Edges.Where(e => e.Source == task).Select(e => $"{e.Target} {e.Weight}"))} ");
-        //}
+        watch.Stop();
+        Console.WriteLine($"{nameof(PrintDataSetOnFile)} Foreach Execution Time: {watch.ElapsedMilliseconds} ms");
 
         //Info about the generator params used while generating this data set.
-        builder.AppendLine();
-        builder.AppendLine(
+        var info =
            $"{nameof(taskCount)}: {taskCount} " +
            $"| {nameof(processorsCount)}: {processorsCount} " +
            $"| {nameof(shape)}: {shape} " +
            $"| {nameof(outDegree)}: {outDegree} " +
            $"| {nameof(comCompRatio)}: {comCompRatio} " +
            $"| {nameof(compCostRange)}: {compCostRange} " +
-           $"| {nameof(height)}: {height}");
-
-        Directory.CreateDirectory("./data_set");
-        await File.WriteAllTextAsync("./data_set/" + Guid.NewGuid().ToString("N") + ".txt", builder.ToString());
+           $"| {nameof(height)}: {height}";
+        await stream.WriteLineAsync(info);
     }
 
     static void ComputeCostsForEachTaskInProcessors()
@@ -133,16 +131,27 @@ public static class TaskGenerator
         }
     }
 
+    private static bool ContainsEdge(int a, int b)
+    {
+        for (int i = 0; i < outDegree; i++)
+        {
+            if (adj[a][i].Target == b) return true;
+        }
+        return false;
+    }
+
     static void CreateEdges()
     {
         for (int i = 0; i < taskCount - 1; i++)
         {
-            var destinations = random.NextInt32Sequence(i + 1, taskCount).Take(outDegree);
+            var destinations = random.NextInt32Sequence(i + 1, taskCount).Take(outDegree).Distinct();
+            int j = 0;
             foreach (var node in destinations)
             {
-                if (levelForTask[node] > levelForTask[i] && !graph.ContainsEdge(i, node))
+                if (levelForTask[node] > levelForTask[i] /*&& !ContainsEdge(i, node)*/)
                 {
-                    graph.AddEdge(new WeightedEdge<int, int>(i, node, random.Next(0, 100)));
+                    adj[i][j++] =  new WeightedEdge<int, int>(i, node, random.Next(0, 100));
+                    //graph.AddEdge(new WeightedEdge<int, int>(i, node, random.Next(0, 100)));
                 }
             }
         }
@@ -154,7 +163,7 @@ public static class TaskGenerator
             for (int i = 0; i < taskCount; i++)
             {
                 Console.Write($"{i} ==> ");
-                var linkedNodes = graph.Edges.Where(e => e.Source == i).Select(e => e.Target);
+                var linkedNodes = adj[i].Select(e => e.Target);
                 Console.Write(string.Join(", ", linkedNodes));
                 Console.WriteLine();
 
@@ -170,11 +179,16 @@ public static class TaskGenerator
 
     static void InitGraphWithVetexes()
     {
-        graph = new AdjacencyGraph<int, WeightedEdge<int, int>>(false, taskCount);
-
+        //graph = new AdjacencyGraph<int, WeightedEdge<int, int>>(false, taskCount);
+        //Vertexes = new List<int>(taskCount);
+        //for (int i = 0; i < taskCount; i++)
+        //{
+        //    Vertexes.Add(i); //id del nodo
+        //}
+        adj = new WeightedEdge<int, int>[taskCount][];
         for (int i = 0; i < taskCount; i++)
         {
-            graph.AddVertex(i); //id del nodo
+            adj[i] = new WeightedEdge<int, int>[outDegree];
         }
     }
 
