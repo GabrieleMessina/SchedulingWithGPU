@@ -32,13 +32,13 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 	BufferManager.GetEntrypointsResult(entrypoints, &entry_discover_evt, 1);
 	//BufferManager.GetNEntrypointsResult(n_entrypoints, &entry_discover_evt, 1);
 
-	printf("entries discovered\n");
+	//printf("entries discovered\n");
 	if (DEBUG_ENTRY_DISCOVER) {
 		//cout<<"entrypoints: "<< *n_entrypoints <<endl;
 		print(entrypoints, DAG->len, ", ", true);
 		cout<<"\n";
+		cout << endl;
 	}
-	cout << endl;
 
 	//PULIZIA FINALE
 	//BufferManager.ReleaseGraphEdges(); //compute metrics is using it

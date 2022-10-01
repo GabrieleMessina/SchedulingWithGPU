@@ -16,8 +16,8 @@
 #define DEBUG_HEAP_ALLOC            DEBUG_ALL | false
 #define DEBUG_MEMORY_LEAK           DEBUG_ALL | false
 #define DEBUG_COMPUTE_METRICS_PARTIAL       DEBUG_ALL | false
-#define DEBUG_SORT_PARTIAL                  DEBUG_ALL | true
-#define DEBUG_PROCESSOR_ASSIGNMENT_PARTIAL  DEBUG_ALL | true
+#define DEBUG_SORT_PARTIAL                  DEBUG_ALL | false
+#define DEBUG_PROCESSOR_ASSIGNMENT_PARTIAL  DEBUG_ALL | false
 /*debug*/
 
 /*DAG*/

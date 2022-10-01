@@ -25,6 +25,7 @@ bool is_file_empty(FILE* fp);
 //void print(cl_int2* v, int len, const char* separator = " ", bool withIndexes = false, int startingFrom = 0);
 void print(cl_int3* v, int len, const char* separator = " ", bool withIndexes = false, int startingFrom = 0);
 void print(cl_int4* v, int len, const char* separator = " ", bool withIndexes = false);
+void print8(cl_int8* v, int len, const char* separator = " ", bool withIndexes = false);
 
 //utils for cl types
 bool operator<(const metrics_t& l, const metrics_t& r);

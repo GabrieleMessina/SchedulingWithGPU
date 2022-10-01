@@ -7,6 +7,7 @@
 cl_event* processor_assignment::ScheduleTasksOnProcessors(Graph<edge_t>* DAG, metrics_t* ordered_metrics)
 {
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
+	cl_event* events = DBG_NEW cl_event[2];
 	cl_event *startEvent = NULL, *endEvent = NULL;
 	// per ogni livello calcola EST e EFT di ogni task su ogni processore
 
@@ -36,9 +37,9 @@ cl_event* processor_assignment::ScheduleTasksOnProcessors(Graph<edge_t>* DAG, me
 	edge_t* edges = DAG->GetEdgesArray();
 	edge_t* costs = DAG->GetCostsArray();
 
-
 	for (int i = 0; i < metrics_len; i++)//per ogni task in ordine di metrica
 	{
+		//middle_time1 = std::chrono::system_clock::now();
 		int current_node = ordered_metrics[i].z; //index in dag del task
 		if (current_node >= n_nodes) continue; //probabilmente task di padding.
 		int predecessor_with_max_aft = -1;
@@ -88,7 +89,8 @@ cl_event* processor_assignment::ScheduleTasksOnProcessors(Graph<edge_t>* DAG, me
 		//if (startEvent == NULL) startEvent = &processor_cost_evt;
 		//endEvent = &processor_cost_evt;
 
-		////print(output, DAG->number_of_processors, "\n", true, 0);
+		//events[0] = *startEvent;
+		//events[1] = *endEvent;
 
 		//for (int i = 0; i < DAG->number_of_processors; i++) {
 		//	int eft = output[i].y;
@@ -125,22 +127,27 @@ cl_event* processor_assignment::ScheduleTasksOnProcessors(Graph<edge_t>* DAG, me
 
 		//assegno il tempo di occupazione al processore sulla base del tempo previsto per il task.
 		processorsNextSlotStart[task_processor_assignment[current_node].x] = task_processor_assignment[current_node].z;
+		//middle_time2 = std::chrono::system_clock::now();
+
+		//std::chrono::duration<double, std::milli> elapsed_seconds1 = middle_time2 - middle_time1;
+		//printf("Assign proc cycle: %E\n", elapsed_seconds1.count());
 	}
 
 	if (DEBUG_PROCESSOR_ASSIGNMENT) {
 		cout << "processors assigned: (processor id, EST, EFT)" << endl;
 		print(task_processor_assignment, n_nodes, "\n", true, 0);
+		cout << endl;
 	}
 	else if(DEBUG_PROCESSOR_ASSIGNMENT_PARTIAL){ //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
 		cout << "processors assigned: (processor id, EST, EFT)" << endl;
 		print(task_processor_assignment, min(n_nodes, 5), "\n", true, 0);
 		cout << "[...]" << endl << endl;
 		print(task_processor_assignment, n_nodes, "\n", true, n_nodes - 5);
+		cout << endl;
 	}
 	else {
-		cout << "processors assigned" << endl;
+		//cout << "processors assigned" << endl;
 	}
-	cout << endl;
 
 	BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphWeightsReverse();
@@ -151,10 +158,6 @@ cl_event* processor_assignment::ScheduleTasksOnProcessors(Graph<edge_t>* DAG, me
 	delete[] processorsNextSlotStart;
 	delete[] task_processor_assignment;
 	delete[] output;
-
-	cl_event* events = DBG_NEW cl_event[2];
-	//events[0] = *startEvent;
-	//events[1] = *endEvent;
 
 	return events;
 }

@@ -103,6 +103,9 @@ void OCLManager::InitVectorized(VectorizedComputeMetricsVersion compute_metrics_
 	case VectorizedComputeMetricsVersion::RectangularVec8:
 		InitCommon("entry_discover", "compute_metrics_vectorized8_rectangular", "reduce_queue", "sort_kernel");
 		break;
+	case VectorizedComputeMetricsVersion::RectangularVec4:
+		InitCommon("entry_discover", "compute_metrics_vectorized4_rectangular", "reduce_queue", "sort_kernel");
+		break;
 	case VectorizedComputeMetricsVersion::RectangularV2:
 		InitCommon("entry_discover", "compute_metrics_vectorized_rectangular_v2", "reduce_queue", "sort_kernel");
 		break;

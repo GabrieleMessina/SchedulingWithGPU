@@ -52,11 +52,11 @@ tuple<cl_event*, metrics_t*> SortMetrics::BitonicMergesort(metrics_t* metrics, i
 		print(ordered_metrics, min(metrics_len, 5), "\n", true, 0);
 		cout << "[...]" << endl << endl;
 		print(ordered_metrics, metrics_len, "\n", true, metrics_len - 5);
+		cout << "\n";
 	}
 	else {
 		//cout << endl << "metrics sorted" << endl;
 	}
-	cout << endl;
 
 	BufferManager.ReleaseMetrics();
 	BufferManager.ReleaseOrderedMetrics();
@@ -112,11 +112,11 @@ tuple<cl_event*, metrics_t*> SortMetrics::MergeSort(metrics_t* metrics, int n_no
 		print(ordered_metrics, min(metrics_len, 5), "\n", true, 0);
 		cout << "[...]" << endl << endl;
 		print(ordered_metrics, metrics_len, "\n", true, metrics_len - 5);
+		cout << "\n";
 	}
 	else {
 		//cout << endl << "metrics sorted" << endl;
 	}
-	cout << endl;
 
 	BufferManager.ReleaseMetrics();
 	BufferManager.ReleaseOrderedMetrics();

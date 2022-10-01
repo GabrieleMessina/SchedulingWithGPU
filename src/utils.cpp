@@ -108,6 +108,16 @@ void print(cl_int4* v, int len, const char* separator, bool withIndexes) {
 	std::cout << "\n";
 }
 
+void print8(cl_int8* v, int len, const char* separator, bool withIndexes) {
+	for(int i = 0; i < len; i++)
+	{
+		if (withIndexes)
+			std::cout << i << ":";
+		std::cout << "(" << v[i].s[0] << ", " << v[i].s[1] << ", " << v[i].s[2] << ", " << v[i].s[3] << ", " << v[i].s[4] << ", " << v[i].s[5] << ", " << v[i].s[6] << ", " << v[i].s[7] << ")" << separator;
+	}
+	std::cout << "\n";
+}
+
 
 
 /// <summary>

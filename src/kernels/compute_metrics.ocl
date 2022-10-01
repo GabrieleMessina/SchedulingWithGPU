@@ -444,7 +444,7 @@ kernel void compute_metrics_vectorized_rectangular_v2(global int* restrict nodes
 
 
 #pragma inline
-bool compute_metrics_vectorized8_rectangular_item(const global int* restrict nodes, global int8* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+bool compute_metrics_vectorized8_rectangular_item_old(const global int* restrict nodes, global int8* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
 	int work_item = get_global_id(0);
 	int something_changed = false;
@@ -540,6 +540,145 @@ bool compute_metrics_vectorized8_rectangular_item(const global int* restrict nod
 	return something_changed;
 }
 
+#pragma inline
+bool compute_metrics(int workitem, int node_index, const global int* restrict nodes, global int8* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche, const int max_adj_dept, const int max_adj_reverse_dept){
+	bool something_changed = false;
+	int matrixToArrayIndex;
+
+	int edge_weight = 0; 
+	for (int j = 0; j < max_adj_reverse_dept; j++) {
+		int matrixToArrayIndex = matrix_to_array_indexes(j, node_index, n_nodes);
+		if(edges_weights[matrixToArrayIndex] > -1){
+			edge_weight += edges_weights[matrixToArrayIndex];
+		}
+	}
+
+	int node_weight = nodes[node_index];
+	metrics_tt metrics_with_this_parent;
+	metrics_tt best_metrics_for_parent = (metrics_tt)(edge_weight + node_weight,0,node_index);
+
+	for (int j = 0; j < max_adj_dept; j++) {
+		int parent = j;
+		matrixToArrayIndex = matrix_to_array_indexes(parent, node_index, n_nodes);
+		int parentIndex = edges[matrixToArrayIndex]; //controllo tutti i parent di current_node
+		//printf("parent: %d %d %d\n",node_index, parent, parentIndex);
+		metrics_tt parent_metric = metriche[parentIndex];
+		if (parentIndex >= 0) {
+			int weight_with_this_parent = edge_weight + parent_metric.x + node_weight;
+			int level_with_this_parent = parent_metric.y + 1;
+			metrics_with_this_parent = (metrics_tt)(weight_with_this_parent, level_with_this_parent,node_index);
+			if (gt(metrics_with_this_parent, best_metrics_for_parent))//prendo il maggiore peso peggiore che il nodo ottiene con i suoi parent.
+				best_metrics_for_parent = metrics_with_this_parent;
+		}
+	}
+
+	metriche[node_index] = best_metrics_for_parent;
+
+	for (int j = 0; j < max_adj_reverse_dept; j++) {
+		int parent = j;
+		matrixToArrayIndex = matrix_to_array_indexes(parent, node_index, n_nodes);
+		int childIndex = edges_reverse[matrixToArrayIndex];
+
+		if (childIndex >= 0) {
+			int globalIndexStart =  parent / 8;// parent / 8; //(floor(j / 8.0));
+			int localIndex = childIndex - globalIndexStart * 8;
+			global int* four_next_nodes = &(queue_[globalIndexStart]);
+			atomic_dec(&(four_next_nodes[childIndex - globalIndexStart * 8]));
+			something_changed = true;
+		}
+	}
+	return something_changed;
+}
+
+#pragma inline
+bool compute_metrics_vectorized8_rectangular_item(const global int* restrict nodes, global int8* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+{
+	int work_item = get_global_id(0);
+	int something_changed = false;
+	if (work_item >= (n_nodes + 7) / 8) { //ceil(n_nodes / 8.0)
+		return something_changed;
+	}
+
+	int8 nodes8 = queue_[work_item];
+	int8 indexes_to_analyze_vec = (nodes8 == 0); //opencl ritorna -1 se la condizione è vera.
+	//barrier(CLK_GLOBAL_MEM_FENCE);
+	//if(any_to_analyze == 0)return something_changed;
+	//queue_[work_item] += indexes_to_analyze;
+	//printf("%d - nodes8: %d, %d, %d, %d, %d, %d, %d, %d\n", work_item, nodes8.s0, nodes8.s1, nodes8.s2, nodes8.s3, nodes8.s4, nodes8.s5, nodes8.s6, nodes8.s7);
+	//printf("%d - queue_: %d, %d, %d, %d, %d, %d, %d, %d\n", work_item, queue_[work_item].s0, queue_[work_item].s1, queue_[work_item].s2, queue_[work_item].s3, queue_[work_item].s4, queue_[work_item].s5, queue_[work_item].s6, queue_[work_item].s7);
+
+	//{
+
+	global int* _nodes = &(queue_[work_item]);
+	/*#pragma unroll
+	for (int i = 0; i < 8; i++) {
+		int node = _nodes[i];
+		if (node != 0)indexes_to_analyze[i] = 0; //Non è ancora da analizzare, qualche parent non ha finito l'esecuzione (>0). O è già stato analizzato (-1).
+		else atomic_dec(&(_nodes[i])); //lo porto a -1 così non ciclo all'infinito.
+	}*/
+
+	if(nodes8.s0 == 0) atomic_dec(&(_nodes[0]));
+	if(nodes8.s1 == 0) atomic_dec(&(_nodes[1]));
+	if(nodes8.s2 == 0) atomic_dec(&(_nodes[2]));
+	if(nodes8.s3 == 0) atomic_dec(&(_nodes[3]));
+	if(nodes8.s4 == 0) atomic_dec(&(_nodes[4]));
+	if(nodes8.s5 == 0) atomic_dec(&(_nodes[5]));
+	if(nodes8.s6 == 0) atomic_dec(&(_nodes[6]));
+	if(nodes8.s6 == 0) atomic_dec(&(_nodes[6]));
+	if(nodes8.s7 == 0) atomic_dec(&(_nodes[7]));
+
+	
+	int4 any_to_analyze_in_quartet = indexes_to_analyze_vec.s0123 + indexes_to_analyze_vec.s4567;
+	int2 any_to_analyze_in_couple = any_to_analyze_in_quartet.s01 + any_to_analyze_in_quartet.s23;
+	int any_to_analyze = any_to_analyze_in_couple.s0 + any_to_analyze_in_couple.s1;
+	
+
+	/*if (!indexes_to_analyze[0] && !indexes_to_analyze[1] && !indexes_to_analyze[2] && !indexes_to_analyze[3] 
+		&& !indexes_to_analyze[4] && !indexes_to_analyze[5] && !indexes_to_analyze[6] && !indexes_to_analyze[7]
+		) return something_changed;*/
+	//}
+
+	if(any_to_analyze == 0)return something_changed;
+
+	//int any_to_analyze = ((indexes_to_analyze.s0 + indexes_to_analyze.s1) + (indexes_to_analyze.s2 + indexes_to_analyze.s3)) + ((indexes_to_analyze.s4 + indexes_to_analyze.s5) + (indexes_to_analyze.s6 + indexes_to_analyze.s7));
+
+	int node_index;
+	if (indexes_to_analyze_vec.s0 == -1){
+		node_index = work_item * 8;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s1 == -1){
+		node_index = work_item * 8+1;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s2 == -1){
+		node_index = work_item * 8+2;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s3 == -1){
+		node_index = work_item * 8+3;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s4 == -1){
+		node_index = work_item * 8+4;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s5 == -1){
+		node_index = work_item * 8+5;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s6 == -1){
+		node_index = work_item * 8+6;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s7 == -1){
+		node_index = work_item * 8+7;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+
+	return something_changed;
+}
+
 //kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 kernel void compute_metrics_vectorized8_rectangular(const global int* restrict nodes, global int8* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
 {
@@ -560,6 +699,109 @@ kernel void compute_metrics_vectorized8_rectangular(const global int* restrict n
 
 		if (!work_item_outside_range)
 			something_changed_for_me = compute_metrics_vectorized8_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+
+		if (something_changed_for_me)
+			something_changed = 1;
+
+		barrier(CLK_LOCAL_MEM_FENCE);
+	} while (something_changed > 0);
+
+	//compute_metrics_vectorized8_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept ,max_adj_reverse_dept);
+}
+
+
+
+#pragma inline
+bool compute_metrics_vectorized4_rectangular_item(const global int* restrict nodes, global int4* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+{
+	int work_item = get_global_id(0);
+	int something_changed = false;
+	if (work_item >= (n_nodes + 3) / 4) { //ceil(n_nodes / 8.0)
+		return something_changed;
+	}
+
+	int4 nodes4 = queue_[work_item];
+	int4 indexes_to_analyze_vec = (nodes4 == 0); //opencl ritorna -1 se la condizione è vera.
+	//barrier(CLK_GLOBAL_MEM_FENCE);
+	//if(any_to_analyze == 0)return something_changed;
+	//queue_[work_item] += indexes_to_analyze;
+	//printf("%d - nodes8: %d, %d, %d, %d, %d, %d, %d, %d\n", work_item, nodes8.s0, nodes8.s1, nodes8.s2, nodes8.s3, nodes8.s4, nodes8.s5, nodes8.s6, nodes8.s7);
+	//printf("%d - queue_: %d, %d, %d, %d, %d, %d, %d, %d\n", work_item, queue_[work_item].s0, queue_[work_item].s1, queue_[work_item].s2, queue_[work_item].s3, queue_[work_item].s4, queue_[work_item].s5, queue_[work_item].s6, queue_[work_item].s7);
+
+	//{
+
+	global int* _nodes = &(queue_[work_item]);
+	/*#pragma unroll
+	for (int i = 0; i < 8; i++) {
+		int node = _nodes[i];
+		if (node != 0)indexes_to_analyze[i] = 0; //Non è ancora da analizzare, qualche parent non ha finito l'esecuzione (>0). O è già stato analizzato (-1).
+		else atomic_dec(&(_nodes[i])); //lo porto a -1 così non ciclo all'infinito.
+	}*/
+
+	if(nodes4.s0 == 0) atomic_dec(&(_nodes[0]));
+	if(nodes4.s1 == 0) atomic_dec(&(_nodes[1]));
+	if(nodes4.s2 == 0) atomic_dec(&(_nodes[2]));
+	if(nodes4.s3 == 0) atomic_dec(&(_nodes[3]));
+
+	
+	int2 any_to_analyze_in_couple = indexes_to_analyze_vec.s01 + indexes_to_analyze_vec.s23;
+	int any_to_analyze = any_to_analyze_in_couple.s0 + any_to_analyze_in_couple.s1;
+	
+
+	/*if (!indexes_to_analyze[0] && !indexes_to_analyze[1] && !indexes_to_analyze[2] && !indexes_to_analyze[3] 
+		&& !indexes_to_analyze[4] && !indexes_to_analyze[5] && !indexes_to_analyze[6] && !indexes_to_analyze[7]
+		) return something_changed;*/
+	//}
+
+	if(any_to_analyze == 0)return something_changed;
+
+	//int any_to_analyze = ((indexes_to_analyze.s0 + indexes_to_analyze.s1) + (indexes_to_analyze.s2 + indexes_to_analyze.s3)) + ((indexes_to_analyze.s4 + indexes_to_analyze.s5) + (indexes_to_analyze.s6 + indexes_to_analyze.s7));
+
+	int node_index;
+	if (indexes_to_analyze_vec.s0 == -1){
+	//if (indexes_to_analyze[0]){
+		node_index = work_item * 4;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s1 == -1){
+	//if (indexes_to_analyze[1]){	
+		node_index = work_item * 4+1;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s2 == -1){
+	//if (indexes_to_analyze[2]){
+		node_index = work_item * 4+2;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+	if (indexes_to_analyze_vec.s3 == -1){
+	//if (indexes_to_analyze[3]){
+		node_index = work_item * 4+3;
+		something_changed |= compute_metrics(work_item, node_index, nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
+	}
+
+	return something_changed;
+}
+
+//kernel void compute_metrics_vectorized8_rectangular(global int* restrict nodes, global int8* queue_, const int n_nodes, global edge_t* restrict edges, global edge_t* restrict edges_reverse, global edge_t* restrict edges_weights, volatile global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+kernel void compute_metrics_vectorized4_rectangular(const global int* restrict nodes, global int4* restrict queue_, const int n_nodes, const global edge_t* restrict edges, const global edge_t* restrict edges_reverse, const global edge_t* restrict edges_weights, global metrics_tt* metriche /*<RANK,LIVELLO>*/, const int max_adj_dept, const int max_adj_reverse_dept)
+{
+	local int something_changed;
+	int something_changed_for_me;
+	int work_item = get_global_id(0);
+	int work_item_local_index = get_local_id(0);
+	int work_group_size = get_local_size(0);
+	int work_group = get_group_id(0);
+	int global_queue_size = (n_nodes + 3) / 4;
+	int local_queue_size = min(work_group_size, global_queue_size); //non è la lunghezza dalla coda globale ma la lunghezza di cui si deve occupare questo work group.
+
+	bool work_item_outside_range = work_item >= global_queue_size || work_item_local_index >= local_queue_size;
+
+	do {
+		if (work_item_local_index == 0)
+			something_changed = 0;
+
+		if (!work_item_outside_range)
+			something_changed_for_me = compute_metrics_vectorized4_rectangular_item(nodes, queue_, n_nodes, edges, edges_reverse, edges_weights, metriche, max_adj_dept, max_adj_reverse_dept);
 
 		if (something_changed_for_me)
 			something_changed = 1;

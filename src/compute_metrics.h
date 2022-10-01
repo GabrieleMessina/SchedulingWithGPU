@@ -17,6 +17,7 @@ private:
 	static tuple<cl_event*, metrics_t*> compute_metrics_rectangular(Graph<int>* DAG, int* entrypoints);
 	//vectorized
 	static tuple<cl_event*, metrics_t*> compute_metrics_vectorized8_rectangular(Graph<int>* DAG, int* entrypoints);
+	static tuple<cl_event*, metrics_t*> compute_metrics_vectorized4_rectangular(Graph<int>* DAG, int* entrypoints);
 	static bool reduce(int n_nodes, cl_mem to_reduce, cl_mem out, cl_int nwg, cl_int lws, cl_int num_events_to_wait, cl_event* to_wait);
 	static cl_int reduce_old(int n_nodes, cl_mem to_reduce, cl_int num_events_to_wait, cl_event* to_wait);
 	static tuple<cl_event*, metrics_t*> compute_metrics_vectorized_rectangular(Graph<int>* DAG, int* entrypoints);

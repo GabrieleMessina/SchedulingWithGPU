@@ -2,7 +2,7 @@
 #include "CL/cl.h"
 
 enum class ComputeMetricsVersion { Latest, Working, v1, Rectangular };
-enum class VectorizedComputeMetricsVersion { Latest, Working, v1, v2, Rectangular, RectangularV2, RectangularVec8};
+enum class VectorizedComputeMetricsVersion { Latest, Working, v1, v2, Rectangular, RectangularV2, RectangularVec8, RectangularVec4};
 
 class OCLManager {
 private:
@@ -14,6 +14,7 @@ private:
 	static cl_kernel entry_discover_k,
 		compute_metrics_k,
 		reduce_queue_k,
+		reduce_queue_old_k,
 		reset_k,
 		compute_processor_cost_k,
 		m_MergesortGlobalBigKernel,
@@ -29,6 +30,7 @@ public:
 	static VectorizedComputeMetricsVersion compute_metrics_vetorized_version_chosen;
 	
 	static cl_context ctx;
+	static cl_device_id device;
 	static cl_command_queue queue;
 	static size_t preferred_wg_size;
 
@@ -43,6 +45,7 @@ public:
 	static cl_kernel GetResetKernel();
 	static cl_kernel GetComputeProcessorCostKernel();
 	static cl_kernel GetReduceQueueKernel();
+	static cl_kernel GetReduceQueueOldKernel();
 	static cl_kernel GetSortKernel(bool smallKernel = false);
 	static cl_kernel GetBitonicSortKernel(int startSmallBigKernel = 0);
 
