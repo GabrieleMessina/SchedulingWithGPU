@@ -13,6 +13,7 @@
 #include <time.h>
 #include <string.h>
 #include <iostream>
+#include <fstream>
 
 #define BUFSIZE 4096
 char platform_name[BUFSIZE];
@@ -78,12 +79,14 @@ cl_platform_id select_platform() {
 	err = clGetPlatformIDs(nplats, plats, NULL);
 	ocl_check(err, "getting platform IDs");
 
-	char buff[BUFSIZE];
-	FILE* config = fopen("./utils/config.txt", "a+");
-	const char* const env = fgets(buff, 2, config);
-	fclose(config);
+	std::string buff = "";
+	std::ifstream config;
+	config.open("./utils/config.txt");
+	if (!config) throw std::runtime_error("config open failed!");
+	config >> buff;
+	config.close();
 
-	if (buff && buff[0] != '\0')platform_number = atoi(buff);
+	if (strcmp(buff.c_str(), "") != 0)platform_number = atoi(buff.c_str());
 
 	if (platform_number >= nplats) {
 		fprintf(stderr, "no platform number %u", platform_number);
@@ -174,12 +177,12 @@ cl_command_queue create_queue(cl_context ctx, cl_device_id d) {
 
 // Compile the device part of the program, stored in the external
 // file `fname`, for device `dev` in context `ctx`
+char src_buf[BUFSIZE + 1];
 cl_program create_program(const char* const fname, cl_context ctx,
-	cl_device_id dev) {
+	cl_device_id dev, size_t preferred_wg_size) {
 	cl_int err, errlog;
 	cl_program prg;
 
-	char src_buf[BUFSIZE + 1];
 	char* log_buf;
 	size_t logsize;
 	const char* buf_ptr = src_buf;
@@ -187,8 +190,15 @@ cl_program create_program(const char* const fname, cl_context ctx,
 
 	memset(src_buf, 0, BUFSIZE);
 
-	snprintf(src_buf, BUFSIZE, "// %s#include \"%s\"\n",
-		ctime(&now), fname);
+	if (preferred_wg_size > 0) {
+		snprintf(src_buf, BUFSIZE, "// %s#define MAX_LOCAL_SIZE_BITONIC %d \n#include \"%s\"\n",
+			ctime(&now), preferred_wg_size, fname);
+	}
+	else {
+		snprintf(src_buf, BUFSIZE, "// %s#include \"%s\"\n",
+			ctime(&now), fname);
+	}
+	
 	
 	if (DEBUG_OCL_INIT)
 		printf("compiling:\n%s", src_buf);

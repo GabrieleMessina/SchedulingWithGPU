@@ -5,6 +5,7 @@ src/.vs/**
 src/build
 src/utils/hidden
 src/Debug
+/src/x64/
 
 ##Latex file to ignore
 *.aux
@@ -73,3 +74,9 @@ src/execution_results.csv
 /src/x64/Generator/Scheduli.18e60ec5.tlog
 /TaskGenerator/data_set
 /TaskGenerator/Debug
+/TaskGenerator/.vs
+/TaskGenerator/TaskGenerator/bin/Debug/net6.0
+/TaskGenerator/TaskGenerator/obj
+*.user
+/.vs
+/src/data_set/all

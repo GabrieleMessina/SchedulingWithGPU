@@ -5,18 +5,25 @@
 /*ocl*/
 
 /*debug*/
-#define DEBUG_MEMORY_LEAK false
-#define DEBUG_OCL_INIT false
-#define DEBUG_DAG_INIT false
-#define DEBUG_ENTRY_DISCOVER false
-#define DEBUG_COMPUTE_METRICS false
-#define DEBUG_SORT false
-#define DEBUG_METRICS true
-#define DEBUG_HEAP_ALLOC false
+#define DEBUG_ALL false
+#define DEBUG_OCL_INIT              DEBUG_ALL | false
+#define DEBUG_DAG_INIT              DEBUG_ALL | false
+#define DEBUG_ENTRY_DISCOVER        DEBUG_ALL | false
+#define DEBUG_COMPUTE_METRICS       DEBUG_ALL | false
+#define DEBUG_SORT                  DEBUG_ALL | false
+#define DEBUG_PROCESSOR_ASSIGNMENT  DEBUG_ALL | false
+#define DEBUG_OCL_METRICS           DEBUG_ALL | false
+#define DEBUG_HEAP_ALLOC            DEBUG_ALL | false
+#define DEBUG_MEMORY_LEAK           DEBUG_ALL | false
+#define DEBUG_COMPUTE_METRICS_PARTIAL       DEBUG_ALL | false
+#define DEBUG_SORT_PARTIAL                  DEBUG_ALL | false
+#define DEBUG_PROCESSOR_ASSIGNMENT_PARTIAL  DEBUG_ALL | false
 /*debug*/
 
 /*DAG*/
 #define edge_t int
+#define metrics_t cl_int3
+#define metrics_tt int3 //for kernels
 #define VECTOR_ADJ false
 #define TRANSPOSED_ADJ false
 #define RECTANGULAR_ADJ true

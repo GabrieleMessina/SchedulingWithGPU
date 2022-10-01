@@ -1,11 +1,12 @@
 #include "compute_metrics.h"
 #include "app_globals.h"
-#include "utils.h"
 #include "ocl_manager.h"
 #include "ocl_buffer_manager.h"
 #include <iostream>
+#include <chrono>
+#include "utils.h"
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints) {
 	ComputeMetricsVersion version = OCLManager::compute_metrics_version_chosen;
 	switch (version)
 	{
@@ -20,7 +21,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::Run(Graph<int>* DAG, int* entrypoints
 			return compute_metrics(DAG, entrypoints);
 	}
 }
-tuple<cl_event*, cl_int2*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* entrypoints) {
 	VectorizedComputeMetricsVersion version = OCLManager::compute_metrics_vetorized_version_chosen;
 	switch (version)
 	{
@@ -28,6 +29,9 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* e
 		case VectorizedComputeMetricsVersion::RectangularVec8:
 			if (!RECTANGULAR_ADJ) error("set RECTANGULAR_ADJ to true in app_globals to proceed.");
 			return compute_metrics_vectorized8_rectangular(DAG, entrypoints);
+		case VectorizedComputeMetricsVersion::RectangularVec4:
+			if (!RECTANGULAR_ADJ) error("set RECTANGULAR_ADJ to true in app_globals to proceed.");
+			return compute_metrics_vectorized4_rectangular(DAG, entrypoints);
 		case VectorizedComputeMetricsVersion::RectangularV2:
 		case VectorizedComputeMetricsVersion::Rectangular:
 			if (!RECTANGULAR_ADJ) error("set RECTANGULAR_ADJ to true in app_globals to proceed.");
@@ -47,19 +51,20 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::RunVectorized(Graph<int>* DAG, int* e
 }
 
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int *entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int *entrypoints) {
 	int const n_nodes = DAG->len;
 	int* queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) queue[i] = entrypoints[i]; //alias for clarity
 	int *next_queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
 
-	cl_int2 *metrics = DBG_NEW cl_int2[metrics_len];
+	metrics_t *metrics = DBG_NEW metrics_t[metrics_len];
 	int matrixToArrayIndex;
 	int parent_of_node;
 	for (int i = 0; i < metrics_len; i++) {
 		metrics[i].x = 0;
 		metrics[i].y = 0;
+		metrics[i].z = i;
 		if (i > n_nodes) continue;
 		for (int j = 0; j < n_nodes; j++) {
 			parent_of_node = DAG->hasEdgeByIndex(j, i);
@@ -90,11 +95,11 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
 
 		if (flip) {
-			moreToProcess = reduce(n_nodes, BufferManager.GetNextQueue(), 1, &compute_metrics_evt_end) > 0;
+			moreToProcess = reduce_old(n_nodes, BufferManager.GetNextQueue(), 1, &compute_metrics_evt_end) > 0;
 			run_reset_kernel(BufferManager.GetNextQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 		}
 		else {
-			moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+			moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
 			run_reset_kernel(BufferManager.GetQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 		}
 
@@ -104,11 +109,11 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	
-	cout << "count:" << count << endl;
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
+		cout << "number of cycles to converge:" << count << endl;
 		cout<<"metrics: "<<metrics_len<<endl;
-		print(metrics, DAG->len, "\n", true);
+		print(metrics, DAG->len, "\n", true, 0);
 		cout<<"\n";
 	}
 	cout << endl;
@@ -117,8 +122,9 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -130,14 +136,14 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics(Graph<int>* DAG, int 
 	return make_tuple(compute_metrics_evt, metrics);
 }
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int>* DAG, int *entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_rectangular(Graph<int>* DAG, int *entrypoints) {
 	int const n_nodes = DAG->len;
 	int* queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) queue[i] = entrypoints[i]; //alias for clarity
 	int *next_queue = DBG_NEW int[n_nodes]; for (int i = 0; i < n_nodes; i++) next_queue[i] = 0;
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
 	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
 
-	cl_int2 *metrics = DBG_NEW cl_int2[metrics_len];
+	metrics_t *metrics = DBG_NEW metrics_t[metrics_len];
 	int matrixToArrayIndex;
 	int parent_of_node;
 	for (int i = 0; i < metrics_len; i++) {
@@ -173,11 +179,11 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int
 		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
 
 		if (flip){
-			moreToProcess = reduce(n_nodes, BufferManager.GetNextQueue(), 1, &compute_metrics_evt_end) > 0;
+			moreToProcess = reduce_old(n_nodes, BufferManager.GetNextQueue(), 1, &compute_metrics_evt_end) > 0;
 			run_reset_kernel(BufferManager.GetNextQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 		}
 		else {
-			moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+			moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
 			run_reset_kernel(BufferManager.GetQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 		}
 
@@ -188,12 +194,19 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int
 	
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	
-	cout << "count:" << count << endl;
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
+		cout << "number of cycles to converge:" << count << endl;
 		cout<<"metrics: "<<metrics_len<<endl;
-		print(metrics, DAG->len, "\n", true);
+		print(metrics, DAG->len, "\n", true, 0);
 		cout<<"\n";
+	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
 	}
 	cout << endl;
 
@@ -201,8 +214,9 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
 	BufferManager.ReleaseGraphReverseEdges();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -215,7 +229,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_rectangular(Graph<int
 }
 
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
 	int const queue_len = ceil(n_nodes / 4.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -231,7 +245,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<i
 		queue[i].w = (j < n_nodes) ? entrypoints[j] : 0;
 	}
 
-	cl_int2* metrics = DBG_NEW cl_int2[metrics_len];
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len];
 	int matrixToArrayIndex;
 	for (int i = 0; i < metrics_len; i++) {
 		metrics[i].x = 0;
@@ -286,19 +300,28 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<i
 
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 
-	cout << "count:" << count << endl;
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
+		cout << "number of cycles to converge:" << count << endl;
 		cout << "metrics: " << metrics_len << endl;
-		print(metrics, DAG->len, "\n", true);
+		print(metrics, DAG->len, "\n", true, 0);
 		cout << "\n";
+	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
 	}
 
 	//PULIZIA FINALE
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -310,7 +333,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v1(Graph<i
 	return make_tuple(compute_metrics_evt, metrics);
 }
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
 	int const queue_len = ceil(n_nodes / 4.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -340,7 +363,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 	print(queue, queue_len, "\n", true);
 	cout << "\n";*/
 
-	cl_int2* metrics = DBG_NEW cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = cl_int2{ DAG->nodes[i],0};
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = metrics_t{ DAG->nodes[i], 0, i };
 
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
@@ -367,17 +390,26 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
-		cout << "metrics: " << metrics_len << endl;
-		cout << "count:" << count << endl;
-		print(metrics, metrics_len, "\n", true);
+		cout << "metrics len: " << metrics_len << endl;
+		cout << "number of cycles to converge:" << count << endl;
+		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
+	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
 	}
 
 	//PULIZIA FINALE
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -389,7 +421,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_v2(Graph<i
 	return make_tuple(compute_metrics_evt, metrics);
 }
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangular(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized_rectangular(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
 	int queue_len = ceil(n_nodes / 4.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -419,7 +451,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 	print(queue, queue_len, "\n", true);
 	cout << "\n";*/
 
-	cl_int2* metrics = DBG_NEW cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = cl_int2{ DAG->nodes[i],0 };
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = metrics_t{ DAG->nodes[i], 0, i };
 
 
 	BufferManager.SetNodes(DAG->nodes);
@@ -442,7 +474,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 		ocl_check(err, "read from queue with map buffer");*/
 		//BufferManager.GetQueueResult(queue, &compute_metrics_evt_end, 1);
 
-		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+		moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
 
 		//moreToProcess = !isEmpty(queue, queue_len, cl_int4{ -1,-1,-1,-1 });
 		//BufferManager.ReleaseQueue(queue);
@@ -453,10 +485,17 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
 	printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
-		cout << "metrics: " << metrics_len << endl;
-		cout << "count:" << count << endl;
-		print(metrics, metrics_len, "\n", true);
+		cout << "metrics len: " << metrics_len << endl;
+		cout << "number of cycles to converge:" << count << endl;
+		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
+	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
 	}
 
 		/*BufferManager.ReleaseQueue(queue);*/
@@ -464,7 +503,9 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -477,7 +518,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized_rectangula
 }
 
 
-tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized8_rectangular(Graph<int>* DAG, int* entrypoints) {
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized8_rectangular(Graph<int>* DAG, int* entrypoints) {
 	int const n_nodes = DAG->len;
 	int queue_len = ceil(n_nodes / 8.0);
 	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
@@ -501,7 +542,7 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized8_rectangul
 	print(queue, queue_len, "\n", true);
 	cout << "\n";*/
 
-	cl_int2* metrics = DBG_NEW cl_int2[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = cl_int2{ DAG->nodes[i],0 };
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = metrics_t{ DAG->nodes[i],0,i};
 
 	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
 
@@ -512,38 +553,181 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized8_rectangul
 	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
 	cl_event compute_metrics_evt_start = cl_event(), compute_metrics_evt_end = cl_event();
 
+	//std::chrono::system_clock::time_point middle_time1;
+	//std::chrono::system_clock::time_point middle_time2;
+	//std::chrono::system_clock::time_point middle_time3;
+
+	cl_uint ncu; /* number of compute units */
+	cl_int err = clGetDeviceInfo(OCLManager::device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(ncu), &ncu, NULL);
+	cl_uint lws = 8;
+	cl_uint nwg = ncu * lws;
+
+	cl_mem d_out = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE,
+		nwg * sizeof(cl_int), NULL, &err);
+	ocl_check(err, "create buffer d_out");
+
 	bool moreToProcess = false;
 	int count = 0;
 	do
 	{
+		//middle_time1 = std::chrono::system_clock::now();
 		compute_metrics_evt_end = run_compute_metrics_kernel_v2(n_nodes, DAG);
 		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
+		//middle_time2 = std::chrono::system_clock::now();
 		
 		/*BufferManager.GetQueueResult(queue, &compute_metrics_evt_end, 1);
-		print((cl_int*)queue, n_nodes, " - ", false);
+		print8(queue, queue_len, "\n", true);
 		printf("\n");
 		printf("\n");*/
 
-		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), d_out, nwg, lws, 1, &compute_metrics_evt_end);
+		//moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+		//middle_time3 = std::chrono::system_clock::now();
+		//run_reset_kernel(BufferManager.GetQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
 
 		//moreToProcess = !isEmpty(queue, queue_len, cl_int8{ -1,-1,-1,-1,-1,-1,-1,-1 });
 		count++;
+
+		//std::chrono::duration<double, std::milli> elapsed_seconds1 = middle_time2 - middle_time1;
+		//std::chrono::duration<double, std::milli> elapsed_seconds2 = middle_time3 - middle_time2;
+		//printf("Compute vs reduction: %E | %E\n", elapsed_seconds1.count(), elapsed_seconds2.count());
+
 	} while (moreToProcess);
 
-	BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
-	printf("metrics computed\n");
+	//printf("metrics computed\n");
 	if (DEBUG_COMPUTE_METRICS) {
-		cout << "metrics: " << metrics_len << endl;
-		cout << "count:" << count << endl;
-		print(metrics, metrics_len, "\n", true);
+		BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
+		cout << "metrics len: " << metrics_len << endl;
+		cout << "number of cycles to converge:" << count << endl;
+		print(metrics, metrics_len, "\n", true, 0);
 		cout << "\n";
+	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
 	}
 
 	//PULIZIA FINALE
+	clReleaseMemObject(d_out);
 	BufferManager.ReleaseNodes();
 	BufferManager.ReleaseQueue();
 	BufferManager.ReleaseNextQueue();
-	BufferManager.ReleaseGraphEdges();
+	//BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	//BufferManager.ReleaseGraphWeightsReverse();
+	//BufferManager.ReleaseMetrics(); //sort kernel is using it
+
+	delete[] queue;
+	//delete[] next_queue;
+
+	cl_event* compute_metrics_evt = DBG_NEW cl_event[2];
+	compute_metrics_evt[0] = compute_metrics_evt_start;
+	compute_metrics_evt[1] = compute_metrics_evt_end;
+	return make_tuple(compute_metrics_evt, metrics);
+}
+
+
+tuple<cl_event*, metrics_t*> ComputeMetrics::compute_metrics_vectorized4_rectangular(Graph<int>* DAG, int* entrypoints) {
+	int const n_nodes = DAG->len;
+	int queue_len = ceil(n_nodes / 4.0);
+	const int metrics_len = GetMetricsArrayLenght(n_nodes); //necessario usare il round alla prossima potenza del due perché altrimenti il sort non potrebbe funzionare
+	if (metrics_len < (n_nodes)) error("array metrics più piccolo di nodes array");
+
+	cl_int4* queue = DBG_NEW cl_int4[queue_len];
+
+	for (int i = 0; i < queue_len; i++) {
+		int j = i * 4;
+		queue[i].s0 = DAG->numberOfParentOfNode(j++);
+		queue[i].s1 = DAG->numberOfParentOfNode(j++);
+		queue[i].s2 = DAG->numberOfParentOfNode(j++);
+		queue[i].s3 = DAG->numberOfParentOfNode(j);
+	}
+
+	/*cout << "queue init\n";
+	print(queue, queue_len, "\n", true);
+	cout << "\n";*/
+
+	metrics_t* metrics = DBG_NEW metrics_t[metrics_len]; for (int i = 0; i < metrics_len; i++) metrics[i] = metrics_t{ DAG->nodes[i],0,i };
+
+	OCLBufferManager BufferManager = *OCLBufferManager::GetInstance();
+
+	BufferManager.SetNodes(DAG->nodes);
+	BufferManager.SetQueue(queue);
+	BufferManager.SetMetrics(metrics);
+
+	//ESEGUIRE L'ALGORITMO DI SCHEDULING SU GPU
+	cl_event compute_metrics_evt_start = cl_event(), compute_metrics_evt_end = cl_event();
+
+	//std::chrono::system_clock::time_point middle_time1;
+	//std::chrono::system_clock::time_point middle_time2;
+	//std::chrono::system_clock::time_point middle_time3;
+
+	cl_uint ncu; /* number of compute units */
+	cl_int err = clGetDeviceInfo(OCLManager::device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(ncu), &ncu, NULL);
+	cl_uint lws = 8;
+	cl_uint nwg = ncu * lws;
+
+	cl_mem d_out = clCreateBuffer(OCLManager::ctx, CL_MEM_READ_WRITE,
+		nwg * sizeof(cl_int), NULL, &err);
+	ocl_check(err, "create buffer d_out");
+
+	bool moreToProcess = false;
+	int count = 0;
+	do
+	{
+		//middle_time1 = std::chrono::system_clock::now();
+		compute_metrics_evt_end = run_compute_metrics_kernel_v2(n_nodes, DAG);
+		if (count == 0) compute_metrics_evt_start = compute_metrics_evt_end;
+		//middle_time2 = std::chrono::system_clock::now();
+
+		/*BufferManager.GetQueueResult(queue, &compute_metrics_evt_end, 1);
+		print8(queue, queue_len, "\n", true);
+		printf("\n");
+		printf("\n");*/
+
+		moreToProcess = reduce(n_nodes, BufferManager.GetQueue(), d_out, nwg, lws, 1, &compute_metrics_evt_end);
+		//moreToProcess = reduce_old(n_nodes, BufferManager.GetQueue(), 1, &compute_metrics_evt_end) > 0;
+		//middle_time3 = std::chrono::system_clock::now();
+		//run_reset_kernel(BufferManager.GetQueue(), n_nodes, 0, 1, &compute_metrics_evt_end);
+
+		//moreToProcess = !isEmpty(queue, queue_len, cl_int8{ -1,-1,-1,-1,-1,-1,-1,-1 });
+		count++;
+
+		//std::chrono::duration<double, std::milli> elapsed_seconds1 = middle_time2 - middle_time1;
+		//std::chrono::duration<double, std::milli> elapsed_seconds2 = middle_time3 - middle_time2;
+		//printf("Compute vs reduction: %E | %E\n", elapsed_seconds1.count(), elapsed_seconds2.count());
+
+	} while (moreToProcess);
+
+	//printf("metrics computed\n");
+	if (DEBUG_COMPUTE_METRICS) {
+		BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
+		cout << "metrics len: " << metrics_len << endl;
+		cout << "number of cycles to converge:" << count << endl;
+		print(metrics, metrics_len, "\n", true, 0);
+		cout << "\n";
+	}
+	else if (DEBUG_COMPUTE_METRICS_PARTIAL) { //mostro solo i primi e gli ultimi 5 elementi per essere sicuro che tutto abbia funzionato.
+		BufferManager.GetMetricsResult(metrics, &compute_metrics_evt_end, 1);
+		cout << "number of cycles to converge:" << count << endl;
+		cout << "metrics: " << metrics_len << endl;
+		print(metrics, min(metrics_len, 5), "\n", true, 0);
+		cout << "[...]" << endl << endl;
+		print(metrics, metrics_len, "\n", true, metrics_len - 5);
+	}
+
+	//PULIZIA FINALE
+	clReleaseMemObject(d_out);
+	BufferManager.ReleaseNodes();
+	BufferManager.ReleaseQueue();
+	BufferManager.ReleaseNextQueue();
+	//BufferManager.ReleaseGraphEdges();
+	BufferManager.ReleaseGraphReverseEdges();
+	//BufferManager.ReleaseGraphWeightsReverse();
 	//BufferManager.ReleaseMetrics(); //sort kernel is using it
 
 	delete[] queue;
@@ -558,7 +742,26 @@ tuple<cl_event*, cl_int2*> ComputeMetrics::compute_metrics_vectorized8_rectangul
 
 
 
-cl_int ComputeMetrics::reduce(int n_nodes, cl_mem to_reduce, cl_int num_events_to_wait, cl_event* to_wait) {
+bool ComputeMetrics::reduce(int n_nodes, cl_mem to_reduce, cl_mem out, cl_int nwg, cl_int lws, cl_int num_events_to_wait, cl_event* to_wait) {
+	int nwg0 = calc_nwg(n_nodes, OCLManager::preferred_wg_size);
+	const size_t memsize = n_nodes * sizeof(int);
+
+	cl_event reduction_evt[2];
+	reduction_evt[0] = run_reduce_kernel(n_nodes, nwg, lws, out, to_reduce, num_events_to_wait, to_wait);
+	reduction_evt[1] = run_reduce_kernel(nwg, 1, lws, out, out, 1, &reduction_evt[0]);
+
+	cl_event read_evt;
+	int reduction_sum;
+	clEnqueueReadBuffer(OCLManager::queue, out, CL_TRUE, 0, sizeof(reduction_sum), &reduction_sum,
+		1, reduction_evt + 1, &read_evt);
+
+	/*double runtime_reduction_total_ms = total_runtime_ms(reduction_evt[0], reduction_evt[1]);
+	printf("runtime_reduction_total_ms: %E\n", runtime_reduction_total_ms);*/
+
+	return reduction_sum > (-1 * n_nodes);
+}
+
+cl_int ComputeMetrics::reduce_old(int n_nodes, cl_mem to_reduce, cl_int num_events_to_wait, cl_event* to_wait) {
 	int nwg0 = calc_nwg(n_nodes, OCLManager::preferred_wg_size);
 	const size_t memsize = n_nodes * sizeof(int);
 
@@ -577,11 +780,11 @@ cl_int ComputeMetrics::reduce(int n_nodes, cl_mem to_reduce, cl_int num_events_t
 	}
 
 	nwg = n_nodes;
-	cl_event *last_reduction_event = to_wait + (num_events_to_wait-1);
+	cl_event* last_reduction_event = to_wait + (num_events_to_wait - 1);
 
 	int npairs = nwg / 2;
 	nwg = calc_nwg(nwg, OCLManager::preferred_wg_size);
-	*last_reduction_event = run_reduce_kernel(nwg, reduction_result, to_reduce, npairs, 1, last_reduction_event);
+	*last_reduction_event = run_reduce_kernel_old(nwg, reduction_result, to_reduce, npairs, 1, last_reduction_event);
 	cl_mem tmp = d_input;
 	d_input = reduction_result;
 	reduction_result = tmp;
@@ -589,7 +792,7 @@ cl_int ComputeMetrics::reduce(int n_nodes, cl_mem to_reduce, cl_int num_events_t
 	for (int pass = 1; pass < npass; ++pass) {
 		npairs = nwg / 2;
 		nwg = calc_nwg(nwg, OCLManager::preferred_wg_size);
-		*last_reduction_event = run_reduce_kernel(nwg, reduction_result, d_input, npairs, 1, last_reduction_event);
+		*last_reduction_event = run_reduce_kernel_old(nwg, reduction_result, d_input, npairs, 1, last_reduction_event);
 		cl_mem tmp = d_input;
 		d_input = reduction_result;
 		reduction_result = tmp;
@@ -617,6 +820,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip, Grap
 	cl_mem next_queue_GPU = (flip) ? BufferManager.GetQueue() : BufferManager.GetNextQueue();
 	cl_mem graph_edges_GPU = BufferManager.GetGraphEdges();
 	cl_mem graph_edges_reverse_GPU = BufferManager.GetGraphReverseEdges();
+	cl_mem graph_weights_GPU = BufferManager.GetGraphWeightsReverse();
 	cl_mem metrics_GPU = BufferManager.GetMetrics();
 
 	cl_int err;
@@ -635,13 +839,18 @@ cl_event ComputeMetrics::run_compute_metrics_kernel(int n_nodes, bool flip, Grap
 	if (version == ComputeMetricsVersion::Rectangular && DAG != NULL) {
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_reverse_GPU), &graph_edges_reverse_GPU);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_weights_GPU), &graph_weights_GPU);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(metrics_GPU), &metrics_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 
 	if (version == ComputeMetricsVersion::Rectangular && DAG != NULL) {
-		int max_adj_dept = DAG->max_edges_for_node;
+		int max_adj_dept = DAG->max_parents_for_nodes;
+		int max_adj_reverse_dept = DAG->max_children_for_nodes;
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_dept), &max_adj_dept);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_reverse_dept), &max_adj_reverse_dept);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
 
@@ -670,11 +879,16 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 		gws[0] = round_mul_up(n_nodes / 8, lws[0]);
 		local_queue_memsize = lws[0] * sizeof(cl_int8);
 	}
+	if (version == VectorizedComputeMetricsVersion::RectangularVec4) {
+		gws[0] = round_mul_up(n_nodes / 4, lws[0]);
+		local_queue_memsize = lws[0] * sizeof(cl_int4);
+	}
 
 	cl_mem graph_nodes_GPU = BufferManager.GetNodes();
 	cl_mem queue_GPU = BufferManager.GetQueue();
 	cl_mem graph_edges_GPU = BufferManager.GetGraphEdges();
 	cl_mem graph_edges_reverse_GPU = BufferManager.GetGraphReverseEdges();
+	cl_mem graph_weights_GPU = BufferManager.GetGraphWeightsReverse();
 	cl_mem metrics_GPU = BufferManager.GetMetrics();
 
 	cl_int err;
@@ -683,7 +897,7 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(queue_GPU), &queue_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
-	if (version != VectorizedComputeMetricsVersion::RectangularV2 && version != VectorizedComputeMetricsVersion::RectangularVec8) {
+	if (version != VectorizedComputeMetricsVersion::RectangularV2 && version != VectorizedComputeMetricsVersion::RectangularVec8 && version != VectorizedComputeMetricsVersion::RectangularVec8) {
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, local_queue_memsize, NULL);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, local_queue_memsize, NULL);
@@ -693,17 +907,22 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_GPU), &graph_edges_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
-	if ((version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 || version == VectorizedComputeMetricsVersion::RectangularVec8) && DAG != NULL) {
+	if ((version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 || version == VectorizedComputeMetricsVersion::RectangularVec8 || version == VectorizedComputeMetricsVersion::RectangularVec4) && DAG != NULL) {
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_edges_reverse_GPU), &graph_edges_reverse_GPU);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(graph_weights_GPU), &graph_weights_GPU);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
 	
 	err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(metrics_GPU), &metrics_GPU);
 	ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 
-	if ((version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 || version == VectorizedComputeMetricsVersion::RectangularVec8) && DAG != NULL) {
-		int max_adj_dept = DAG->max_edges_for_node;
+	if ((version == VectorizedComputeMetricsVersion::Rectangular || version == VectorizedComputeMetricsVersion::RectangularV2 || version == VectorizedComputeMetricsVersion::RectangularVec8 || version == VectorizedComputeMetricsVersion::RectangularVec4) && DAG != NULL) {
+		int max_adj_dept = DAG->max_parents_for_nodes;
+		int max_adj_reverse_dept = DAG->max_children_for_nodes;
 		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_dept), &max_adj_dept);
+		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
+		err = clSetKernelArg(OCLManager::GetComputeMetricsKernel(), arg_index++, sizeof(max_adj_reverse_dept), &max_adj_reverse_dept);
 		ocl_check(err, "set arg %d for compute_metrics_k", arg_index);
 	}
 
@@ -721,9 +940,37 @@ cl_event ComputeMetrics::run_compute_metrics_kernel_v2(int n_nodes, Graph<edge_t
 
 
 
-cl_event ComputeMetrics::run_reduce_kernel(cl_int nwg, cl_mem d_output, cl_mem d_input, cl_int npairs, cl_int num_events_to_wait, cl_event* to_wait)
+cl_event ComputeMetrics::run_reduce_kernel(cl_int nels, cl_int nwg, cl_int lws_spec, cl_mem d_output, cl_mem d_input,cl_int num_events_to_wait, cl_event* to_wait)
 {
 	cl_kernel k = OCLManager::GetReduceQueueKernel();
+	cl_command_queue q = OCLManager::queue;
+	int arg_index = 0;
+	cl_int nquarts = nels / 4;
+	size_t lws[] = { lws_spec };
+	size_t gws[] = { nwg * lws[0] };
+
+
+	cl_int err;
+	err = clSetKernelArg(OCLManager::GetReduceQueueKernel(), 0, sizeof(nquarts), &nquarts);
+	ocl_check(err, "set arg 0 for reduction_k");
+	err = clSetKernelArg(OCLManager::GetReduceQueueKernel(), 1, sizeof(d_output), &d_output);
+	ocl_check(err, "set arg 1 for reduction_k");
+	err = clSetKernelArg(OCLManager::GetReduceQueueKernel(), 2, sizeof(d_input), &d_input);
+	ocl_check(err, "set arg 2 for reduction_k");
+	err = clSetKernelArg(OCLManager::GetReduceQueueKernel(), 3, lws[0] * sizeof(cl_int), NULL);
+	ocl_check(err, "set arg 3 for reduction_k");
+
+	cl_event reduce_evt;
+	err = clEnqueueNDRangeKernel(q, k,
+		1, NULL, gws, lws,
+		num_events_to_wait, to_wait, &reduce_evt);
+	ocl_check(err, "launch kernel reduce_vec");
+	return reduce_evt;
+}
+
+cl_event ComputeMetrics::run_reduce_kernel_old(cl_int nwg, cl_mem d_output, cl_mem d_input, cl_int npairs, cl_int num_events_to_wait, cl_event* to_wait)
+{
+	cl_kernel k = OCLManager::GetReduceQueueOldKernel();
 	cl_command_queue q = OCLManager::queue;
 	int arg_index = 0;
 	const size_t lws[] = { OCLManager::preferred_wg_size };

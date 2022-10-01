@@ -1,11 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.2.32630.192
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.32630.194
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SchedulingWithGPU", "SchedulingWithGPU.vcxproj", "{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TaskGenerator", "..\TaskGenerator\TaskGenerator.vcxproj", "{03D2C690-CE0E-4635-9A65-119712DE91F1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -53,34 +51,6 @@ Global
 		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.SmallKernelVectorized|x64.Build.0 = SmallKernelVectorized|x64
 		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.SmallKernelVectorized|x86.ActiveCfg = SmallKernelVectorized|Win32
 		{18E60EC5-9DD0-4BC6-BD6A-39CB7427F77F}.SmallKernelVectorized|x86.Build.0 = SmallKernelVectorized|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.BigKernelNotVectorized|x64.ActiveCfg = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.BigKernelNotVectorized|x64.Build.0 = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.BigKernelNotVectorized|x86.ActiveCfg = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.BigKernelNotVectorized|x86.Build.0 = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.BigKernelVectorized|x64.ActiveCfg = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.BigKernelVectorized|x64.Build.0 = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.BigKernelVectorized|x86.ActiveCfg = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.BigKernelVectorized|x86.Build.0 = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Debug|x64.ActiveCfg = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Debug|x64.Build.0 = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Debug|x86.ActiveCfg = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Debug|x86.Build.0 = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Generator|x64.ActiveCfg = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Generator|x64.Build.0 = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Generator|x86.ActiveCfg = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Generator|x86.Build.0 = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Release|x64.ActiveCfg = Release|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Release|x64.Build.0 = Release|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Release|x86.ActiveCfg = Release|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.Release|x86.Build.0 = Release|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.SmallKernelNotVectorized|x64.ActiveCfg = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.SmallKernelNotVectorized|x64.Build.0 = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.SmallKernelNotVectorized|x86.ActiveCfg = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.SmallKernelNotVectorized|x86.Build.0 = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.SmallKernelVectorized|x64.ActiveCfg = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.SmallKernelVectorized|x64.Build.0 = Debug|x64
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.SmallKernelVectorized|x86.ActiveCfg = Debug|Win32
-		{03D2C690-CE0E-4635-9A65-119712DE91F1}.SmallKernelVectorized|x86.Build.0 = Debug|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

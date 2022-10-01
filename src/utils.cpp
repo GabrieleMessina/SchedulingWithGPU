@@ -1,9 +1,10 @@
-#include "utils.h"
 #include <math.h>
+#include "app_globals.h"
 #if WINDOWS
 #include "windows.h"
 #include "psapi.h"
 #endif
+#include "utils.h"
 
 void error(char const* str) {
 	fprintf(stderr, "ERROR: %s\n", str);
@@ -77,12 +78,22 @@ size_t GetMetricsArrayLenght(int n_nodes) {
 
 
 
-void print(cl_int2* v, int len, const char* separator, bool withIndexes, int startingFrom) {
+//void print(cl_int2* v, int len, const char* separator, bool withIndexes, int startingFrom) {
+//	for (int i = startingFrom; i < len; i++)
+//	{
+//		if (withIndexes)
+//			std::cout << i << ":";
+//		std::cout << "(" << v[i].s[0] << ", " << v[i].s[1] << ")" << separator;
+//	}
+//	std::cout << "\n";
+//}
+
+void print(cl_int3* v, int len, const char* separator, bool withIndexes, int startingFrom) {
 	for (int i = startingFrom; i < len; i++)
 	{
 		if (withIndexes)
 			std::cout << i << ":";
-		std::cout << "(" << v[i].s[0] << ", " << v[i].s[1] << ")" << separator;
+		std::cout << "(" << v[i].s[0] << ", " << v[i].s[1] << ", " << v[i].s[2] << ")" << separator;
 	}
 	std::cout << "\n";
 }
@@ -93,6 +104,16 @@ void print(cl_int4* v, int len, const char* separator, bool withIndexes) {
 		if (withIndexes)
 			std::cout << i << ":";
 		std::cout << "(" << v[i].s[0] << ", " << v[i].s[1] << ", " << v[i].s[2] << ", " << v[i].s[3] << ")" << separator;
+	}
+	std::cout << "\n";
+}
+
+void print8(cl_int8* v, int len, const char* separator, bool withIndexes) {
+	for(int i = 0; i < len; i++)
+	{
+		if (withIndexes)
+			std::cout << i << ":";
+		std::cout << "(" << v[i].s[0] << ", " << v[i].s[1] << ", " << v[i].s[2] << ", " << v[i].s[3] << ", " << v[i].s[4] << ", " << v[i].s[5] << ", " << v[i].s[6] << ", " << v[i].s[7] << ")" << separator;
 	}
 	std::cout << "\n";
 }
@@ -113,19 +134,19 @@ void print(cl_int4* v, int len, const char* separator, bool withIndexes) {
 
 
 //Una l è minore di r se hanno lo stesso livello, e l ha peso maggiore o se l ha livello minore di r.
-bool operator<(const cl_int2& l, const cl_int2& r) {
+bool operator<(const metrics_t& l, const metrics_t& r) {
 	if (l.y == r.y) {
 		return l.x > r.x; //peso maggiore
 	}
 	return l.y < r.y; //o livello più basso
 }
-bool operator>(const cl_int2& l, const cl_int2& r) {
+bool operator>(const metrics_t& l, const metrics_t& r) {
 	return (r < l);
 }
-bool operator<=(const cl_int2& l, const cl_int2& r) {
+bool operator<=(const metrics_t& l, const metrics_t& r) {
 	return !(l > r);
 }
-bool operator>=(const cl_int2& l, const cl_int2& r) {
+bool operator>=(const metrics_t& l, const metrics_t& r) {
 	return !(l < r);
 }
 

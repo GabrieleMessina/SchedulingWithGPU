@@ -1,9 +1,9 @@
 #include "app_globals.h"
 #include "entry_discover.h"
-#include "utils.h"
 #include "ocl_manager.h"
 #include "ocl_buffer_manager.h"
 #include <iostream>
+#include "utils.h"
 
 tuple<cl_event, int*> EntryDiscover::Run(Graph<int>* DAG) {
 	return entry_discover(DAG);
@@ -19,7 +19,9 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 
 	//PASSARE I DATI ALLA GPU
 	BufferManager.SetGraphEdges(DAG->GetEdgesArray());
+	BufferManager.SetCostsOnProcessor(DAG->GetCostsArray());
 #if RECTANGULAR_ADJ
+	BufferManager.SetGraphWeightsReverse(DAG->GetWeightsReverseArray());
 	BufferManager.SetGraphReverseEdges(DAG->GetEdgesReverseArray());
 #endif	
 	BufferManager.SetNEntrypoints(n_entrypoints);
@@ -30,13 +32,13 @@ tuple<cl_event, int*> EntryDiscover::entry_discover(Graph<int> *DAG) {
 	BufferManager.GetEntrypointsResult(entrypoints, &entry_discover_evt, 1);
 	//BufferManager.GetNEntrypointsResult(n_entrypoints, &entry_discover_evt, 1);
 
-	printf("entries discovered\n");
+	//printf("entries discovered\n");
 	if (DEBUG_ENTRY_DISCOVER) {
 		//cout<<"entrypoints: "<< *n_entrypoints <<endl;
 		print(entrypoints, DAG->len, ", ", true);
 		cout<<"\n";
+		cout << endl;
 	}
-	cout << endl;
 
 	//PULIZIA FINALE
 	//BufferManager.ReleaseGraphEdges(); //compute metrics is using it

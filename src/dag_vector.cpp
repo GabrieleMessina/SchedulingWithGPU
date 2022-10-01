@@ -6,7 +6,7 @@ class GraphVector : public Graph<T> {
 private:
 	vector<edge_t> adj_vec; //adj è un array in modo da passarlo direttamente alla GPU senza doverlo convertire.
 public:
-	GraphVector(int len = 100) : Graph<T>(len)
+	GraphVector(int len = 100, int processor_count = 1) : Graph<T>(len, processor_count)
 	{
 	}
 
@@ -42,6 +42,10 @@ public:
 		return this;
 	}
 
+	edge_t* GetWeightsArray() override {
+		return adj_vec.data();
+	}
+	
 	edge_t* GetEdgesArray() override {
 		return adj_vec.data();
 	}

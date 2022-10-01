@@ -56,7 +56,7 @@ cl_command_queue create_queue(cl_context ctx, cl_device_id d);
 
 // Compile the device part of the program, stored in the external
 // file `fname`, for device `dev` in context `ctx`
-cl_program create_program(const char* const fname, cl_context ctx, cl_device_id dev);
+cl_program create_program(const char* const fname, cl_context ctx, cl_device_id dev, size_t preferred_wg_size = 0);
 
 size_t get_preferred_work_group_size_multiple(cl_kernel k, cl_command_queue q);
 

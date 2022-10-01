@@ -22,14 +22,16 @@ bool isEmpty(cl_int8* v, int len, cl_int8 default_v = cl_int8{ 0,0,0,0,0,0,0,0 }
 bool is_file_empty(FILE* fp);
 
 //Specialization of print template function for this types that are not standard. //TODO: to make it cleaner, override cout << operand for this types
-void print(cl_int2* v, int len, const char* separator = " ", bool withIndexes = false, int startingFrom = 0);
+//void print(cl_int2* v, int len, const char* separator = " ", bool withIndexes = false, int startingFrom = 0);
+void print(cl_int3* v, int len, const char* separator = " ", bool withIndexes = false, int startingFrom = 0);
 void print(cl_int4* v, int len, const char* separator = " ", bool withIndexes = false);
+void print8(cl_int8* v, int len, const char* separator = " ", bool withIndexes = false);
 
 //utils for cl types
-bool operator<(const cl_int2& l, const cl_int2& r);
-bool operator>(const cl_int2& l, const cl_int2& r);
-bool operator<=(const cl_int2& l, const cl_int2& r);
-bool operator>=(const cl_int2& l, const cl_int2& r);
+bool operator<(const metrics_t& l, const metrics_t& r);
+bool operator>(const metrics_t& l, const metrics_t& r);
+bool operator<=(const metrics_t& l, const metrics_t& r);
+bool operator>=(const metrics_t& l, const metrics_t& r);
 
 std::string exec(const char* cmd);
 void printMemoryUsage();
@@ -74,6 +76,19 @@ void print(T* v, int row_len, int col_len, const char *separator) {
 
 	std::cout << "\n";
 }
+
+template<typename T>
+void maxOfSequence(T* v, int len) {
+	T max = v[0];
+	for (int i = 1; i < len; i++)
+	{
+		if (v[i] > max) {
+			max = v[i];
+		}
+	}
+	return max;
+}
+
 
 
 //template<typename T> T* matrix_to_array(T** mat, int row_len, int col_len) {

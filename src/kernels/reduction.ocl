@@ -1,7 +1,13 @@
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 #include "../app_globals.h"
 
-void print(global int2* v, int len, bool withIndexes) {
+#pragma inline
+int matrix_to_array_indexes(int i, int j, int row_len){
+	return i * row_len + j;
+}
+
+
+void print(global metrics_tt* v, int len, bool withIndexes) {
 	for (int i = 0; i < len; i++)
 	{
 		if (withIndexes)
@@ -12,7 +18,49 @@ void print(global int2* v, int len, bool withIndexes) {
 	printf("\n");
 }
 
-kernel void reduce_queue(global int* restrict output, const global int2* restrict input,
+
+/* fixed number of work-items, choose workload based on that */
+kernel void reduce_queue(int nquarts, global int * restrict out, global const int4 * restrict in,
+	local int * restrict lmem /* sized for get_local_size(0) elements */)
+{
+	int i = get_global_id(0);
+	const int wi = get_local_id(0);
+
+	int acc = 0;
+
+	const int4 noels = (int4)(0, 0, 0, 0);
+
+	while (i < nquarts) {
+		const int i1 = i +   get_global_size(0);
+		const int i2 = i + 2*get_global_size(0);
+		const int i3 = i + 3*get_global_size(0);
+
+		int4 r0 = in[i];
+		int4 r1 = (i1 < nquarts ? in[i1] : noels);
+		int4 r2 = (i2 < nquarts ? in[i2] : noels);
+		int4 r3 = (i3 < nquarts ? in[i3] : noels);
+
+		int4 v = (r0 + r1) + (r2 + r3);
+		acc += (v.x + v.y) + (v.z + v.w);
+		i += 4*get_global_size(0);
+	}
+	lmem[wi] = acc;
+
+	int active = get_local_size(0)/2;
+	while (active > 0) {
+		barrier(CLK_LOCAL_MEM_FENCE);
+		if (wi < active) {
+			acc += lmem[wi+active];
+			lmem[wi] = acc;
+		}
+		active /= 2;
+	}
+	if (wi == 0)
+		out[get_group_id(0)] = acc;
+}
+
+
+kernel void reduce_queue_old(global int* restrict output, const global int2* restrict input,
 	local int* restrict lmem,
 	int npairs)
 {
@@ -24,9 +72,10 @@ kernel void reduce_queue(global int* restrict output, const global int2* restric
 
 	const int local_index = get_local_id(0);
 
-	bool value = (pair.x > 0) || (pair.y > 0);
+	bool value = (pair.x > 0) || (pair.y > 0); 
 	lmem[local_index] = value;
 
+#pragma unroll
 	for (int stride = get_local_size(0) / 2; stride > 0; stride /= 2) {
 		barrier(CLK_LOCAL_MEM_FENCE);
 		if (value != 0) continue;
@@ -38,4 +87,43 @@ kernel void reduce_queue(global int* restrict output, const global int2* restric
 
 	if (local_index == 0)
 		output[get_group_id(0)] = value;
+	
+		
+	//if(global_index == 0)print(output, npairs, false);
+}
+
+kernel void compute_processor_cost(
+	const int current_node, 
+	global edge_t* restrict edges, 
+	global edge_t* restrict predecessors, 
+	global edge_t* restrict costs, 
+	const int max_edges_dept, 
+	global int3* restrict output, 
+	global int3* restrict task_processor_assignment, 
+	global int* restrict processorsNextSlotStart, 
+	const int len, 
+	const int number_of_processors, 
+	const int predecessor_with_max_aft, 
+	const int weight_for_max_aft_predecessor, 
+	const int processor_for_max_aft_predecessor, 
+	const int cost_of_predecessors_in_different_processors, 
+	const int max_aft_of_predecessors){
+	
+	
+	const int processor = get_global_id(0);
+
+	if(processor >= number_of_processors) return;
+
+	int cost_on_processor = costs[matrix_to_array_indexes(current_node, processor, number_of_processors)];
+	int cost_of_predecessor_in_same_processor = 0;
+	if (processor_for_max_aft_predecessor == processor) {
+		cost_of_predecessor_in_same_processor = weight_for_max_aft_predecessor;
+	}
+
+	int remaining_transfer_cost = max(max_aft_of_predecessors - cost_of_predecessor_in_same_processor, cost_of_predecessors_in_different_processors);
+
+	//finalmente posso aggiungere l'eft al task.
+	int est = max(processorsNextSlotStart[processor], remaining_transfer_cost);
+	int eft = est + cost_on_processor;
+	output[processor] = (int3)(processor, est, eft); 
 }
