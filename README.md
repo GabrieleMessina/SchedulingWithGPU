@@ -1,5 +1,8 @@
 # SchedulingWithGPU
 
+## Results and Paper
+- https://github.com/GabrieleMessina/Parallel-implementation-on-GPU-of-the-PETS-task-scheduling-algorithm
+
 ## Prerequisites
 - `C` and `C++` compilers.
 - OpenCL SDK for at least one of your platforms.
