@@ -1,6 +1,6 @@
 # SchedulingWithGPU
 
-## Results and Paper
+## Results and Report
 - https://github.com/GabrieleMessina/Parallel-implementation-on-GPU-of-the-PETS-task-scheduling-algorithm
 
 ## Prerequisites
